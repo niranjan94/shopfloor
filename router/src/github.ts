@@ -99,6 +99,14 @@ export class GitHubAdapter {
     });
   }
 
+  async updatePr(prNumber: number, fields: { title?: string; body?: string }): Promise<void> {
+    await this.octokit.rest.pulls.update({
+      ...this.repo,
+      pull_number: prNumber,
+      ...fields
+    });
+  }
+
   async postReview(params: {
     prNumber: number;
     commitSha: string;

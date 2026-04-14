@@ -19674,7 +19674,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path.delimiter}${process.env["PATH"]}`;
     }
     exports2.addPath = addPath;
-    function getInput10(name, options) {
+    function getInput13(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -19684,9 +19684,9 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports2.getInput = getInput10;
+    exports2.getInput = getInput13;
     function getMultilineInput(name, options) {
-      const inputs = getInput10(name, options).split("\n").filter((x) => x !== "");
+      const inputs = getInput13(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
@@ -19696,7 +19696,7 @@ var require_core = __commonJS({
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput10(name, options);
+      const val = getInput13(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -19705,7 +19705,7 @@ var require_core = __commonJS({
 Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports2.getBooleanInput = getBooleanInput;
-    function setOutput6(name, value) {
+    function setOutput8(name, value) {
       const filePath = process.env["GITHUB_OUTPUT"] || "";
       if (filePath) {
         return (0, file_command_1.issueFileCommand)("OUTPUT", (0, file_command_1.prepareKeyValueMessage)(name, value));
@@ -19713,7 +19713,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       process.stdout.write(os.EOL);
       (0, command_1.issueCommand)("set-output", { name }, (0, utils_1.toCommandValue)(value));
     }
-    exports2.setOutput = setOutput6;
+    exports2.setOutput = setOutput8;
     function setCommandEcho(enabled) {
       (0, command_1.issue)("echo", enabled ? "on" : "off");
     }
@@ -19735,10 +19735,10 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("error", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.error = error;
-    function warning2(message, properties = {}) {
+    function warning3(message, properties = {}) {
       (0, command_1.issueCommand)("warning", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.warning = warning2;
+    exports2.warning = warning3;
     function notice(message, properties = {}) {
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
@@ -23878,7 +23878,7 @@ var require_github = __commonJS({
 });
 
 // src/index.ts
-var core10 = __toESM(require_core(), 1);
+var core13 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
 
 // src/state.ts
@@ -24123,6 +24123,13 @@ ${metadataLines.join("\n")}
       ...this.repo,
       pull_number: prNumber,
       body
+    });
+  }
+  async updatePr(prNumber, fields) {
+    await this.octokit.rest.pulls.update({
+      ...this.repo,
+      pull_number: prNumber,
+      ...fields
     });
   }
   async postReview(params) {
@@ -24696,10 +24703,132 @@ async function runAggregateReview(adapter) {
   await aggregateReview(adapter, params);
 }
 
+// src/helpers/render-prompt.ts
+var core10 = __toESM(require_core(), 1);
+
+// src/prompt-render.ts
+var import_node_fs = require("node:fs");
+function renderPrompt(filePath, context2) {
+  const template = (0, import_node_fs.readFileSync)(filePath, "utf-8");
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
+    if (key in context2) return context2[key] ?? "";
+    return `{{MISSING:${key}}}`;
+  });
+}
+
+// src/helpers/render-prompt.ts
+async function runRenderPrompt(_adapter) {
+  const promptFile = core10.getInput("prompt_file", { required: true });
+  const contextJson = core10.getInput("context_json", { required: true });
+  let context2;
+  try {
+    const parsed = JSON.parse(contextJson);
+    if (parsed === null || typeof parsed !== "object") {
+      throw new Error("context_json must be a JSON object");
+    }
+    context2 = Object.fromEntries(
+      Object.entries(parsed).map(([k, v]) => [
+        k,
+        v === null || v === void 0 ? "" : String(v)
+      ])
+    );
+  } catch (err) {
+    throw new Error(
+      `render-prompt: failed to parse context_json: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  const rendered = renderPrompt(promptFile, context2);
+  if (rendered.includes("{{MISSING:")) {
+    const missing = Array.from(rendered.matchAll(/\{\{MISSING:([a-zA-Z0-9_]+)\}\}/g)).map(
+      (m) => m[1]
+    );
+    core10.warning(`render-prompt: missing context keys: ${Array.from(new Set(missing)).join(", ")}`);
+  }
+  core10.setOutput("rendered", rendered);
+}
+
+// src/helpers/apply-triage-decision.ts
+var core11 = __toESM(require_core(), 1);
+var NEXT_STAGE_LABEL = {
+  quick: "shopfloor:needs-impl",
+  medium: "shopfloor:needs-plan",
+  large: "shopfloor:needs-spec"
+};
+async function applyTriageDecision(adapter, params) {
+  const { issueNumber, decision } = params;
+  if (decision.status === "needs_clarification") {
+    const questionsBlock = decision.clarifying_questions.map((q) => `- ${q}`).join("\n");
+    const body2 = [
+      "**Shopfloor triage: need more information.**",
+      "",
+      decision.rationale,
+      "",
+      "**Please answer the following before I proceed:**",
+      questionsBlock,
+      "",
+      "Remove the `shopfloor:awaiting-info` label once you have updated the issue body or added answers in comments."
+    ].join("\n");
+    await adapter.postIssueComment(issueNumber, body2);
+    await advanceState(adapter, issueNumber, ["shopfloor:triaging"], ["shopfloor:awaiting-info"]);
+    return;
+  }
+  const nextStageLabel = NEXT_STAGE_LABEL[decision.complexity];
+  const body = [
+    `**Shopfloor triage: classified as \`${decision.complexity}\`.**`,
+    "",
+    decision.rationale
+  ].join("\n");
+  await adapter.postIssueComment(issueNumber, body);
+  await advanceState(
+    adapter,
+    issueNumber,
+    ["shopfloor:triaging", "shopfloor:awaiting-info"],
+    [`shopfloor:${decision.complexity}`, nextStageLabel]
+  );
+}
+async function runApplyTriageDecision(adapter) {
+  const issueNumber = Number(core11.getInput("issue_number", { required: true }));
+  const decisionJson = core11.getInput("decision_json", { required: true });
+  let decision;
+  try {
+    decision = JSON.parse(decisionJson);
+  } catch (err) {
+    throw new Error(
+      `apply-triage-decision: failed to parse decision_json: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  if (decision.status !== "classified" && decision.status !== "needs_clarification") {
+    throw new Error(`apply-triage-decision: invalid status '${decision.status}'`);
+  }
+  await applyTriageDecision(adapter, { issueNumber, decision });
+}
+
+// src/helpers/apply-impl-postwork.ts
+var core12 = __toESM(require_core(), 1);
+async function applyImplPostwork(adapter, params) {
+  await adapter.updatePr(params.prNumber, { title: params.prTitle, body: params.prBody });
+  const skip = await checkReviewSkip(adapter, params.prNumber);
+  const nextLabel = skip.skip ? "shopfloor:impl-in-review" : "shopfloor:needs-review";
+  await adapter.addLabel(params.issueNumber, nextLabel);
+  await adapter.removeLabel(params.issueNumber, "shopfloor:needs-impl");
+  await adapter.removeLabel(params.issueNumber, "shopfloor:review-requested-changes");
+  return { nextLabel, skipReason: skip.reason };
+}
+async function runApplyImplPostwork(adapter) {
+  const result = await applyImplPostwork(adapter, {
+    issueNumber: Number(core12.getInput("issue_number", { required: true })),
+    prNumber: Number(core12.getInput("pr_number", { required: true })),
+    prTitle: core12.getInput("pr_title", { required: true }),
+    prBody: core12.getInput("pr_body", { required: true })
+  });
+  core12.setOutput("next_label", result.nextLabel);
+  if (result.skipReason) core12.setOutput("skip_reason", result.skipReason);
+}
+
 // src/index.ts
 async function main() {
-  const helper = core10.getInput("helper", { required: false }) || "route";
-  const token = core10.getInput("github_token", { required: true });
+  const helper = core13.getInput("helper", { required: false }) || "route";
+  const token = core13.getInput("github_token", { required: true });
   const octokit = (0, import_github.getOctokit)(token);
   const adapter = new GitHubAdapter(octokit, {
     owner: import_github.context.repo.owner,
@@ -24711,24 +24840,24 @@ async function main() {
         eventName: import_github.context.eventName,
         payload: import_github.context.payload
       });
-      core10.setOutput("stage", decision.stage);
+      core13.setOutput("stage", decision.stage);
       if (decision.issueNumber !== void 0) {
-        core10.setOutput("issue_number", String(decision.issueNumber));
+        core13.setOutput("issue_number", String(decision.issueNumber));
       }
-      if (decision.complexity) core10.setOutput("complexity", decision.complexity);
-      if (decision.branchName) core10.setOutput("branch_name", decision.branchName);
-      if (decision.specFilePath) core10.setOutput("spec_file_path", decision.specFilePath);
-      if (decision.planFilePath) core10.setOutput("plan_file_path", decision.planFilePath);
+      if (decision.complexity) core13.setOutput("complexity", decision.complexity);
+      if (decision.branchName) core13.setOutput("branch_name", decision.branchName);
+      if (decision.specFilePath) core13.setOutput("spec_file_path", decision.specFilePath);
+      if (decision.planFilePath) core13.setOutput("plan_file_path", decision.planFilePath);
       if (decision.revisionMode !== void 0) {
-        core10.setOutput("revision_mode", String(decision.revisionMode));
+        core13.setOutput("revision_mode", String(decision.revisionMode));
       }
       if (decision.reviewIteration !== void 0) {
-        core10.setOutput("review_iteration", String(decision.reviewIteration));
+        core13.setOutput("review_iteration", String(decision.reviewIteration));
       }
       if (decision.implPrNumber !== void 0) {
-        core10.setOutput("impl_pr_number", String(decision.implPrNumber));
+        core13.setOutput("impl_pr_number", String(decision.implPrNumber));
       }
-      if (decision.reason) core10.setOutput("reason", decision.reason);
+      if (decision.reason) core13.setOutput("reason", decision.reason);
       return;
     }
     case "bootstrap-labels":
@@ -24749,12 +24878,18 @@ async function main() {
       return runCheckReviewSkip(adapter);
     case "aggregate-review":
       return runAggregateReview(adapter);
+    case "render-prompt":
+      return runRenderPrompt(adapter);
+    case "apply-triage-decision":
+      return runApplyTriageDecision(adapter);
+    case "apply-impl-postwork":
+      return runApplyImplPostwork(adapter);
     default:
-      core10.setFailed(`Unknown helper: ${helper}`);
+      core13.setFailed(`Unknown helper: ${helper}`);
   }
 }
 main().catch((err) => {
-  core10.setFailed(err instanceof Error ? err.message : String(err));
+  core13.setFailed(err instanceof Error ? err.message : String(err));
 });
 /*! Bundled license information:
 

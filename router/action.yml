@@ -2,12 +2,56 @@ name: Shopfloor Router
 description: Core dispatcher for the Shopfloor reusable workflow. Resolves the stage or invokes a helper.
 inputs:
   helper:
-    description: 'Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review'
+    description: 'Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review, render-prompt, apply-triage-decision, apply-impl-postwork'
     required: false
     default: route
   github_token:
     description: GitHub token
     required: true
+
+  # open-stage-pr inputs
+  issue_number: { description: 'Issue number the helper operates on', required: false }
+  stage: { description: 'Stage for open-stage-pr / report-failure', required: false }
+  branch_name: { description: 'Branch name for open-stage-pr', required: false }
+  base_branch: { description: 'Base branch for open-stage-pr', required: false }
+  pr_title: { description: 'PR title for open-stage-pr / apply-impl-postwork', required: false }
+  pr_body: { description: 'PR body for open-stage-pr / apply-impl-postwork', required: false }
+  review_iteration: { description: 'Review iteration for open-stage-pr', required: false }
+  draft: { description: 'Whether to open PR as draft', required: false }
+
+  # advance-state inputs
+  from_labels: { description: 'Comma-separated labels to remove', required: false }
+  to_labels: { description: 'Comma-separated labels to add', required: false }
+
+  # report-failure inputs
+  run_url: { description: 'Workflow run URL', required: false }
+  target_pr_number: { description: 'PR number to post the failure comment on', required: false }
+
+  # handle-merge inputs
+  merged_stage: { description: 'Merged stage (spec|plan|implement)', required: false }
+
+  # create/finalize-progress-comment inputs
+  pr_number: { description: 'PR number', required: false }
+  comment_id: { description: 'Progress comment id', required: false }
+  terminal_state: { description: 'success or failure', required: false }
+  final_body: { description: 'Final progress body', required: false }
+
+  # aggregate-review inputs
+  confidence_threshold: { description: 'Minimum confidence for review comments (0-100)', required: false }
+  max_iterations: { description: 'Max review iterations', required: false }
+  compliance_output: { description: 'Compliance reviewer structured output JSON', required: false }
+  bugs_output: { description: 'Bugs reviewer structured output JSON', required: false }
+  security_output: { description: 'Security reviewer structured output JSON', required: false }
+  smells_output: { description: 'Smells reviewer structured output JSON', required: false }
+  workflow_run_url: { description: 'Workflow run URL for status target_url', required: false }
+
+  # render-prompt inputs
+  prompt_file: { description: 'Path to prompt template file', required: false }
+  context_json: { description: 'JSON object of placeholder -> value substitutions', required: false }
+
+  # apply-triage-decision inputs
+  decision_json: { description: 'Structured triage output JSON', required: false }
+
 outputs:
   stage:
     description: 'Resolved stage'
@@ -29,6 +73,22 @@ outputs:
     description: 'Implementation PR number, when relevant'
   reason:
     description: 'Why the router returned this decision'
+  pr_number:
+    description: 'Opened PR number'
+  pr_url:
+    description: 'Opened PR URL'
+  comment_id:
+    description: 'Created comment id'
+  skip:
+    description: 'Whether check-review-skip says skip'
+  rendered:
+    description: 'Rendered prompt content'
+  next_label:
+    description: 'Next-state label applied by apply-impl-postwork'
+  skip_reason:
+    description: 'Reason the review was skipped, if applicable'
+  created_labels:
+    description: 'JSON array of labels created by bootstrap-labels'
 runs:
   using: node20
   main: dist/index.cjs

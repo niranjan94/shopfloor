@@ -13,6 +13,9 @@ import { runCreateProgressComment } from './helpers/create-progress-comment';
 import { runFinalizeProgressComment } from './helpers/finalize-progress-comment';
 import { runCheckReviewSkip } from './helpers/check-review-skip';
 import { runAggregateReview } from './helpers/aggregate-review';
+import { runRenderPrompt } from './helpers/render-prompt';
+import { runApplyTriageDecision } from './helpers/apply-triage-decision';
+import { runApplyImplPostwork } from './helpers/apply-impl-postwork';
 
 async function main(): Promise<void> {
   const helper = core.getInput('helper', { required: false }) || 'route';
@@ -67,6 +70,12 @@ async function main(): Promise<void> {
       return runCheckReviewSkip(adapter);
     case 'aggregate-review':
       return runAggregateReview(adapter);
+    case 'render-prompt':
+      return runRenderPrompt(adapter);
+    case 'apply-triage-decision':
+      return runApplyTriageDecision(adapter);
+    case 'apply-impl-postwork':
+      return runApplyImplPostwork(adapter);
     default:
       core.setFailed(`Unknown helper: ${helper}`);
   }
