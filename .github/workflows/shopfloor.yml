@@ -63,6 +63,15 @@ env:
   SHOPFLOOR_PLUGIN_MARKETPLACES: |-
     https://github.com/anthropics/claude-code.git
     https://github.com/anthropics/claude-plugins-official.git
+  # Tools every Shopfloor agent gets on top of its stage-specific allowlist.
+  # - Agent, Skill, LSP: subagent dispatch, skill invocation, and LSP-backed code intelligence.
+  # - Bash(gh api:*): authenticated calls against api.github.com (issue bodies, PR files, etc.).
+  # - Bash(curl:*): authenticated downloads for user-uploaded images/files on issue and comment bodies,
+  #   which live on redirect hosts (user-attachments, user-images.githubusercontent.com) that are
+  #   outside api.github.com and therefore not reachable via `gh api` alone. claude-code-action
+  #   exports GITHUB_TOKEN into the subprocess env, so `curl -L -H "Authorization: Bearer $GITHUB_TOKEN"`
+  #   works for private repos too.
+  SHOPFLOOR_COMMON_TOOLS: 'Agent,Skill,LSP,Bash(gh api:*),Bash(curl:*)'
 
 jobs:
   route:
@@ -126,7 +135,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/triage.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,WebFetch'
+          base_allowed_tools: 'Read,Glob,Grep,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -207,7 +216,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/spec.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,WebFetch'
+          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -310,7 +319,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/plan.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch'
+          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -458,7 +467,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/implement.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),mcp__shopfloor__update_progress'
+          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -572,7 +581,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-compliance.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch'
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -635,7 +644,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-bugs.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)'
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -698,7 +707,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-security.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch'
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -761,7 +770,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-smells.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)'
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
