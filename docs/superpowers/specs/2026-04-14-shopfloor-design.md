@@ -93,7 +93,7 @@ Plus these orthogonal labels that can appear on top of any state label:
 
 | Label | Meaning |
 |---|---|
-| `shopfloor:failed:<stage>` | The last run of `<stage>` failed. A maintainer removes this label to retry. No auto-retry. |
+| `shopfloor:failed:<stage>` | The last run of `<stage>` failed. A maintainer removes this label to retry. No auto-retry. `<stage>` is one of `triage`, `spec`, `plan`, `implement`, or `review`. |
 | `shopfloor:revise` | Manual escape hatch: retrigger the current stage. Used when `Request changes` was not submitted but a human wants the agent to run again. Consumed on trigger (label removed after firing). |
 | `shopfloor:skip-review` | Applied to an impl PR (or to the issue) to completely bypass the agent review stage for this ticket. Useful when a human wants to take over the PR manually. |
 
@@ -388,7 +388,21 @@ All four stages share a common shape: the router resolves the stage from the eve
 
 ### 5.5 Review stage
 
-**When it runs:** When a `pull_request.synchronize` event fires on a pull request whose body contains `Shopfloor-Stage: implement`, the issue's origin is not carrying `shopfloor:skip-review`, and the PR passes the skip-condition gate (section 5.5.1). Also runs when a human re-adds `shopfloor:needs-review` after removing `shopfloor:review-stuck` to force another pass.
+**Trigger (authoritative):** The review stage runs when the router's stage resolution outputs `stage=review`. The router outputs `stage=review` under exactly these conditions:
+
+1. The event is `pull_request.synchronize` on a PR whose body contains `Shopfloor-Stage: implement`, AND
+2. The origin issue (parsed from the `Shopfloor-Issue: #N` metadata in the PR body) is not closed, AND
+3. Neither the PR nor the origin issue carries the `shopfloor:skip-review` label, AND
+4. The skip-condition gate (section 5.5.1) passes, AND
+5. The current iteration counter in the PR body metadata is less than or equal to `max_review_iterations`.
+
+OR:
+
+6. The event is `issues.unlabeled` and the removed label is `shopfloor:review-stuck`, in which case the router dispatches review against the current HEAD of the associated impl PR (a maintainer manually unsticking a capped loop).
+
+Applying or removing `shopfloor:needs-review` by hand is **not** a review trigger. The label exists as a visual state indicator only; the router applies it as part of the review stage's entry and clears it when the verdict is reached. Human label changes on `needs-review` are ignored by the router.
+
+The impl stage's post-work (section 5.4's router post-work) is responsible for applying `shopfloor:needs-review` after impl completes, **unless** the `shopfloor:skip-review` label is present on the PR or issue at the moment impl post-work runs. In that case, impl post-work skips `needs-review` entirely and applies `shopfloor:impl-in-review` directly, and the subsequent `pull_request.synchronize` event still fires but the router's condition (3) filters it out, so no review stage runs.
 
 **Purpose:** Perform an automated, multi-perspective code review of the implementation changes. Either approve the PR for human review or request changes that re-trigger the implementation agent.
 
@@ -499,8 +513,8 @@ Field semantics:
 8. Post a GitHub review:
    - **Clean:** `POST /repos/:owner/:repo/pulls/:pr/reviews` with `event: "APPROVE"`, body containing the Shopfloor marker and a one-paragraph summary from the reviewers' `summary` fields, no comments array.
    - **Issues found:** `POST /repos/:owner/:repo/pulls/:pr/reviews` with `event: "REQUEST_CHANGES"`, body containing the Shopfloor marker and a brief summary of which categories produced findings, `comments` array containing every filtered comment (each with `path`, `body`, and `line`+`side` or `start_line`+`start_side`+`line`+`side` for multi-line).
-9. Increment the iteration counter in the PR body metadata. Format: a line `Shopfloor-Review-Iteration: <N>` that the router maintains at the bottom of the PR body.
-10. If the new iteration counter exceeds `max_review_iterations` (default: 3) and the verdict is `issues_found`, the aggregator does NOT post the Request Changes review (which would trigger another impl run). Instead, it:
+9. **Increment the iteration counter only on `issues_found` verdicts.** The counter tracks impl↔review bounces, which only happen when the review requests changes. On a `clean` verdict the counter is left as-is (the loop terminates naturally). Format: a line `Shopfloor-Review-Iteration: <N>` that the router maintains at the bottom of the PR body. A missing counter is treated as `0`.
+10. If the verdict is `issues_found` AND the *incremented* counter would exceed `max_review_iterations` (default: 3), the aggregator does NOT post the Request Changes review (which would trigger another impl run). Instead, it:
     - Applies `shopfloor:review-stuck` to the origin issue.
     - Posts a comment on the PR explaining that the iteration cap was reached, linking to the findings, and asking a human to take over.
     - Sets the commit status to `failure` with a `shopfloor/review: iteration cap reached` description.
@@ -613,7 +627,7 @@ The workflow's `secrets: inherit` pattern is recommended in the caller so users 
 
 Path: `router/` in the Shopfloor repository.
 
-A small TypeScript action using `@actions/github`. Pure logic: it reads the GitHub event payload, the current labels, linked PRs, branch names, and PR body metadata, and produces exactly one output: `stage` (one of `triage`, `spec`, `plan`, `implement`, `none`), plus ancillary outputs (`issue_number`, `complexity`, `branch_name`, `spec_file_path`, `plan_file_path`, `revision_mode`, `review_comments_json`).
+A small TypeScript action using `@actions/github`. Pure logic: it reads the GitHub event payload, the current labels, linked PRs, branch names, and PR body metadata, and produces exactly one primary output: `stage` (one of `triage`, `spec`, `plan`, `implement`, `review`, `none`), plus ancillary outputs (`issue_number`, `complexity`, `branch_name`, `spec_file_path`, `plan_file_path`, `revision_mode`, `review_comments_json`, `review_iteration`, `impl_pr_number`).
 
 **No LLM calls in the router.** This is the state machine, and state machines must be deterministic to debug.
 
@@ -715,7 +729,7 @@ If we ever *need* a feature `claude-code-action` doesn't have (for example, the 
 14. Plan PR opened as #44, reviewed, merged. Issue #42 transitions to `shopfloor:needs-impl`.
 15. Implementation stage: router pre-work creates branch `shopfloor/impl/42-github-oauth-login`, opens placeholder PR #45 with body "Shopfloor is drafting this PR now...", creates the initial progress comment on #45, writes the MCP config file, starts the impl agent.
 16. Impl agent reads the plan file, writes out an initial TODO checklist via `update_progress`, works through the tasks, updates the checklist as each task completes. Commits code changes, pushes. Returns structured output.
-17. Router post-step updates PR #45's body with the agent's final narrative, finalizes the progress comment to "Implementation complete, handing off to agent review," and applies `shopfloor:needs-review` to issue #42.
+17. Router post-step updates PR #45's body with the agent's final narrative and finalizes the progress comment to "Implementation complete, handing off to agent review." It then checks for the `shopfloor:skip-review` label on the PR or issue; absent here, so it applies `shopfloor:needs-review` to issue #42. (If the skip-review label had been present, it would instead apply `shopfloor:impl-in-review` and exit, bypassing the review stage entirely.)
 18. The push in step 16 also fires `pull_request.synchronize` on PR #45. The router reads the event, sees `Shopfloor-Stage: implement`, checks the skip conditions (none apply), and dispatches the review stage. Iteration counter currently 0 in the PR body metadata (or absent, treated as 0).
 19. Review stage runs. The matrix dispatches four jobs: `review-compliance`, `review-bugs`, `review-security`, `review-smells`, each running `claude-code-action` in agent mode with its stage-specific prompt and a read-only tool allowlist. They run in parallel on separate runners.
 20. After all four matrix cells finish, the aggregator job runs. It reads the structured outputs, dedupes, filters by confidence >= 80, and:
@@ -863,6 +877,8 @@ Custom: users can register their own GitHub App and pass `github_app_id` + `gith
 
 To avoid showing two bot identities (`claude[bot]` for agent-owned work, `github-actions[bot]` for router-owned work), the router reuses the token `claude-code-action` mints (exposed via the `github_token` output of the upstream action) for its own GitHub API calls when available. Fall back to `GITHUB_TOKEN` only on diagnostic-failure paths where the upstream action may not have successfully started. Net effect: one bot identity in the timeline on the happy path.
 
+**Threading the token across jobs.** GitHub Actions jobs do not share process state, so the minted token must be explicitly propagated. The stage job that invokes `claude-code-action` (e.g., the `implement` job) captures the upstream action's `github_token` output and re-exports it as a job output (e.g., `impl_github_token`). Downstream jobs that need to act as the same bot identity (e.g., the review matrix jobs, the aggregator job, router post-steps) read the token from the upstream job's outputs via `needs.implement.outputs.impl_github_token`. Jobs that run before any `claude-code-action` invocation in the workflow (e.g., the `route` job, the `triage` job before its claude-code-action step) fall back to `GITHUB_TOKEN`. This is a small amount of explicit plumbing in the reusable workflow but keeps the router's GitHub API calls under the same bot identity as the agents'.
+
 ## 10. Agent and router boundary
 
 **The bright line:** anything that changes the state machine is performed by the router; anything that produces user-visible content is performed by the agent via structured output, which the router then templates into comments, PR bodies, and files.
@@ -974,6 +990,7 @@ If the router detects inconsistent state (e.g., two state labels applied simulta
   - The agent cannot post comments, open PRs, or change labels even if prompt-injected to try.
   - Triage is the only stage that interacts with an issue by reading its comments; downstream stages read the spec and plan files (which are human-approved by the time the downstream stage runs).
 - **PR-authored `.mcp.json`, `.claude/`, `CLAUDE.md`.** On PR branches, these are restored from the base branch by `claude-code-action`'s `restore-config.ts` before the agent runs. Shopfloor inherits this protection.
+- **Merged spec and plan files as trusted inputs.** Once a spec PR or plan PR is merged, its markdown file is treated as a trusted input by downstream stages (plan reads spec, impl reads plan). `restore-config.ts` does NOT cover `docs/shopfloor/specs/` or `docs/shopfloor/plans/` because they are not in the protected path list. This means a carefully crafted issue could lead the spec agent to write prompt-injection payloads into the spec file, which would then be read by plan and impl as if authoritative. **The only mitigation is human review at the merge boundary.** Humans reviewing spec and plan PRs must read the diffs as if they were code, not glance at them as documentation. This is a known residual risk for v0.1; closing it further would require either a second sanitising agent pass before merge or restricting spec/plan content to a constrained schema.
 
 ### Secrets
 
@@ -1033,10 +1050,10 @@ Target: 100% branch coverage on the aggregator. It is the one piece of review-st
 
 A canned test harness that:
 
-1. Spins up a local GitHub-Mock server (e.g., `mockoon` or a bespoke Express app).
+1. Spins up a local GitHub-Mock server (e.g., `mockoon` or a bespoke Express app) that simulates the GitHub REST API endpoints Shopfloor depends on.
 2. Replaces `claude-code-action` with a stub that reads a fixture file and returns canned structured output.
-3. Runs the reusable workflow via `act` (or an equivalent runner).
-4. Asserts the sequence of API calls, label changes, and file writes matches expectations.
+3. Drives the state machine by calling the router and helper actions directly with fixture event payloads, rather than trying to run the full reusable workflow under `act`. `act` does not faithfully emulate matrix jobs, cross-job outputs, reusable-workflow semantics, the Reviews API, or branch protection, so the e2e harness operates at the action level, not the workflow level. A thin orchestrator in the harness plays the role of the reusable workflow's job wiring.
+4. Asserts the sequence of API calls, label changes, file writes, and commit status transitions matches expectations.
 
 One e2e test per happy path (large, medium, quick), plus one per error path (triage asks for clarification, stage failure, abort). Review-stage e2e coverage: one test where the first review passes on iteration 1; one test where review requests changes on iteration 1 and passes on iteration 2; one test where review fails all 3 iterations and the loop caps out with `shopfloor:review-stuck`.
 
