@@ -180,6 +180,7 @@ jobs:
             --max-turns ${{ inputs.triage_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status","complexity","rationale","clarifying_questions"]}'
       - name: Apply triage decision
         if: success()
         uses: ./router
@@ -266,6 +267,7 @@ jobs:
             --max-turns ${{ inputs.spec_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"file_path":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"}},"required":["file_path","pr_title","pr_body","summary_for_issue_comment"]}'
       - name: Commit and push spec
         if: success()
         run: |
@@ -372,6 +374,7 @@ jobs:
             --max-turns ${{ inputs.plan_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"file_path":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"}},"required":["file_path","pr_title","pr_body","summary_for_issue_comment"]}'
       - name: Commit and push plan
         if: success()
         run: |
@@ -524,6 +527,7 @@ jobs:
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
+            --json-schema '{"type":"object","properties":{"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"},"changed_files":{"type":"array","items":{"type":"string"}}},"required":["pr_title","pr_body","summary_for_issue_comment","changed_files"]}'
       - name: Push impl commits
         if: success()
         run: git push origin "${{ needs.route.outputs.branch_name }}"
@@ -638,6 +642,7 @@ jobs:
             --max-turns ${{ inputs.review_compliance_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
 
   review-bugs:
     needs: [route, review-skip-check]
@@ -704,6 +709,7 @@ jobs:
             --max-turns ${{ inputs.review_bugs_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
 
   review-security:
     needs: [route, review-skip-check]
@@ -770,6 +776,7 @@ jobs:
             --max-turns ${{ inputs.review_security_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
 
   review-smells:
     needs: [route, review-skip-check]
@@ -836,6 +843,7 @@ jobs:
             --max-turns ${{ inputs.review_smells_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
 
   review-aggregator:
     needs:
