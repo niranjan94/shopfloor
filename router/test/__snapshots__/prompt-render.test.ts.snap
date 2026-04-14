@@ -245,14 +245,16 @@ Check the PR against the spec and plan, not against what you personally would ha
 - Type confusion that TypeScript missed (for example, a cast that silences an error).
 
 Do NOT flag:
+
 - Compliance rules — the compliance reviewer owns those.
 - Security hardening — the security reviewer owns those.
 - Style or readability — the smells reviewer owns those.
 - Missing tests the spec did not require.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a \`confidence\` score from 0-100. Use:
+
 - 90-100: You have traced a concrete execution path that produces the wrong outcome.
 - 75-89: A careful reviewer would very likely agree the behavior is wrong, but you have not fully traced it.
 - Below 75: Do NOT emit the comment. Filed intuitions without traces create noise that makes iteration loops longer.
@@ -283,10 +285,11 @@ Your entire final message MUST be a single valid JSON object matching this schem
 \`\`\`
 
 Rules:
+
 - \`verdict: "clean"\` requires \`comments: []\`.
 - \`category\` MUST always be the literal string \`bug\`.
 - Every bug comment must cite the execution path or expected-vs-actual behavior explicitly in the body. "This might be wrong because X and Y would cause Z" is acceptable; "Looks off" is not.
-</output_format>
+  </output_format>
 "
 `;
 
@@ -355,17 +358,19 @@ Read CLAUDE.md, AGENTS.md, and CONTRIBUTING.md at the repository root (if they e
 - Formatting rules the project explicitly pins (e.g., "no em dashes").
 
 Do NOT flag:
+
 - Style nits not written down as rules
 - Potential bugs — leave those to the bugs reviewer
 - Security issues — leave those to the security reviewer
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a \`confidence\` score from 0-100. Use:
+
 - 90-100: The rule is written in a convention file and this PR plainly violates it.
 - 75-89: The convention is strongly implied and the violation is likely, but reasonable engineers might disagree.
 - Below 75: Do NOT emit the comment. The Shopfloor aggregator will filter sub-threshold comments anyway, and low-confidence compliance comments hurt the pipeline's signal more than they help.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema. No prose, no fences.
@@ -390,11 +395,12 @@ Your entire final message MUST be a single valid JSON object matching this schem
 \`\`\`
 
 Rules:
+
 - \`verdict: "clean"\` requires \`comments: []\`.
 - \`category\` MUST always be the literal string \`compliance\`. The aggregator logs a warning and may drop comments with a different category.
 - \`line\` is the single-line anchor (integer). Set \`side\` to \`RIGHT\` for lines in the head and \`LEFT\` for lines in the base. Use \`start_line\`/\`start_side\` only when the comment genuinely spans multiple lines; otherwise omit them.
 - Keep each \`body\` concise: state the rule, point to the violation, and suggest the fix in 1-3 sentences.
-</output_format>
+  </output_format>
 "
 `;
 
@@ -468,17 +474,19 @@ Focus on concrete, exploitable patterns, not theoretical defense-in-depth gaps. 
 - Tool permission grants that widen the attack surface (e.g., allowlisting destructive commands).
 
 Do NOT flag:
+
 - General "might be a problem" concerns without a concrete exploit path.
 - Missing rate limiting unless the spec called for it.
 - Style nits about variable names that look sensitive but are not.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a \`confidence\` score from 0-100. Use:
+
 - 90-100: A concrete, exploitable pattern is present in the diff.
 - 75-89: The pattern is present and likely exploitable, but full exploitation depends on state you could not verify.
 - Below 75: Do NOT emit the comment. Security false positives are especially expensive because they train the pipeline to ignore real findings.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
@@ -503,10 +511,11 @@ Your entire final message MUST be a single valid JSON object matching this schem
 \`\`\`
 
 Rules:
+
 - \`verdict: "clean"\` requires \`comments: []\`.
 - \`category\` MUST always be the literal string \`security\`.
 - Every security comment must describe the exploit scenario in one sentence and suggest a concrete fix in one sentence.
-</output_format>
+  </output_format>
 "
 `;
 
@@ -577,18 +586,20 @@ Look for concrete maintainability issues in the diff:
 - Obvious copy-paste bugs (a block duplicated but with one variable name not renamed).
 
 Do NOT flag:
+
 - Aesthetic preferences (braces, spacing, one-liner vs multi-line if-statements).
 - Missing comments or docstrings when the code is already clear.
 - "You could refactor this into a class" suggestions without a concrete maintainability cost.
 - Patterns that already match the rest of the codebase.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a \`confidence\` score from 0-100. Use:
+
 - 90-100: An obvious, unambiguous smell that a human reviewer would definitely agree with.
 - 75-89: A likely smell but dependent on context you cannot verify.
 - Below 75: Do NOT emit the comment. Smell reviewers have the highest false-positive rate; err strongly on the side of silence.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
@@ -613,10 +624,11 @@ Your entire final message MUST be a single valid JSON object matching this schem
 \`\`\`
 
 Rules:
+
 - \`verdict: "clean"\` requires \`comments: []\`.
 - \`category\` MUST always be the literal string \`smell\`.
 - If you find yourself writing "nit:" in the body, delete the comment. The aggregator is not the place for nits.
-</output_format>
+  </output_format>
 "
 `;
 
@@ -768,11 +780,12 @@ Your entire response MUST be a single valid JSON object matching this schema. No
 \`\`\`
 
 Rules:
+
 - \`status: "classified"\` requires a non-empty \`complexity\` and \`rationale\`. \`clarifying_questions\` MUST be an empty array.
 - \`status: "needs_clarification"\` requires a non-empty \`clarifying_questions\` array. \`complexity\` MUST still be your best guess (it gets stored for later), and \`rationale\` MUST explain why you cannot yet classify with confidence.
 - Every string in \`clarifying_questions\` must be a single, specific, answerable question. No multi-part questions.
 - Do not include any field not in the schema.
-</output_format>
+  </output_format>
 
 <examples>
 <example>
