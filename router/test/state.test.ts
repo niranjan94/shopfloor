@@ -130,14 +130,19 @@ describe("resolveStage", () => {
     expect(decision.reason).toBe("trigger_label_absent");
   });
 
-  test("trigger_label set, issue opened with the label -> triage", () => {
+  test("trigger_label set, issue opened with the label -> none (deferred to labeled event)", () => {
+    // Opening an issue with a label already applied fires BOTH 'opened' and
+    // 'labeled' events. To prevent double-triggering triage, we defer the 'opened'
+    // event to the paired 'labeled' event, which is the single source of truth for
+    // pipeline entry when trigger_label is configured.
     const decision = resolveStage(
       ctx("issues", "issue-opened-with-trigger-label", {
         triggerLabel: "shopfloor:enabled",
       }),
     );
-    expect(decision.stage).toBe("triage");
+    expect(decision.stage).toBe("none");
     expect(decision.issueNumber).toBe(42);
+    expect(decision.reason).toBe("opened_deferred_to_labeled_event");
   });
 
   test("trigger_label set, labeled event adds it -> triage (trigger_label_added)", () => {
@@ -167,5 +172,50 @@ describe("resolveStage", () => {
       ctx("issues", "issue-opened-bare", { triggerLabel: "" }),
     );
     expect(decision.stage).toBe("triage");
+  });
+
+  test("failed:triage label present + labeled(trigger) -> none (blocked)", () => {
+    // Simulates the queued second run of a double-fire where the first run failed
+    // triage and recorded shopfloor:failed:triage. The second run must not re-enter.
+    const decision = resolveStage(
+      ctx("issues", "issue-labeled-trigger-with-failed-triage", {
+        triggerLabel: "shopfloor:enabled",
+      }),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("blocked_by_shopfloor:failed:triage");
+  });
+
+  test("unlabeled(shopfloor:failed:triage) -> triage (retry)", () => {
+    const decision = resolveStage(
+      ctx("issues", "issue-unlabeled-failed-triage", {
+        triggerLabel: "shopfloor:enabled",
+      }),
+    );
+    expect(decision.stage).toBe("triage");
+    expect(decision.reason).toBe("retry_after_shopfloor:failed:triage_removed");
+  });
+
+  test("unlabeled(shopfloor:failed:spec) with needs-spec still present -> spec (retry)", () => {
+    const decision = resolveStage(
+      ctx("issues", "issue-unlabeled-failed-spec-with-needs-spec"),
+    );
+    expect(decision.stage).toBe("spec");
+    expect(decision.reason).toBe("retry_after_shopfloor:failed:spec_removed");
+    expect(decision.branchName).toBe(
+      "shopfloor/spec/42-add-github-oauth-login",
+    );
+  });
+
+  test("labeled with unrelated label while needs-spec present -> none", () => {
+    // Regression guard: previously the state-label rules used `labels.has(...)` with
+    // no action guard, so an incidental labeled event (priority tag, random label,
+    // or the second run of a double-fired event) would re-enter spec. Now gated on
+    // the labeled event's added label matching one of the advancement state labels.
+    const decision = resolveStage(
+      ctx("issues", "issue-labeled-unrelated-with-needs-spec"),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("no_matching_label_rule");
   });
 });

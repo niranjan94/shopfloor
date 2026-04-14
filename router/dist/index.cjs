@@ -23953,6 +23953,47 @@ function parsePrMetadata(body) {
 function branchSlug(title) {
   return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().split(/\s+/).slice(0, 5).join("-").slice(0, 40);
 }
+var ADVANCEMENT_STATE_LABELS = /* @__PURE__ */ new Set([
+  "shopfloor:needs-spec",
+  "shopfloor:needs-plan",
+  "shopfloor:needs-impl"
+]);
+var FAILED_LABEL_PREFIX = "shopfloor:failed:";
+function failedLabel(labels) {
+  for (const l of labels) if (l.startsWith(FAILED_LABEL_PREFIX)) return l;
+  return null;
+}
+function computeStageFromLabels(labels, issue) {
+  const issueNumber = issue.number;
+  if (labels.has("shopfloor:needs-spec")) {
+    return {
+      stage: "spec",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(issue.title)}`
+    };
+  }
+  if (labels.has("shopfloor:needs-plan")) {
+    return {
+      stage: "plan",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(issue.title)}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`
+    };
+  }
+  if (labels.has("shopfloor:needs-impl")) {
+    return {
+      stage: "implement",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(issue.title)}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
+      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(issue.title)}.md`
+    };
+  }
+  return null;
+}
 function resolveIssueEvent(payload, triggerLabel) {
   const labels = issueLabelSet(payload.issue);
   const issueNumber = payload.issue.number;
@@ -23962,6 +24003,30 @@ function resolveIssueEvent(payload, triggerLabel) {
   }
   if (payload.issue.pull_request) {
     return { stage: "none", reason: "issue_event_is_actually_a_pr" };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name?.startsWith(FAILED_LABEL_PREFIX)) {
+    const failedStage = payload.label.name.slice(FAILED_LABEL_PREFIX.length);
+    const retryReason = `retry_after_${payload.label.name}_removed`;
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) {
+      return { ...derived, reason: retryReason };
+    }
+    if (failedStage === "triage") {
+      return { stage: "triage", issueNumber, reason: retryReason };
+    }
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `retry_${failedStage}_no_state_label_present`
+    };
+  }
+  const blockingFailed = failedLabel(labels);
+  if (blockingFailed) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `blocked_by_${blockingFailed}`
+    };
   }
   if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:review-stuck") {
     return {
@@ -23980,38 +24045,22 @@ function resolveIssueEvent(payload, triggerLabel) {
       reason: "re_triage_after_clarification"
     };
   }
+  if (payload.action === "opened" && triggerLabel && triggerLabel.length > 0) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: "opened_deferred_to_labeled_event"
+    };
+  }
   if (payload.action === "opened" && !hasStateLabel) {
     return { stage: "triage", issueNumber };
   }
   if (triggerLabel && triggerLabel.length > 0 && payload.action === "labeled" && payload.label?.name === triggerLabel && !hasStateLabel) {
     return { stage: "triage", issueNumber, reason: "trigger_label_added" };
   }
-  if (labels.has("shopfloor:needs-spec")) {
-    return {
-      stage: "spec",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(payload.issue.title)}`
-    };
-  }
-  if (labels.has("shopfloor:needs-plan")) {
-    return {
-      stage: "plan",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(payload.issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`
-    };
-  }
-  if (labels.has("shopfloor:needs-impl")) {
-    return {
-      stage: "implement",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(payload.issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(payload.issue.title)}.md`
-    };
+  if (payload.action === "labeled" && payload.label?.name && ADVANCEMENT_STATE_LABELS.has(payload.label.name)) {
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) return derived;
   }
   if (labels.has("shopfloor:awaiting-info")) {
     return { stage: "none", issueNumber, reason: "awaiting_info_paused" };

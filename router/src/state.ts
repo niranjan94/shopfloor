@@ -97,6 +97,54 @@ function branchSlug(title: string): string {
     .slice(0, 40);
 }
 
+const ADVANCEMENT_STATE_LABELS = new Set<string>([
+  "shopfloor:needs-spec",
+  "shopfloor:needs-plan",
+  "shopfloor:needs-impl",
+]);
+
+const FAILED_LABEL_PREFIX = "shopfloor:failed:";
+
+function failedLabel(labels: Set<string>): string | null {
+  for (const l of labels) if (l.startsWith(FAILED_LABEL_PREFIX)) return l;
+  return null;
+}
+
+function computeStageFromLabels(
+  labels: Set<string>,
+  issue: { number: number; title: string },
+): RouterDecision | null {
+  const issueNumber = issue.number;
+  if (labels.has("shopfloor:needs-spec")) {
+    return {
+      stage: "spec",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(issue.title)}`,
+    };
+  }
+  if (labels.has("shopfloor:needs-plan")) {
+    return {
+      stage: "plan",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(issue.title)}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
+    };
+  }
+  if (labels.has("shopfloor:needs-impl")) {
+    return {
+      stage: "implement",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(issue.title)}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
+      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(issue.title)}.md`,
+    };
+  }
+  return null;
+}
+
 function resolveIssueEvent(
   payload: IssuePayload,
   triggerLabel?: string,
@@ -111,6 +159,45 @@ function resolveIssueEvent(
 
   if (payload.issue.pull_request) {
     return { stage: "none", reason: "issue_event_is_actually_a_pr" };
+  }
+
+  // Retry-from-failure: removing a shopfloor:failed:<stage> label is the explicit
+  // human signal to retry that stage. This must run BEFORE the failed-label gate
+  // below, because by the time this event fires, the failed label is already gone
+  // from issue.labels and we need the payload.label.name to know which stage to retry.
+  if (
+    payload.action === "unlabeled" &&
+    payload.label?.name?.startsWith(FAILED_LABEL_PREFIX)
+  ) {
+    const failedStage = payload.label.name.slice(FAILED_LABEL_PREFIX.length);
+    const retryReason = `retry_after_${payload.label.name}_removed`;
+    // If the pipeline had already progressed past triage before the failure, remaining
+    // state labels (needs-spec/plan/impl) tell us where to resume.
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) {
+      return { ...derived, reason: retryReason };
+    }
+    if (failedStage === "triage") {
+      return { stage: "triage", issueNumber, reason: retryReason };
+    }
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `retry_${failedStage}_no_state_label_present`,
+    };
+  }
+
+  // Failed-label gate: any issue carrying shopfloor:failed:* is parked until a
+  // human removes that label. This prevents the second run of a double-fired event
+  // (opened + labeled on the same open) from re-triggering triage after the first
+  // run already recorded a failure.
+  const blockingFailed = failedLabel(labels);
+  if (blockingFailed) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `blocked_by_${blockingFailed}`,
+    };
   }
 
   if (
@@ -148,12 +235,25 @@ function resolveIssueEvent(
     };
   }
 
+  // When a trigger label is configured, opening an issue with that label already
+  // present fires BOTH an 'opened' event and a 'labeled' event. We treat the
+  // 'labeled' event as the single source of truth for entry and suppress 'opened'
+  // to avoid double-triggering triage. If the trigger label is absent, the gate
+  // above already returned; this branch only runs when the label IS present.
+  if (payload.action === "opened" && triggerLabel && triggerLabel.length > 0) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: "opened_deferred_to_labeled_event",
+    };
+  }
+
   if (payload.action === "opened" && !hasStateLabel) {
     return { stage: "triage", issueNumber };
   }
 
-  // When a trigger label is configured, adding it to a previously-ignored issue also
-  // enters the pipeline at the triage stage.
+  // When a trigger label is configured, adding it to a previously-ignored issue
+  // (or opening an issue with it already present) enters the pipeline at triage.
   if (
     triggerLabel &&
     triggerLabel.length > 0 &&
@@ -164,34 +264,17 @@ function resolveIssueEvent(
     return { stage: "triage", issueNumber, reason: "trigger_label_added" };
   }
 
-  if (labels.has("shopfloor:needs-spec")) {
-    return {
-      stage: "spec",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(payload.issue.title)}`,
-    };
-  }
-
-  if (labels.has("shopfloor:needs-plan")) {
-    return {
-      stage: "plan",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(payload.issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
-    };
-  }
-
-  if (labels.has("shopfloor:needs-impl")) {
-    return {
-      stage: "implement",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(payload.issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
-    };
+  // State-label advancement: only fire when the event is a 'labeled' action AND the
+  // label that was just added is one of the advancement state labels. This prevents
+  // incidental events (edited, assigned, unrelated labels, queued re-runs of earlier
+  // events) from re-entering spec/plan/implement for an already-advanced issue.
+  if (
+    payload.action === "labeled" &&
+    payload.label?.name &&
+    ADVANCEMENT_STATE_LABELS.has(payload.label.name)
+  ) {
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) return derived;
   }
 
   if (labels.has("shopfloor:awaiting-info")) {
