@@ -48,6 +48,13 @@ inputs:
   # render-prompt inputs
   prompt_file: { description: 'Path to prompt template file', required: false }
   context_json: { description: 'JSON object of placeholder -> value substitutions', required: false }
+  context_file: { description: 'Path to a JSON file with placeholder -> value substitutions (alternative to context_json)', required: false }
+  base_allowed_tools:
+    description: 'Comma-separated base allowed tools; merged with project .claude/settings.json permissions.allow'
+    required: false
+  settings_file:
+    description: 'Path to .claude/settings.json (defaults to .claude/settings.json at repo root)'
+    required: false
 
   # apply-triage-decision inputs
   decision_json: { description: 'Structured triage output JSON', required: false }
@@ -83,6 +90,8 @@ outputs:
     description: 'Whether check-review-skip says skip'
   rendered:
     description: 'Rendered prompt content'
+  allowed_tools:
+    description: 'Merged allowed tools list (base + project settings.allow)'
   next_label:
     description: 'Next-state label applied by apply-impl-postwork'
   skip_reason:

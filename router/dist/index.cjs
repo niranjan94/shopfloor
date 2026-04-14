@@ -17581,12 +17581,12 @@ var require_lib = __commonJS({
             throw new Error("Client has already been disposed.");
           }
           const parsedUrl = new URL(requestUrl);
-          let info3 = this._prepareRequest(verb, parsedUrl, headers);
+          let info4 = this._prepareRequest(verb, parsedUrl, headers);
           const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb) ? this._maxRetries + 1 : 1;
           let numTries = 0;
           let response;
           do {
-            response = yield this.requestRaw(info3, data);
+            response = yield this.requestRaw(info4, data);
             if (response && response.message && response.message.statusCode === HttpCodes.Unauthorized) {
               let authenticationHandler;
               for (const handler of this.handlers) {
@@ -17596,7 +17596,7 @@ var require_lib = __commonJS({
                 }
               }
               if (authenticationHandler) {
-                return authenticationHandler.handleAuthentication(this, info3, data);
+                return authenticationHandler.handleAuthentication(this, info4, data);
               } else {
                 return response;
               }
@@ -17619,8 +17619,8 @@ var require_lib = __commonJS({
                   }
                 }
               }
-              info3 = this._prepareRequest(verb, parsedRedirectUrl, headers);
-              response = yield this.requestRaw(info3, data);
+              info4 = this._prepareRequest(verb, parsedRedirectUrl, headers);
+              response = yield this.requestRaw(info4, data);
               redirectsRemaining--;
             }
             if (!response.message.statusCode || !HttpResponseRetryCodes.includes(response.message.statusCode)) {
@@ -17649,7 +17649,7 @@ var require_lib = __commonJS({
        * @param info
        * @param data
        */
-      requestRaw(info3, data) {
+      requestRaw(info4, data) {
         return __awaiter(this, void 0, void 0, function* () {
           return new Promise((resolve, reject) => {
             function callbackForResult(err, res) {
@@ -17661,7 +17661,7 @@ var require_lib = __commonJS({
                 resolve(res);
               }
             }
-            this.requestRawWithCallback(info3, data, callbackForResult);
+            this.requestRawWithCallback(info4, data, callbackForResult);
           });
         });
       }
@@ -17671,12 +17671,12 @@ var require_lib = __commonJS({
        * @param data
        * @param onResult
        */
-      requestRawWithCallback(info3, data, onResult) {
+      requestRawWithCallback(info4, data, onResult) {
         if (typeof data === "string") {
-          if (!info3.options.headers) {
-            info3.options.headers = {};
+          if (!info4.options.headers) {
+            info4.options.headers = {};
           }
-          info3.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
+          info4.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
         }
         let callbackCalled = false;
         function handleResult(err, res) {
@@ -17685,7 +17685,7 @@ var require_lib = __commonJS({
             onResult(err, res);
           }
         }
-        const req = info3.httpModule.request(info3.options, (msg) => {
+        const req = info4.httpModule.request(info4.options, (msg) => {
           const res = new HttpClientResponse(msg);
           handleResult(void 0, res);
         });
@@ -17697,7 +17697,7 @@ var require_lib = __commonJS({
           if (socket) {
             socket.end();
           }
-          handleResult(new Error(`Request timeout: ${info3.options.path}`));
+          handleResult(new Error(`Request timeout: ${info4.options.path}`));
         });
         req.on("error", function(err) {
           handleResult(err);
@@ -17733,27 +17733,27 @@ var require_lib = __commonJS({
         return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
       }
       _prepareRequest(method, requestUrl, headers) {
-        const info3 = {};
-        info3.parsedUrl = requestUrl;
-        const usingSsl = info3.parsedUrl.protocol === "https:";
-        info3.httpModule = usingSsl ? https : http;
+        const info4 = {};
+        info4.parsedUrl = requestUrl;
+        const usingSsl = info4.parsedUrl.protocol === "https:";
+        info4.httpModule = usingSsl ? https : http;
         const defaultPort = usingSsl ? 443 : 80;
-        info3.options = {};
-        info3.options.host = info3.parsedUrl.hostname;
-        info3.options.port = info3.parsedUrl.port ? parseInt(info3.parsedUrl.port) : defaultPort;
-        info3.options.path = (info3.parsedUrl.pathname || "") + (info3.parsedUrl.search || "");
-        info3.options.method = method;
-        info3.options.headers = this._mergeHeaders(headers);
+        info4.options = {};
+        info4.options.host = info4.parsedUrl.hostname;
+        info4.options.port = info4.parsedUrl.port ? parseInt(info4.parsedUrl.port) : defaultPort;
+        info4.options.path = (info4.parsedUrl.pathname || "") + (info4.parsedUrl.search || "");
+        info4.options.method = method;
+        info4.options.headers = this._mergeHeaders(headers);
         if (this.userAgent != null) {
-          info3.options.headers["user-agent"] = this.userAgent;
+          info4.options.headers["user-agent"] = this.userAgent;
         }
-        info3.options.agent = this._getAgent(info3.parsedUrl);
+        info4.options.agent = this._getAgent(info4.parsedUrl);
         if (this.handlers) {
           for (const handler of this.handlers) {
-            handler.prepareRequest(info3.options);
+            handler.prepareRequest(info4.options);
           }
         }
-        return info3;
+        return info4;
       }
       _mergeHeaders(headers) {
         if (this.requestOptions && this.requestOptions.headers) {
@@ -19743,10 +19743,10 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.notice = notice;
-    function info3(message) {
+    function info4(message) {
       process.stdout.write(message + os.EOL);
     }
-    exports2.info = info3;
+    exports2.info = info4;
     function startGroup(name) {
       (0, command_1.issue)("group", name);
     }
@@ -24704,6 +24704,8 @@ async function runAggregateReview(adapter) {
 }
 
 // src/helpers/render-prompt.ts
+var import_node_fs2 = require("node:fs");
+var import_node_path = require("node:path");
 var core10 = __toESM(require_core(), 1);
 
 // src/prompt-render.ts
@@ -24717,27 +24719,84 @@ function renderPrompt(filePath, context2) {
 }
 
 // src/helpers/render-prompt.ts
-async function runRenderPrompt(_adapter) {
-  const promptFile = core10.getInput("prompt_file", { required: true });
-  const contextJson = core10.getInput("context_json", { required: true });
-  let context2;
+function resolvePromptFile(promptFile) {
+  if ((0, import_node_path.isAbsolute)(promptFile) && (0, import_node_fs2.existsSync)(promptFile)) return promptFile;
+  if ((0, import_node_fs2.existsSync)(promptFile)) return promptFile;
+  const actionPath = process.env.GITHUB_ACTION_PATH;
+  if (actionPath) {
+    const fromActionSibling = (0, import_node_path.join)(actionPath, "..", promptFile);
+    if ((0, import_node_fs2.existsSync)(fromActionSibling)) return fromActionSibling;
+    const fromActionSelf = (0, import_node_path.join)(actionPath, promptFile);
+    if ((0, import_node_fs2.existsSync)(fromActionSelf)) return fromActionSelf;
+  }
+  return promptFile;
+}
+function parseContextJson(raw) {
+  const parsed = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== "object") {
+    throw new Error("context must be a JSON object");
+  }
+  return Object.fromEntries(
+    Object.entries(parsed).map(([k, v]) => [
+      k,
+      v === null || v === void 0 ? "" : String(v)
+    ])
+  );
+}
+function mergeAllowedTools(options) {
+  const base = options.baseAllowedTools.split(",").map((s) => s.trim()).filter(Boolean);
+  const merged = new Set(base);
+  if (!(0, import_node_fs2.existsSync)(options.settingsFile)) {
+    return Array.from(merged).join(",");
+  }
+  let projectTools = [];
   try {
-    const parsed = JSON.parse(contextJson);
-    if (parsed === null || typeof parsed !== "object") {
-      throw new Error("context_json must be a JSON object");
+    const settings = JSON.parse((0, import_node_fs2.readFileSync)(options.settingsFile, "utf-8"));
+    const allow = settings?.permissions?.allow;
+    if (Array.isArray(allow)) {
+      projectTools = allow.filter(
+        (t) => typeof t === "string" && t.length > 0 && !t.includes('"')
+      );
     }
-    context2 = Object.fromEntries(
-      Object.entries(parsed).map(([k, v]) => [
-        k,
-        v === null || v === void 0 ? "" : String(v)
-      ])
-    );
   } catch (err) {
-    throw new Error(
-      `render-prompt: failed to parse context_json: ${err instanceof Error ? err.message : String(err)}`
+    core10.warning(
+      `render-prompt: failed to parse ${options.settingsFile}: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return Array.from(merged).join(",");
+  }
+  if (projectTools.length > 0) {
+    core10.info(
+      `render-prompt: merged ${projectTools.length} project permission(s) from ${options.settingsFile} into allowed tools`
     );
   }
-  const rendered = renderPrompt(promptFile, context2);
+  for (const t of projectTools) merged.add(t);
+  return Array.from(merged).join(",");
+}
+async function runRenderPrompt(_adapter) {
+  const promptFile = core10.getInput("prompt_file", { required: true });
+  const contextFile = core10.getInput("context_file");
+  const contextJson = core10.getInput("context_json");
+  const baseAllowedTools = core10.getInput("base_allowed_tools");
+  const settingsFile = core10.getInput("settings_file") || ".claude/settings.json";
+  if (!contextFile && !contextJson) {
+    throw new Error("render-prompt: either context_file or context_json is required");
+  }
+  let rawContext;
+  if (contextFile) {
+    rawContext = (0, import_node_fs2.readFileSync)(contextFile, "utf-8");
+  } else {
+    rawContext = contextJson;
+  }
+  let context2;
+  try {
+    context2 = parseContextJson(rawContext);
+  } catch (err) {
+    throw new Error(
+      `render-prompt: failed to parse context: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  const resolvedPromptFile = resolvePromptFile(promptFile);
+  const rendered = renderPrompt(resolvedPromptFile, context2);
   if (rendered.includes("{{MISSING:")) {
     const missing = Array.from(rendered.matchAll(/\{\{MISSING:([a-zA-Z0-9_]+)\}\}/g)).map(
       (m) => m[1]
@@ -24745,6 +24804,11 @@ async function runRenderPrompt(_adapter) {
     core10.warning(`render-prompt: missing context keys: ${Array.from(new Set(missing)).join(", ")}`);
   }
   core10.setOutput("rendered", rendered);
+  const allowedTools = mergeAllowedTools({
+    baseAllowedTools,
+    settingsFile
+  });
+  core10.setOutput("allowed_tools", allowedTools);
 }
 
 // src/helpers/apply-triage-decision.ts
