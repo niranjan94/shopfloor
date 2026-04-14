@@ -63,18 +63,20 @@ Look for concrete maintainability issues in the diff:
 - Obvious copy-paste bugs (a block duplicated but with one variable name not renamed).
 
 Do NOT flag:
+
 - Aesthetic preferences (braces, spacing, one-liner vs multi-line if-statements).
 - Missing comments or docstrings when the code is already clear.
 - "You could refactor this into a class" suggestions without a concrete maintainability cost.
 - Patterns that already match the rest of the codebase.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a `confidence` score from 0-100. Use:
+
 - 90-100: An obvious, unambiguous smell that a human reviewer would definitely agree with.
 - 75-89: A likely smell but dependent on context you cannot verify.
 - Below 75: Do NOT emit the comment. Smell reviewers have the highest false-positive rate; err strongly on the side of silence.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
@@ -99,7 +101,8 @@ Your entire final message MUST be a single valid JSON object matching this schem
 ```
 
 Rules:
+
 - `verdict: "clean"` requires `comments: []`.
 - `category` MUST always be the literal string `smell`.
 - If you find yourself writing "nit:" in the body, delete the comment. The aggregator is not the place for nits.
-</output_format>
+  </output_format>

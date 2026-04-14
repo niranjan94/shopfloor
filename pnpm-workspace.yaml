@@ -1,3 +1,6 @@
 packages:
-  - 'router'
-  - 'mcp-servers/*'
+  - router
+  - mcp-servers/*
+
+onlyBuiltDependencies:
+  - esbuild

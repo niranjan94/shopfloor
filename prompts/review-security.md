@@ -66,17 +66,19 @@ Focus on concrete, exploitable patterns, not theoretical defense-in-depth gaps. 
 - Tool permission grants that widen the attack surface (e.g., allowlisting destructive commands).
 
 Do NOT flag:
+
 - General "might be a problem" concerns without a concrete exploit path.
 - Missing rate limiting unless the spec called for it.
 - Style nits about variable names that look sensitive but are not.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a `confidence` score from 0-100. Use:
+
 - 90-100: A concrete, exploitable pattern is present in the diff.
 - 75-89: The pattern is present and likely exploitable, but full exploitation depends on state you could not verify.
 - Below 75: Do NOT emit the comment. Security false positives are especially expensive because they train the pipeline to ignore real findings.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
@@ -101,7 +103,8 @@ Your entire final message MUST be a single valid JSON object matching this schem
 ```
 
 Rules:
+
 - `verdict: "clean"` requires `comments: []`.
 - `category` MUST always be the literal string `security`.
 - Every security comment must describe the exploit scenario in one sentence and suggest a concrete fix in one sentence.
-</output_format>
+  </output_format>

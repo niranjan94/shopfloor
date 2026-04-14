@@ -133,6 +133,7 @@
 ### Task 0.1: Initialize pnpm workspace
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `tsconfig.base.json`
@@ -193,8 +194,8 @@ Create `package.json`:
 
 ```yaml
 packages:
-  - 'router'
-  - 'mcp-servers/*'
+  - "router"
+  - "mcp-servers/*"
 ```
 
 - [ ] **Step 4: Create `tsconfig.base.json`**
@@ -238,19 +239,23 @@ coverage
 - [ ] **Step 6: Create `vitest.config.ts`**
 
 ```ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ['router/test/**/*.test.ts', 'mcp-servers/**/test/**/*.test.ts', 'test/e2e/**/*.test.ts'],
-    environment: 'node',
+    include: [
+      "router/test/**/*.test.ts",
+      "mcp-servers/**/test/**/*.test.ts",
+      "test/e2e/**/*.test.ts",
+    ],
+    environment: "node",
     globals: false,
     coverage: {
-      provider: 'v8',
-      include: ['router/src/**', 'mcp-servers/shopfloor-mcp/index.ts'],
-      exclude: ['**/test/**']
-    }
-  }
+      provider: "v8",
+      include: ["router/src/**", "mcp-servers/shopfloor-mcp/index.ts"],
+      exclude: ["**/test/**"],
+    },
+  },
 });
 ```
 
@@ -278,6 +283,7 @@ git commit -m "chore: initialize pnpm workspace and base tsconfig"
 ### Task 1.1: Scaffold router package
 
 **Files:**
+
 - Create: `router/package.json`
 - Create: `router/tsconfig.json`
 - Create: `router/src/types.ts` (stub)
@@ -327,30 +333,36 @@ git commit -m "chore: initialize pnpm workspace and base tsconfig"
 ```ts
 // Shared types for the Shopfloor router. See docs/superpowers/specs/2026-04-14-shopfloor-design.md section 4 and 6.2.
 
-export type Stage = 'triage' | 'spec' | 'plan' | 'implement' | 'review' | 'none';
+export type Stage =
+  | "triage"
+  | "spec"
+  | "plan"
+  | "implement"
+  | "review"
+  | "none";
 
-export type Complexity = 'quick' | 'medium' | 'large';
+export type Complexity = "quick" | "medium" | "large";
 
 export type ShopfloorLabel =
-  | 'shopfloor:triaging'
-  | 'shopfloor:awaiting-info'
-  | 'shopfloor:quick'
-  | 'shopfloor:medium'
-  | 'shopfloor:large'
-  | 'shopfloor:needs-spec'
-  | 'shopfloor:spec-in-review'
-  | 'shopfloor:needs-plan'
-  | 'shopfloor:plan-in-review'
-  | 'shopfloor:needs-impl'
-  | 'shopfloor:impl-in-review'
-  | 'shopfloor:needs-review'
-  | 'shopfloor:review-requested-changes'
-  | 'shopfloor:review-approved'
-  | 'shopfloor:review-stuck'
-  | 'shopfloor:skip-review'
-  | 'shopfloor:done'
-  | 'shopfloor:revise'
-  | `shopfloor:failed:${'triage' | 'spec' | 'plan' | 'implement' | 'review'}`;
+  | "shopfloor:triaging"
+  | "shopfloor:awaiting-info"
+  | "shopfloor:quick"
+  | "shopfloor:medium"
+  | "shopfloor:large"
+  | "shopfloor:needs-spec"
+  | "shopfloor:spec-in-review"
+  | "shopfloor:needs-plan"
+  | "shopfloor:plan-in-review"
+  | "shopfloor:needs-impl"
+  | "shopfloor:impl-in-review"
+  | "shopfloor:needs-review"
+  | "shopfloor:review-requested-changes"
+  | "shopfloor:review-approved"
+  | "shopfloor:review-stuck"
+  | "shopfloor:skip-review"
+  | "shopfloor:done"
+  | "shopfloor:revise"
+  | `shopfloor:failed:${"triage" | "spec" | "plan" | "implement" | "review"}`;
 
 export interface RouterDecision {
   stage: Stage;
@@ -367,7 +379,7 @@ export interface RouterDecision {
 
 export interface PrMetadata {
   issueNumber: number;
-  stage: Exclude<Stage, 'none' | 'triage'>; // stages that produce PRs
+  stage: Exclude<Stage, "none" | "triage">; // stages that produce PRs
   reviewIteration: number; // 0 if absent
 }
 ```
@@ -378,12 +390,12 @@ export interface PrMetadata {
 // Entry point for the Shopfloor router action.
 // Reads the GitHub event payload, resolves the stage, writes outputs for the reusable workflow.
 
-import * as core from '@actions/core';
+import * as core from "@actions/core";
 
 async function main(): Promise<void> {
-  core.info('Shopfloor router: not yet implemented');
-  core.setOutput('stage', 'none');
-  core.setOutput('reason', 'router stub');
+  core.info("Shopfloor router: not yet implemented");
+  core.setOutput("stage", "none");
+  core.setOutput("reason", "router stub");
 }
 
 main().catch((err) => {
@@ -411,6 +423,7 @@ git commit -m "chore(router): scaffold router package and base types"
 ### Task 1.2: Write state machine tests (failing)
 
 **Files:**
+
 - Create: `router/test/state.test.ts`
 - Create: `router/test/fixtures/events/issue-opened-bare.json`
 - Create: `router/test/fixtures/events/issue-labeled-needs-spec.json`
@@ -463,68 +476,81 @@ Populate each with a minimal payload for its named event. Use the same repositor
 - [ ] **Step 3: Create `router/test/state.test.ts` with failing tests**
 
 ```ts
-import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import { resolveStage } from '../src/state';
-import type { StateContext } from '../src/types';
+import { describe, expect, test } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { resolveStage } from "../src/state";
+import type { StateContext } from "../src/types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function loadFixture(name: string): unknown {
-  return JSON.parse(readFileSync(join(__dirname, 'fixtures', 'events', `${name}.json`), 'utf-8'));
+  return JSON.parse(
+    readFileSync(
+      join(__dirname, "fixtures", "events", `${name}.json`),
+      "utf-8",
+    ),
+  );
 }
 
-function ctx(eventName: string, fixtureName: string, overrides: Partial<StateContext> = {}): StateContext {
+function ctx(
+  eventName: string,
+  fixtureName: string,
+  overrides: Partial<StateContext> = {},
+): StateContext {
   return {
     eventName,
-    payload: loadFixture(fixtureName) as StateContext['payload'],
-    ...overrides
+    payload: loadFixture(fixtureName) as StateContext["payload"],
+    ...overrides,
   };
 }
 
-describe('resolveStage', () => {
-  test('new issue with no labels → triage', () => {
-    const decision = resolveStage(ctx('issues', 'issue-opened-bare'));
-    expect(decision.stage).toBe('triage');
+describe("resolveStage", () => {
+  test("new issue with no labels → triage", () => {
+    const decision = resolveStage(ctx("issues", "issue-opened-bare"));
+    expect(decision.stage).toBe("triage");
     expect(decision.issueNumber).toBe(42);
   });
 
-  test('issue labeled shopfloor:needs-spec → spec', () => {
-    const decision = resolveStage(ctx('issues', 'issue-labeled-needs-spec'));
-    expect(decision.stage).toBe('spec');
+  test("issue labeled shopfloor:needs-spec → spec", () => {
+    const decision = resolveStage(ctx("issues", "issue-labeled-needs-spec"));
+    expect(decision.stage).toBe("spec");
     expect(decision.issueNumber).toBe(42);
   });
 
-  test('synchronize on impl PR → review', () => {
-    const decision = resolveStage(ctx('pull_request', 'pr-synchronize-impl'));
-    expect(decision.stage).toBe('review');
+  test("synchronize on impl PR → review", () => {
+    const decision = resolveStage(ctx("pull_request", "pr-synchronize-impl"));
+    expect(decision.stage).toBe("review");
     expect(decision.implPrNumber).toBe(45);
     expect(decision.reviewIteration).toBe(0);
   });
 
-  test('spec PR merged → none (with reason that triggers next-stage label flip)', () => {
-    const decision = resolveStage(ctx('pull_request', 'pr-closed-merged-spec'));
-    expect(decision.stage).toBe('none');
-    expect(decision.reason).toBe('pr_merged_spec_triggered_label_flip');
+  test("spec PR merged → none (with reason that triggers next-stage label flip)", () => {
+    const decision = resolveStage(ctx("pull_request", "pr-closed-merged-spec"));
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_merged_spec_triggered_label_flip");
   });
 
-  test('changes_requested review on impl PR → implement (revision mode)', () => {
-    const decision = resolveStage(ctx('pull_request_review', 'pr-review-submitted-changes-requested'));
-    expect(decision.stage).toBe('implement');
+  test("changes_requested review on impl PR → implement (revision mode)", () => {
+    const decision = resolveStage(
+      ctx("pull_request_review", "pr-review-submitted-changes-requested"),
+    );
+    expect(decision.stage).toBe("implement");
     expect(decision.revisionMode).toBe(true);
   });
 
-  test('closed issue → none, reason aborted', () => {
-    const decision = resolveStage(ctx('issues', 'issue-closed'));
-    expect(decision.stage).toBe('none');
-    expect(decision.reason).toBe('issue_closed_aborted');
+  test("closed issue → none, reason aborted", () => {
+    const decision = resolveStage(ctx("issues", "issue-closed"));
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("issue_closed_aborted");
   });
 
-  test('review-stuck label removed → review', () => {
-    const decision = resolveStage(ctx('issues', 'issue-unlabeled-review-stuck'));
-    expect(decision.stage).toBe('review');
+  test("review-stuck label removed → review", () => {
+    const decision = resolveStage(
+      ctx("issues", "issue-unlabeled-review-stuck"),
+    );
+    expect(decision.stage).toBe("review");
   });
 });
 ```
@@ -544,6 +570,7 @@ git commit -m "test(router): add failing state machine tests with fixture events
 ### Task 1.3: Implement state machine
 
 **Files:**
+
 - Modify: `router/src/types.ts` (add `StateContext`)
 - Create: `router/src/state.ts`
 
@@ -559,7 +586,7 @@ export interface IssuePayload {
     title: string;
     body: string | null;
     labels: Array<{ name: string }>;
-    state: 'open' | 'closed';
+    state: "open" | "closed";
     pull_request?: unknown | null;
   };
   label?: { name: string };
@@ -571,7 +598,7 @@ export interface PullRequestPayload {
   pull_request: {
     number: number;
     body: string | null;
-    state: 'open' | 'closed';
+    state: "open" | "closed";
     draft: boolean;
     merged: boolean;
     head: { ref: string; sha: string };
@@ -584,15 +611,23 @@ export interface PullRequestPayload {
 export interface PullRequestReviewPayload {
   action: string;
   review: {
-    state: 'approved' | 'changes_requested' | 'commented' | 'dismissed' | 'pending';
+    state:
+      | "approved"
+      | "changes_requested"
+      | "commented"
+      | "dismissed"
+      | "pending";
     body: string | null;
     user: { login: string };
   };
-  pull_request: PullRequestPayload['pull_request'];
+  pull_request: PullRequestPayload["pull_request"];
   repository: { owner: { login: string }; name: string };
 }
 
-export type EventPayload = IssuePayload | PullRequestPayload | PullRequestReviewPayload;
+export type EventPayload =
+  | IssuePayload
+  | PullRequestPayload
+  | PullRequestReviewPayload;
 
 export interface StateContext {
   eventName: string;
@@ -617,52 +652,66 @@ import type {
   PullRequestReviewPayload,
   PrMetadata,
   RouterDecision,
-  StateContext
-} from './types';
+  StateContext,
+} from "./types";
 
 const STATE_LABELS = new Set<string>([
-  'shopfloor:triaging',
-  'shopfloor:awaiting-info',
-  'shopfloor:needs-spec',
-  'shopfloor:spec-in-review',
-  'shopfloor:needs-plan',
-  'shopfloor:plan-in-review',
-  'shopfloor:needs-impl',
-  'shopfloor:impl-in-review',
-  'shopfloor:needs-review',
-  'shopfloor:review-requested-changes',
-  'shopfloor:review-approved',
-  'shopfloor:review-stuck',
-  'shopfloor:done'
+  "shopfloor:triaging",
+  "shopfloor:awaiting-info",
+  "shopfloor:needs-spec",
+  "shopfloor:spec-in-review",
+  "shopfloor:needs-plan",
+  "shopfloor:plan-in-review",
+  "shopfloor:needs-impl",
+  "shopfloor:impl-in-review",
+  "shopfloor:needs-review",
+  "shopfloor:review-requested-changes",
+  "shopfloor:review-approved",
+  "shopfloor:review-stuck",
+  "shopfloor:done",
 ]);
 
 const COMPLEXITY_LABELS: Record<string, Complexity> = {
-  'shopfloor:quick': 'quick',
-  'shopfloor:medium': 'medium',
-  'shopfloor:large': 'large'
+  "shopfloor:quick": "quick",
+  "shopfloor:medium": "medium",
+  "shopfloor:large": "large",
 };
 
 export function resolveStage(ctx: StateContext): RouterDecision {
   switch (ctx.eventName) {
-    case 'issues':
+    case "issues":
       return resolveIssueEvent(ctx.payload as IssuePayload);
-    case 'issue_comment':
-      return { stage: 'none', reason: 'issue_comment_no_action_v0_1' };
-    case 'pull_request':
+    case "issue_comment":
+      return { stage: "none", reason: "issue_comment_no_action_v0_1" };
+    case "pull_request":
       return resolvePullRequestEvent(ctx.payload as PullRequestPayload);
-    case 'pull_request_review':
-      return resolvePullRequestReviewEvent(ctx.payload as PullRequestReviewPayload, ctx.shopfloorBotLogin);
-    case 'pull_request_review_comment':
-      return { stage: 'none', reason: 'review_comment_not_a_trigger_v0_1' };
+    case "pull_request_review":
+      return resolvePullRequestReviewEvent(
+        ctx.payload as PullRequestReviewPayload,
+        ctx.shopfloorBotLogin,
+      );
+    case "pull_request_review_comment":
+      return { stage: "none", reason: "review_comment_not_a_trigger_v0_1" };
     default:
-      return { stage: 'none', reason: `unhandled_event:${ctx.eventName}` };
+      return { stage: "none", reason: `unhandled_event:${ctx.eventName}` };
   }
 }
 
-function labelNames(payload: { labels?: Array<{ name: string }> } | { issue: { labels: Array<{ name: string }> } } | { pull_request: { labels: Array<{ name: string }> } }): Set<string> {
-  if ('issue' in payload) return new Set(payload.issue.labels.map((l) => l.name));
-  if ('pull_request' in payload) return new Set(payload.pull_request.labels.map((l) => l.name));
-  return new Set((payload as { labels?: Array<{ name: string }> }).labels?.map((l) => l.name) ?? []);
+function labelNames(
+  payload:
+    | { labels?: Array<{ name: string }> }
+    | { issue: { labels: Array<{ name: string }> } }
+    | { pull_request: { labels: Array<{ name: string }> } },
+): Set<string> {
+  if ("issue" in payload)
+    return new Set(payload.issue.labels.map((l) => l.name));
+  if ("pull_request" in payload)
+    return new Set(payload.pull_request.labels.map((l) => l.name));
+  return new Set(
+    (payload as { labels?: Array<{ name: string }> }).labels?.map(
+      (l) => l.name,
+    ) ?? [],
+  );
 }
 
 function stateLabel(labels: Set<string>): string | null {
@@ -671,31 +720,34 @@ function stateLabel(labels: Set<string>): string | null {
 }
 
 function complexityOf(labels: Set<string>): Complexity | undefined {
-  for (const [l, c] of Object.entries(COMPLEXITY_LABELS)) if (labels.has(l)) return c;
+  for (const [l, c] of Object.entries(COMPLEXITY_LABELS))
+    if (labels.has(l)) return c;
   return undefined;
 }
 
 function parsePrMetadata(body: string | null): PrMetadata | null {
   if (!body) return null;
   const issueMatch = body.match(/Shopfloor-Issue:\s*#(\d+)/);
-  const stageMatch = body.match(/Shopfloor-Stage:\s*(spec|plan|implement|review)/);
+  const stageMatch = body.match(
+    /Shopfloor-Stage:\s*(spec|plan|implement|review)/,
+  );
   const iterMatch = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
   if (!issueMatch || !stageMatch) return null;
   return {
     issueNumber: Number(issueMatch[1]),
-    stage: stageMatch[1] as PrMetadata['stage'],
-    reviewIteration: iterMatch ? Number(iterMatch[1]) : 0
+    stage: stageMatch[1] as PrMetadata["stage"],
+    reviewIteration: iterMatch ? Number(iterMatch[1]) : 0,
   };
 }
 
 function branchSlug(title: string): string {
   return title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .split(/\s+/)
     .slice(0, 5)
-    .join('-')
+    .join("-")
     .slice(0, 40);
 }
 
@@ -704,141 +756,167 @@ function resolveIssueEvent(payload: IssuePayload): RouterDecision {
   const issueNumber = payload.issue.number;
 
   // Universal abort: closed issues do not advance.
-  if (payload.issue.state === 'closed') {
-    return { stage: 'none', issueNumber, reason: 'issue_closed_aborted' };
+  if (payload.issue.state === "closed") {
+    return { stage: "none", issueNumber, reason: "issue_closed_aborted" };
   }
 
   // Pull-request-on-issue-event special case: some events send the issue payload for PRs.
   if (payload.issue.pull_request) {
-    return { stage: 'none', reason: 'issue_event_is_actually_a_pr' };
+    return { stage: "none", reason: "issue_event_is_actually_a_pr" };
   }
 
   // Review-stuck unlabel: dispatch review on the associated impl PR.
-  if (payload.action === 'unlabeled' && payload.label?.name === 'shopfloor:review-stuck') {
-    return { stage: 'review', issueNumber, reason: 'review_stuck_removed_force_review' };
+  if (
+    payload.action === "unlabeled" &&
+    payload.label?.name === "shopfloor:review-stuck"
+  ) {
+    return {
+      stage: "review",
+      issueNumber,
+      reason: "review_stuck_removed_force_review",
+    };
   }
 
   // Bare new issue → triage.
-  if (payload.action === 'opened' && stateLabel(labels) === null) {
-    return { stage: 'triage', issueNumber };
+  if (payload.action === "opened" && stateLabel(labels) === null) {
+    return { stage: "triage", issueNumber };
   }
 
   // Awaiting-info removed → re-triage.
-  if (payload.action === 'unlabeled' && payload.label?.name === 'shopfloor:awaiting-info') {
-    return { stage: 'triage', issueNumber, reason: 're_triage_after_clarification' };
+  if (
+    payload.action === "unlabeled" &&
+    payload.label?.name === "shopfloor:awaiting-info"
+  ) {
+    return {
+      stage: "triage",
+      issueNumber,
+      reason: "re_triage_after_clarification",
+    };
   }
 
   // Needs-spec → spec.
-  if (labels.has('shopfloor:needs-spec')) {
+  if (labels.has("shopfloor:needs-spec")) {
     return {
-      stage: 'spec',
+      stage: "spec",
       issueNumber,
       complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(payload.issue.title)}`
+      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(payload.issue.title)}`,
     };
   }
 
   // Needs-plan → plan.
-  if (labels.has('shopfloor:needs-plan')) {
+  if (labels.has("shopfloor:needs-plan")) {
     return {
-      stage: 'plan',
+      stage: "plan",
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/plan/${issueNumber}-${branchSlug(payload.issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
     };
   }
 
   // Needs-impl → implement.
-  if (labels.has('shopfloor:needs-impl')) {
+  if (labels.has("shopfloor:needs-impl")) {
     return {
-      stage: 'implement',
+      stage: "implement",
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/impl/${issueNumber}-${branchSlug(payload.issue.title)}`,
       specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(payload.issue.title)}.md`
+      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(payload.issue.title)}.md`,
     };
   }
 
   // Awaiting-info labeled → no action; pipeline is paused.
-  if (labels.has('shopfloor:awaiting-info')) {
-    return { stage: 'none', issueNumber, reason: 'awaiting_info_paused' };
+  if (labels.has("shopfloor:awaiting-info")) {
+    return { stage: "none", issueNumber, reason: "awaiting_info_paused" };
   }
 
-  return { stage: 'none', issueNumber, reason: 'no_matching_label_rule' };
+  return { stage: "none", issueNumber, reason: "no_matching_label_rule" };
 }
 
 function resolvePullRequestEvent(payload: PullRequestPayload): RouterDecision {
   const pr = payload.pull_request;
   const meta = parsePrMetadata(pr.body);
-  if (!meta) return { stage: 'none', reason: 'pr_has_no_shopfloor_metadata' };
+  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
 
   // Merged PR → side effect (label flip) but no stage dispatch.
-  if (payload.action === 'closed' && pr.merged) {
-    return { stage: 'none', reason: `pr_merged_${meta.stage}_triggered_label_flip` };
+  if (payload.action === "closed" && pr.merged) {
+    return {
+      stage: "none",
+      reason: `pr_merged_${meta.stage}_triggered_label_flip`,
+    };
   }
 
   // Closed (not merged) → ignore.
-  if (payload.action === 'closed') {
-    return { stage: 'none', reason: 'pr_closed_not_merged_ignored' };
+  if (payload.action === "closed") {
+    return { stage: "none", reason: "pr_closed_not_merged_ignored" };
   }
 
   // Synchronize on impl PR → review stage.
-  if (payload.action === 'synchronize' && meta.stage === 'implement') {
+  if (payload.action === "synchronize" && meta.stage === "implement") {
     const labels = labelNames(payload);
-    if (labels.has('shopfloor:skip-review')) {
-      return { stage: 'none', reason: 'skip_review_label_present' };
+    if (labels.has("shopfloor:skip-review")) {
+      return { stage: "none", reason: "skip_review_label_present" };
     }
-    if (pr.draft) return { stage: 'none', reason: 'pr_is_draft' };
-    if (pr.state === 'closed') return { stage: 'none', reason: 'pr_is_closed' };
+    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
     return {
-      stage: 'review',
+      stage: "review",
       issueNumber: meta.issueNumber,
       implPrNumber: pr.number,
-      reviewIteration: meta.reviewIteration
+      reviewIteration: meta.reviewIteration,
     };
   }
 
   // Other PR events (opened, labeled, etc.) on non-impl stages are no-ops for routing.
-  return { stage: 'none', reason: `pr_action_${payload.action}_on_${meta.stage}_no_action` };
+  return {
+    stage: "none",
+    reason: `pr_action_${payload.action}_on_${meta.stage}_no_action`,
+  };
 }
 
 function resolvePullRequestReviewEvent(
   payload: PullRequestReviewPayload,
-  shopfloorBotLogin?: string
+  shopfloorBotLogin?: string,
 ): RouterDecision {
   const pr = payload.pull_request;
   const meta = parsePrMetadata(pr.body);
-  if (!meta) return { stage: 'none', reason: 'pr_has_no_shopfloor_metadata' };
+  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
 
-  if (payload.action !== 'submitted') {
-    return { stage: 'none', reason: `review_action_${payload.action}_ignored` };
+  if (payload.action !== "submitted") {
+    return { stage: "none", reason: `review_action_${payload.action}_ignored` };
   }
 
-  if (payload.review.state !== 'changes_requested') {
-    return { stage: 'none', reason: `review_state_${payload.review.state}_no_action` };
+  if (payload.review.state !== "changes_requested") {
+    return {
+      stage: "none",
+      reason: `review_state_${payload.review.state}_no_action`,
+    };
   }
 
   // Distinguish agent review (from Shopfloor bot) from human review.
   // Both re-trigger the stage agent, but only human reviews reach here for non-impl stages.
-  const isShopfloorReview = shopfloorBotLogin && payload.review.user.login === shopfloorBotLogin;
+  const isShopfloorReview =
+    shopfloorBotLogin && payload.review.user.login === shopfloorBotLogin;
 
-  if (meta.stage === 'implement') {
+  if (meta.stage === "implement") {
     return {
-      stage: 'implement',
+      stage: "implement",
       issueNumber: meta.issueNumber,
       revisionMode: true,
       reviewIteration: meta.reviewIteration,
-      reason: isShopfloorReview ? 'agent_requested_changes' : 'human_requested_changes'
+      reason: isShopfloorReview
+        ? "agent_requested_changes"
+        : "human_requested_changes",
     };
   }
 
   // spec, plan PRs: revision mode retriggers that stage.
   return {
-    stage: meta.stage as RouterDecision['stage'],
+    stage: meta.stage as RouterDecision["stage"],
     issueNumber: meta.issueNumber,
-    revisionMode: true
+    revisionMode: true,
   };
 }
 ```
@@ -863,6 +941,7 @@ git commit -m "feat(router): implement pure state machine for all stage transiti
 ### Task 1.4: Extend state machine tests for edge cases
 
 **Files:**
+
 - Modify: `router/test/state.test.ts`
 - Create: `router/test/fixtures/events/issue-unlabeled-awaiting-info.json`
 - Create: `router/test/fixtures/events/issue-labeled-needs-plan-no-title.json`
@@ -882,41 +961,49 @@ For each fixture name, populate minimally with enough fields to exercise the cod
 Add these tests to the existing `describe` block in `state.test.ts`:
 
 ```ts
-test('awaiting-info label removed → re-triage', () => {
-  const decision = resolveStage(ctx('issues', 'issue-unlabeled-awaiting-info'));
-  expect(decision.stage).toBe('triage');
-  expect(decision.reason).toBe('re_triage_after_clarification');
+test("awaiting-info label removed → re-triage", () => {
+  const decision = resolveStage(ctx("issues", "issue-unlabeled-awaiting-info"));
+  expect(decision.stage).toBe("triage");
+  expect(decision.reason).toBe("re_triage_after_clarification");
 });
 
-test('impl PR with skip-review label → none', () => {
-  const decision = resolveStage(ctx('pull_request', 'pr-synchronize-impl-with-skip-review'));
-  expect(decision.stage).toBe('none');
-  expect(decision.reason).toBe('skip_review_label_present');
+test("impl PR with skip-review label → none", () => {
+  const decision = resolveStage(
+    ctx("pull_request", "pr-synchronize-impl-with-skip-review"),
+  );
+  expect(decision.stage).toBe("none");
+  expect(decision.reason).toBe("skip_review_label_present");
 });
 
-test('draft impl PR → none', () => {
-  const decision = resolveStage(ctx('pull_request', 'pr-synchronize-impl-draft'));
-  expect(decision.stage).toBe('none');
-  expect(decision.reason).toBe('pr_is_draft');
+test("draft impl PR → none", () => {
+  const decision = resolveStage(
+    ctx("pull_request", "pr-synchronize-impl-draft"),
+  );
+  expect(decision.stage).toBe("none");
+  expect(decision.reason).toBe("pr_is_draft");
 });
 
-test('approved review → none', () => {
-  const decision = resolveStage(ctx('pull_request_review', 'pr-review-approved'));
-  expect(decision.stage).toBe('none');
+test("approved review → none", () => {
+  const decision = resolveStage(
+    ctx("pull_request_review", "pr-review-approved"),
+  );
+  expect(decision.stage).toBe("none");
 });
 
-test('spec PR with changes_requested → spec (revision mode)', () => {
-  const decision = resolveStage(ctx('pull_request_review', 'pr-review-spec-changes-requested'));
-  expect(decision.stage).toBe('spec');
+test("spec PR with changes_requested → spec (revision mode)", () => {
+  const decision = resolveStage(
+    ctx("pull_request_review", "pr-review-spec-changes-requested"),
+  );
+  expect(decision.stage).toBe("spec");
   expect(decision.revisionMode).toBe(true);
 });
 
-test('branch slug derivation handles special characters', () => {
+test("branch slug derivation handles special characters", () => {
   const decision = resolveStage(
-    ctx('issues', 'issue-labeled-needs-plan-no-title') // title: "Fix: can't log in!"
+    ctx("issues", "issue-labeled-needs-plan-no-title"), // title: "Fix: can't log in!"
   );
-  expect(decision.stage).toBe('plan');
-  expect(decision.branchName).toBe('shopfloor/plan/42-fix-cant-log-in');
+  expect(decision.stage).toBe("plan");
+  expect(decision.branchName).toBe("shopfloor/plan/42-fix-cant-log-in");
 });
 ```
 
@@ -935,6 +1022,7 @@ git commit -m "test(router): add state machine edge-case tests"
 ### Task 1.5: Write GitHub adapter tests (failing)
 
 **Files:**
+
 - Create: `router/test/github.test.ts`
 
 **Context:** The `github.ts` adapter is a thin wrapper around octokit. We test it by injecting a mocked octokit instance and verifying the shape of API calls.
@@ -942,9 +1030,9 @@ git commit -m "test(router): add state machine edge-case tests"
 - [ ] **Step 1: Create `router/test/github.test.ts`**
 
 ```ts
-import { describe, expect, test, vi } from 'vitest';
-import { GitHubAdapter } from '../src/github';
-import type { Octokit } from '@octokit/rest';
+import { describe, expect, test, vi } from "vitest";
+import { GitHubAdapter } from "../src/github";
+import type { Octokit } from "@octokit/rest";
 
 function makeMockOctokit(overrides: Record<string, unknown> = {}): Octokit {
   return {
@@ -956,84 +1044,92 @@ function makeMockOctokit(overrides: Record<string, unknown> = {}): Octokit {
         updateComment: vi.fn().mockResolvedValue({ data: {} }),
         createLabel: vi.fn().mockResolvedValue({ data: {} }),
         listLabelsForRepo: vi.fn().mockResolvedValue({ data: [] }),
-        update: vi.fn().mockResolvedValue({ data: {} })
+        update: vi.fn().mockResolvedValue({ data: {} }),
       },
       pulls: {
-        create: vi.fn().mockResolvedValue({ data: { number: 100, html_url: 'x' } }),
+        create: vi
+          .fn()
+          .mockResolvedValue({ data: { number: 100, html_url: "x" } }),
         update: vi.fn().mockResolvedValue({ data: {} }),
         createReview: vi.fn().mockResolvedValue({ data: { id: 1 } }),
         listReviews: vi.fn().mockResolvedValue({ data: [] }),
-        get: vi.fn().mockResolvedValue({ data: {} })
+        get: vi.fn().mockResolvedValue({ data: {} }),
       },
       repos: {
         createCommitStatus: vi.fn().mockResolvedValue({ data: {} }),
-        getBranch: vi.fn().mockResolvedValue({ data: {} })
+        getBranch: vi.fn().mockResolvedValue({ data: {} }),
       },
-      ...overrides
-    }
+      ...overrides,
+    },
   } as unknown as Octokit;
 }
 
-describe('GitHubAdapter', () => {
-  const repo = { owner: 'niranjan94', repo: 'shopfloor' };
+describe("GitHubAdapter", () => {
+  const repo = { owner: "niranjan94", repo: "shopfloor" };
 
-  test('addLabel calls issues.addLabels with correct shape', async () => {
+  test("addLabel calls issues.addLabels with correct shape", async () => {
     const octokit = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);
-    await adapter.addLabel(42, 'shopfloor:triaging');
+    await adapter.addLabel(42, "shopfloor:triaging");
     expect(octokit.rest.issues.addLabels).toHaveBeenCalledWith({
-      owner: 'niranjan94',
-      repo: 'shopfloor',
+      owner: "niranjan94",
+      repo: "shopfloor",
       issue_number: 42,
-      labels: ['shopfloor:triaging']
+      labels: ["shopfloor:triaging"],
     });
   });
 
-  test('removeLabel ignores 404s', async () => {
+  test("removeLabel ignores 404s", async () => {
     const octokit = makeMockOctokit({
-      issues: { ...makeMockOctokit().rest.issues, removeLabel: vi.fn().mockRejectedValue({ status: 404 }) }
+      issues: {
+        ...makeMockOctokit().rest.issues,
+        removeLabel: vi.fn().mockRejectedValue({ status: 404 }),
+      },
     });
     const adapter = new GitHubAdapter(octokit, repo);
-    await expect(adapter.removeLabel(42, 'shopfloor:triaging')).resolves.toBeUndefined();
+    await expect(
+      adapter.removeLabel(42, "shopfloor:triaging"),
+    ).resolves.toBeUndefined();
   });
 
-  test('postComment returns comment id', async () => {
+  test("postComment returns comment id", async () => {
     const octokit = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);
-    const id = await adapter.postIssueComment(42, 'hello');
+    const id = await adapter.postIssueComment(42, "hello");
     expect(id).toBe(999);
   });
 
-  test('openStagePr merges title, body, metadata block', async () => {
+  test("openStagePr merges title, body, metadata block", async () => {
     const octokit = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);
     await adapter.openStagePr({
-      base: 'main',
-      head: 'shopfloor/spec/42-x',
-      title: 'Spec for #42',
-      body: 'Body text.',
-      stage: 'spec',
-      issueNumber: 42
+      base: "main",
+      head: "shopfloor/spec/42-x",
+      title: "Spec for #42",
+      body: "Body text.",
+      stage: "spec",
+      issueNumber: 42,
     });
-    const call = (octokit.rest.pulls.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const call = (octokit.rest.pulls.create as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
     expect(call.body).toMatch(/Shopfloor-Issue: #42/);
     expect(call.body).toMatch(/Shopfloor-Stage: spec/);
     expect(call.body).toMatch(/Body text\./);
   });
 
-  test('setCommitStatus calls createCommitStatus with context shopfloor/review', async () => {
+  test("setCommitStatus calls createCommitStatus with context shopfloor/review", async () => {
     const octokit = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);
-    await adapter.setReviewStatus('abc123', 'pending', 'Running...');
+    await adapter.setReviewStatus("abc123", "pending", "Running...");
     expect(octokit.rest.repos.createCommitStatus).toHaveBeenCalledWith(
       expect.objectContaining({
-        owner: 'niranjan94',
-        repo: 'shopfloor',
-        sha: 'abc123',
-        state: 'pending',
-        context: 'shopfloor/review',
-        description: 'Running...'
-      })
+        owner: "niranjan94",
+        repo: "shopfloor",
+        sha: "abc123",
+        state: "pending",
+        context: "shopfloor/review",
+        description: "Running...",
+      }),
     );
   });
 });
@@ -1054,6 +1150,7 @@ git commit -m "test(router): add failing GitHub adapter tests"
 ### Task 1.6: Implement GitHub adapter
 
 **Files:**
+
 - Create: `router/src/github.ts`
 
 - [ ] **Step 1: Add `OctokitLike` structural interface to `types.ts`**
@@ -1068,25 +1165,116 @@ Append to `router/src/types.ts`:
 export interface OctokitLike {
   rest: {
     issues: {
-      addLabels(params: { owner: string; repo: string; issue_number: number; labels: string[] }): Promise<unknown>;
-      removeLabel(params: { owner: string; repo: string; issue_number: number; name: string }): Promise<unknown>;
-      createComment(params: { owner: string; repo: string; issue_number: number; body: string }): Promise<{ data: { id: number } }>;
-      updateComment(params: { owner: string; repo: string; comment_id: number; body: string }): Promise<unknown>;
-      createLabel(params: { owner: string; repo: string; name: string; color: string; description?: string }): Promise<unknown>;
-      listLabelsForRepo(params: { owner: string; repo: string; per_page?: number }): Promise<{ data: Array<{ name: string }> }>;
-      update(params: { owner: string; repo: string; issue_number: number; state?: 'open' | 'closed' }): Promise<unknown>;
-      get(params: { owner: string; repo: string; issue_number: number }): Promise<{ data: { labels: unknown; state: string } }>;
+      addLabels(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        labels: string[];
+      }): Promise<unknown>;
+      removeLabel(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        name: string;
+      }): Promise<unknown>;
+      createComment(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        body: string;
+      }): Promise<{ data: { id: number } }>;
+      updateComment(params: {
+        owner: string;
+        repo: string;
+        comment_id: number;
+        body: string;
+      }): Promise<unknown>;
+      createLabel(params: {
+        owner: string;
+        repo: string;
+        name: string;
+        color: string;
+        description?: string;
+      }): Promise<unknown>;
+      listLabelsForRepo(params: {
+        owner: string;
+        repo: string;
+        per_page?: number;
+      }): Promise<{ data: Array<{ name: string }> }>;
+      update(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        state?: "open" | "closed";
+      }): Promise<unknown>;
+      get(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+      }): Promise<{ data: { labels: unknown; state: string } }>;
     };
     pulls: {
-      create(params: { owner: string; repo: string; base: string; head: string; title: string; body: string; draft?: boolean }): Promise<{ data: { number: number; html_url: string } }>;
-      update(params: { owner: string; repo: string; pull_number: number; body?: string; title?: string }): Promise<unknown>;
-      get(params: { owner: string; repo: string; pull_number: number }): Promise<{ data: unknown }>;
-      listFiles(params: { owner: string; repo: string; pull_number: number; per_page?: number; page?: number }): Promise<{ data: Array<{ filename: string }> }>;
-      createReview(params: { owner: string; repo: string; pull_number: number; commit_id?: string; event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'; body: string; comments?: Array<unknown> }): Promise<unknown>;
-      listReviews(params: { owner: string; repo: string; pull_number: number; per_page?: number }): Promise<{ data: Array<{ id: number; user: unknown; body: string | null; commit_id: string }> }>;
+      create(params: {
+        owner: string;
+        repo: string;
+        base: string;
+        head: string;
+        title: string;
+        body: string;
+        draft?: boolean;
+      }): Promise<{ data: { number: number; html_url: string } }>;
+      update(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        body?: string;
+        title?: string;
+      }): Promise<unknown>;
+      get(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+      }): Promise<{ data: unknown }>;
+      listFiles(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        per_page?: number;
+        page?: number;
+      }): Promise<{ data: Array<{ filename: string }> }>;
+      createReview(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        commit_id?: string;
+        event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+        body: string;
+        comments?: Array<unknown>;
+      }): Promise<unknown>;
+      listReviews(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        per_page?: number;
+      }): Promise<{
+        data: Array<{
+          id: number;
+          user: unknown;
+          body: string | null;
+          commit_id: string;
+        }>;
+      }>;
     };
     repos: {
-      createCommitStatus(params: { owner: string; repo: string; sha: string; state: 'pending' | 'success' | 'failure' | 'error'; context: string; description: string; target_url?: string }): Promise<unknown>;
+      createCommitStatus(params: {
+        owner: string;
+        repo: string;
+        sha: string;
+        state: "pending" | "success" | "failure" | "error";
+        context: string;
+        description: string;
+        target_url?: string;
+      }): Promise<unknown>;
     };
   };
 }
@@ -1097,7 +1285,7 @@ export interface OctokitLike {
 Implement `GitHubAdapter` with methods used by the tests plus the ones helper actions will need. Keep it thin: each method maps to one or two octokit calls. The constructor takes an `OctokitLike` instead of a concrete `Octokit` type, so both `@octokit/rest` and `@actions/github`'s `getOctokit` return value satisfy it.
 
 ```ts
-import type { OctokitLike } from './types';
+import type { OctokitLike } from "./types";
 
 export interface RepoContext {
   owner: string;
@@ -1109,7 +1297,7 @@ export interface OpenStagePrInput {
   head: string;
   title: string;
   body: string;
-  stage: 'spec' | 'plan' | 'implement';
+  stage: "spec" | "plan" | "implement";
   issueNumber: number;
   reviewIteration?: number;
   draft?: boolean;
@@ -1119,22 +1307,22 @@ export interface ReviewComment {
   path: string;
   body: string;
   line: number;
-  side: 'LEFT' | 'RIGHT';
+  side: "LEFT" | "RIGHT";
   start_line?: number;
-  start_side?: 'LEFT' | 'RIGHT';
+  start_side?: "LEFT" | "RIGHT";
 }
 
 export class GitHubAdapter {
   constructor(
     private readonly octokit: OctokitLike,
-    private readonly repo: RepoContext
+    private readonly repo: RepoContext,
   ) {}
 
   async addLabel(issueNumber: number, label: string): Promise<void> {
     await this.octokit.rest.issues.addLabels({
       ...this.repo,
       issue_number: issueNumber,
-      labels: [label]
+      labels: [label],
     });
   }
 
@@ -1143,7 +1331,7 @@ export class GitHubAdapter {
       await this.octokit.rest.issues.removeLabel({
         ...this.repo,
         issue_number: issueNumber,
-        name: label
+        name: label,
       });
     } catch (err: unknown) {
       if ((err as { status?: number }).status === 404) return;
@@ -1155,7 +1343,7 @@ export class GitHubAdapter {
     const res = await this.octokit.rest.issues.createComment({
       ...this.repo,
       issue_number: issueNumber,
-      body
+      body,
     });
     return res.data.id;
   }
@@ -1164,20 +1352,24 @@ export class GitHubAdapter {
     await this.octokit.rest.issues.updateComment({
       ...this.repo,
       comment_id: commentId,
-      body
+      body,
     });
   }
 
-  async openStagePr(input: OpenStagePrInput): Promise<{ number: number; url: string }> {
+  async openStagePr(
+    input: OpenStagePrInput,
+  ): Promise<{ number: number; url: string }> {
     const metadata = [
-      '',
-      '---',
+      "",
+      "---",
       `Shopfloor-Issue: #${input.issueNumber}`,
       `Shopfloor-Stage: ${input.stage}`,
-      input.stage === 'implement' ? `Shopfloor-Review-Iteration: ${input.reviewIteration ?? 0}` : null
+      input.stage === "implement"
+        ? `Shopfloor-Review-Iteration: ${input.reviewIteration ?? 0}`
+        : null,
     ]
       .filter(Boolean)
-      .join('\n');
+      .join("\n");
 
     const body = `${input.body}\n${metadata}\n`;
     const res = await this.octokit.rest.pulls.create({
@@ -1186,7 +1378,7 @@ export class GitHubAdapter {
       head: input.head,
       title: input.title,
       body,
-      draft: input.draft ?? false
+      draft: input.draft ?? false,
     });
     return { number: res.data.number, url: res.data.html_url };
   }
@@ -1195,14 +1387,14 @@ export class GitHubAdapter {
     await this.octokit.rest.pulls.update({
       ...this.repo,
       pull_number: prNumber,
-      body
+      body,
     });
   }
 
   async postReview(params: {
     prNumber: number;
     commitSha: string;
-    event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+    event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
     body: string;
     comments: ReviewComment[];
   }): Promise<void> {
@@ -1212,41 +1404,45 @@ export class GitHubAdapter {
       commit_id: params.commitSha,
       event: params.event,
       body: params.body,
-      comments: params.comments
+      comments: params.comments,
     });
   }
 
   async setReviewStatus(
     sha: string,
-    state: 'pending' | 'success' | 'failure' | 'error',
+    state: "pending" | "success" | "failure" | "error",
     description: string,
-    targetUrl?: string
+    targetUrl?: string,
   ): Promise<void> {
     await this.octokit.rest.repos.createCommitStatus({
       ...this.repo,
       sha,
       state,
-      context: 'shopfloor/review',
+      context: "shopfloor/review",
       description: description.slice(0, 140),
-      target_url: targetUrl
+      target_url: targetUrl,
     });
   }
 
   async listRepoLabels(): Promise<string[]> {
     const res = await this.octokit.rest.issues.listLabelsForRepo({
       ...this.repo,
-      per_page: 100
+      per_page: 100,
     });
     return res.data.map((l) => l.name);
   }
 
-  async createLabel(name: string, color: string, description?: string): Promise<void> {
+  async createLabel(
+    name: string,
+    color: string,
+    description?: string,
+  ): Promise<void> {
     try {
       await this.octokit.rest.issues.createLabel({
         ...this.repo,
         name,
         color,
-        description
+        description,
       });
     } catch (err: unknown) {
       if ((err as { status?: number }).status === 422) return; // label already exists
@@ -1258,19 +1454,28 @@ export class GitHubAdapter {
     await this.octokit.rest.issues.update({
       ...this.repo,
       issue_number: issueNumber,
-      state: 'closed'
+      state: "closed",
     });
   }
 
-  async getPrReviewsAtSha(prNumber: number, sha: string): Promise<Array<{ id: number; user: { login: string } | null; body: string }>> {
+  async getPrReviewsAtSha(
+    prNumber: number,
+    sha: string,
+  ): Promise<
+    Array<{ id: number; user: { login: string } | null; body: string }>
+  > {
     const res = await this.octokit.rest.pulls.listReviews({
       ...this.repo,
       pull_number: prNumber,
-      per_page: 100
+      per_page: 100,
     });
     return res.data
       .filter((r) => r.commit_id === sha)
-      .map((r) => ({ id: r.id, user: r.user as { login: string } | null, body: r.body ?? '' }));
+      .map((r) => ({
+        id: r.id,
+        user: r.user as { login: string } | null,
+        body: r.body ?? "",
+      }));
   }
 }
 ```
@@ -1309,71 +1514,86 @@ We share `router/src/index.ts` as the main router entry point and give each help
 ### Task 2.1: Main router entry dispatcher
 
 **Files:**
+
 - Modify: `router/src/index.ts`
 - Create: `router/action.yml`
 
 - [ ] **Step 1: Rewrite `router/src/index.ts` as a dispatcher**
 
 ```ts
-import * as core from '@actions/core';
-import { getOctokit, context } from '@actions/github';
-import { resolveStage } from './state';
-import { GitHubAdapter } from './github';
+import * as core from "@actions/core";
+import { getOctokit, context } from "@actions/github";
+import { resolveStage } from "./state";
+import { GitHubAdapter } from "./github";
 
-import { runBootstrapLabels } from './helpers/bootstrap-labels';
-import { runOpenStagePr } from './helpers/open-stage-pr';
-import { runAdvanceState } from './helpers/advance-state';
-import { runReportFailure } from './helpers/report-failure';
-import { runHandleMerge } from './helpers/handle-merge';
-import { runCreateProgressComment } from './helpers/create-progress-comment';
-import { runFinalizeProgressComment } from './helpers/finalize-progress-comment';
-import { runCheckReviewSkip } from './helpers/check-review-skip';
-import { runAggregateReview } from './helpers/aggregate-review';
+import { runBootstrapLabels } from "./helpers/bootstrap-labels";
+import { runOpenStagePr } from "./helpers/open-stage-pr";
+import { runAdvanceState } from "./helpers/advance-state";
+import { runReportFailure } from "./helpers/report-failure";
+import { runHandleMerge } from "./helpers/handle-merge";
+import { runCreateProgressComment } from "./helpers/create-progress-comment";
+import { runFinalizeProgressComment } from "./helpers/finalize-progress-comment";
+import { runCheckReviewSkip } from "./helpers/check-review-skip";
+import { runAggregateReview } from "./helpers/aggregate-review";
 
 async function main(): Promise<void> {
-  const helper = core.getInput('helper', { required: false }) || 'route';
-  const token = core.getInput('github_token', { required: true });
+  const helper = core.getInput("helper", { required: false }) || "route";
+  const token = core.getInput("github_token", { required: true });
   const octokit = getOctokit(token);
-  const adapter = new GitHubAdapter(octokit as unknown as import('./types').OctokitLike, {
-    owner: context.repo.owner,
-    repo: context.repo.repo
-  });
+  const adapter = new GitHubAdapter(
+    octokit as unknown as import("./types").OctokitLike,
+    {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+    },
+  );
   // The single cast above bridges @actions/github's getOctokit return type to our
   // structural OctokitLike interface. Both expose the same runtime surface for the
   // methods we call.
 
   switch (helper) {
-    case 'route': {
-      const decision = resolveStage({ eventName: context.eventName, payload: context.payload as never });
-      core.setOutput('stage', decision.stage);
-      if (decision.issueNumber !== undefined) core.setOutput('issue_number', String(decision.issueNumber));
-      if (decision.complexity) core.setOutput('complexity', decision.complexity);
-      if (decision.branchName) core.setOutput('branch_name', decision.branchName);
-      if (decision.specFilePath) core.setOutput('spec_file_path', decision.specFilePath);
-      if (decision.planFilePath) core.setOutput('plan_file_path', decision.planFilePath);
-      if (decision.revisionMode !== undefined) core.setOutput('revision_mode', String(decision.revisionMode));
-      if (decision.reviewIteration !== undefined) core.setOutput('review_iteration', String(decision.reviewIteration));
-      if (decision.implPrNumber !== undefined) core.setOutput('impl_pr_number', String(decision.implPrNumber));
-      if (decision.reason) core.setOutput('reason', decision.reason);
+    case "route": {
+      const decision = resolveStage({
+        eventName: context.eventName,
+        payload: context.payload as never,
+      });
+      core.setOutput("stage", decision.stage);
+      if (decision.issueNumber !== undefined)
+        core.setOutput("issue_number", String(decision.issueNumber));
+      if (decision.complexity)
+        core.setOutput("complexity", decision.complexity);
+      if (decision.branchName)
+        core.setOutput("branch_name", decision.branchName);
+      if (decision.specFilePath)
+        core.setOutput("spec_file_path", decision.specFilePath);
+      if (decision.planFilePath)
+        core.setOutput("plan_file_path", decision.planFilePath);
+      if (decision.revisionMode !== undefined)
+        core.setOutput("revision_mode", String(decision.revisionMode));
+      if (decision.reviewIteration !== undefined)
+        core.setOutput("review_iteration", String(decision.reviewIteration));
+      if (decision.implPrNumber !== undefined)
+        core.setOutput("impl_pr_number", String(decision.implPrNumber));
+      if (decision.reason) core.setOutput("reason", decision.reason);
       return;
     }
-    case 'bootstrap-labels':
+    case "bootstrap-labels":
       return runBootstrapLabels(adapter);
-    case 'open-stage-pr':
+    case "open-stage-pr":
       return runOpenStagePr(adapter);
-    case 'advance-state':
+    case "advance-state":
       return runAdvanceState(adapter);
-    case 'report-failure':
+    case "report-failure":
       return runReportFailure(adapter);
-    case 'handle-merge':
+    case "handle-merge":
       return runHandleMerge(adapter);
-    case 'create-progress-comment':
+    case "create-progress-comment":
       return runCreateProgressComment(adapter);
-    case 'finalize-progress-comment':
+    case "finalize-progress-comment":
       return runFinalizeProgressComment(adapter);
-    case 'check-review-skip':
+    case "check-review-skip":
       return runCheckReviewSkip(adapter);
-    case 'aggregate-review':
+    case "aggregate-review":
       return runAggregateReview(adapter);
     default:
       core.setFailed(`Unknown helper: ${helper}`);
@@ -1394,23 +1614,23 @@ name: Shopfloor Router
 description: Core dispatcher for the Shopfloor reusable workflow. Resolves the stage or invokes a helper.
 inputs:
   helper:
-    description: 'Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review'
+    description: "Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review"
     required: false
     default: route
   github_token:
     description: GitHub token
     required: true
 outputs:
-  stage: { description: 'Resolved stage' }
-  issue_number: { description: 'Issue number in context' }
-  complexity: { description: 'Complexity label, if set' }
-  branch_name: { description: 'Branch name to create/use' }
-  spec_file_path: { description: 'Spec file path' }
-  plan_file_path: { description: 'Plan file path' }
-  revision_mode: { description: 'Whether this is a revision run' }
-  review_iteration: { description: 'Current review iteration counter' }
-  impl_pr_number: { description: 'Implementation PR number, when relevant' }
-  reason: { description: 'Why the router returned this decision' }
+  stage: { description: "Resolved stage" }
+  issue_number: { description: "Issue number in context" }
+  complexity: { description: "Complexity label, if set" }
+  branch_name: { description: "Branch name to create/use" }
+  spec_file_path: { description: "Spec file path" }
+  plan_file_path: { description: "Plan file path" }
+  revision_mode: { description: "Whether this is a revision run" }
+  review_iteration: { description: "Current review iteration counter" }
+  impl_pr_number: { description: "Implementation PR number, when relevant" }
+  reason: { description: "Why the router returned this decision" }
 runs:
   using: node20
   main: dist/index.js
@@ -1421,9 +1641,11 @@ runs:
 Create `router/src/helpers/bootstrap-labels.ts`:
 
 ```ts
-import type { GitHubAdapter } from '../github';
-export async function runBootstrapLabels(_adapter: GitHubAdapter): Promise<void> {
-  throw new Error('Not implemented');
+import type { GitHubAdapter } from "../github";
+export async function runBootstrapLabels(
+  _adapter: GitHubAdapter,
+): Promise<void> {
+  throw new Error("Not implemented");
 }
 ```
 
@@ -1444,6 +1666,7 @@ git commit -m "feat(router): add main dispatcher and helper stubs"
 ### Task 2.2: Bootstrap labels helper (test + implement)
 
 **Files:**
+
 - Create: `router/test/helpers/bootstrap-labels.test.ts`
 - Modify: `router/src/helpers/bootstrap-labels.ts`
 - Create: `router/bootstrap-labels/action.yml`
@@ -1455,24 +1678,33 @@ git commit -m "feat(router): add main dispatcher and helper stubs"
 Create `router/test/helpers/bootstrap-labels.test.ts`:
 
 ```ts
-import { describe, expect, test, vi } from 'vitest';
-import { GitHubAdapter } from '../../src/github';
-import { bootstrapLabels } from '../../src/helpers/bootstrap-labels';
+import { describe, expect, test, vi } from "vitest";
+import { GitHubAdapter } from "../../src/github";
+import { bootstrapLabels } from "../../src/helpers/bootstrap-labels";
 
-describe('bootstrapLabels', () => {
-  test('creates every missing label with correct color', async () => {
-    const listLabelsForRepo = vi.fn().mockResolvedValue({ data: [{ name: 'shopfloor:triaging' }] });
+describe("bootstrapLabels", () => {
+  test("creates every missing label with correct color", async () => {
+    const listLabelsForRepo = vi
+      .fn()
+      .mockResolvedValue({ data: [{ name: "shopfloor:triaging" }] });
     const createLabel = vi.fn().mockResolvedValue({ data: {} });
     const adapter = new GitHubAdapter(
-      { rest: { issues: { listLabelsForRepo, createLabel } } } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-      { owner: 'o', repo: 'r' }
+      {
+        rest: { issues: { listLabelsForRepo, createLabel } },
+      } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
+      { owner: "o", repo: "r" },
     );
     const created = await bootstrapLabels(adapter);
     expect(created.length).toBeGreaterThanOrEqual(15); // everything except shopfloor:triaging
     expect(createLabel).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: 'o', repo: 'r', name: 'shopfloor:done', color: expect.any(String) })
+      expect.objectContaining({
+        owner: "o",
+        repo: "r",
+        name: "shopfloor:done",
+        color: expect.any(String),
+      }),
     );
-    expect(created).not.toContain('shopfloor:triaging');
+    expect(created).not.toContain("shopfloor:triaging");
   });
 });
 ```
@@ -1487,36 +1719,132 @@ Expected: FAIL.
 Rewrite `router/src/helpers/bootstrap-labels.ts`:
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
-const LABEL_DEFS: Array<{ name: string; color: string; description: string }> = [
-  { name: 'shopfloor:triaging', color: 'fbca04', description: 'Shopfloor triage agent is evaluating this issue.' },
-  { name: 'shopfloor:awaiting-info', color: 'd93f0b', description: 'Shopfloor is waiting for the issue author to answer clarifying questions.' },
-  { name: 'shopfloor:quick', color: '0e8a16', description: 'Classified as a quick fix (straight to implementation).' },
-  { name: 'shopfloor:medium', color: '1d76db', description: 'Classified as medium (skip spec, go to plan).' },
-  { name: 'shopfloor:large', color: '5319e7', description: 'Classified as large (full spec, plan, impl flow).' },
-  { name: 'shopfloor:needs-spec', color: 'a2eeef', description: 'Ready for the spec agent.' },
-  { name: 'shopfloor:spec-in-review', color: 'a2eeef', description: 'Spec PR awaiting human review.' },
-  { name: 'shopfloor:needs-plan', color: 'a2eeef', description: 'Ready for the plan agent.' },
-  { name: 'shopfloor:plan-in-review', color: 'a2eeef', description: 'Plan PR awaiting human review.' },
-  { name: 'shopfloor:needs-impl', color: 'a2eeef', description: 'Ready for the implementation agent.' },
-  { name: 'shopfloor:needs-review', color: 'a2eeef', description: 'Implementation complete, agent review queued.' },
-  { name: 'shopfloor:review-requested-changes', color: 'e99695', description: 'Agent review requested changes; impl will re-run.' },
-  { name: 'shopfloor:review-approved', color: '0e8a16', description: 'Agent review passed; ready for human merge.' },
-  { name: 'shopfloor:review-stuck', color: 'b60205', description: 'Review loop exceeded iteration cap; needs human.' },
-  { name: 'shopfloor:impl-in-review', color: 'a2eeef', description: 'Impl PR awaiting human review (skip-review case).' },
-  { name: 'shopfloor:skip-review', color: 'ededed', description: 'Bypass the agent review stage for this ticket.' },
-  { name: 'shopfloor:done', color: '0e8a16', description: 'Implementation merged. Pipeline complete.' },
-  { name: 'shopfloor:revise', color: 'ededed', description: 'Manual trigger to re-run the current stage.' },
-  { name: 'shopfloor:failed:triage', color: 'b60205', description: 'Triage stage failed.' },
-  { name: 'shopfloor:failed:spec', color: 'b60205', description: 'Spec stage failed.' },
-  { name: 'shopfloor:failed:plan', color: 'b60205', description: 'Plan stage failed.' },
-  { name: 'shopfloor:failed:implement', color: 'b60205', description: 'Implementation stage failed.' },
-  { name: 'shopfloor:failed:review', color: 'b60205', description: 'Review stage failed.' }
-];
+const LABEL_DEFS: Array<{ name: string; color: string; description: string }> =
+  [
+    {
+      name: "shopfloor:triaging",
+      color: "fbca04",
+      description: "Shopfloor triage agent is evaluating this issue.",
+    },
+    {
+      name: "shopfloor:awaiting-info",
+      color: "d93f0b",
+      description:
+        "Shopfloor is waiting for the issue author to answer clarifying questions.",
+    },
+    {
+      name: "shopfloor:quick",
+      color: "0e8a16",
+      description: "Classified as a quick fix (straight to implementation).",
+    },
+    {
+      name: "shopfloor:medium",
+      color: "1d76db",
+      description: "Classified as medium (skip spec, go to plan).",
+    },
+    {
+      name: "shopfloor:large",
+      color: "5319e7",
+      description: "Classified as large (full spec, plan, impl flow).",
+    },
+    {
+      name: "shopfloor:needs-spec",
+      color: "a2eeef",
+      description: "Ready for the spec agent.",
+    },
+    {
+      name: "shopfloor:spec-in-review",
+      color: "a2eeef",
+      description: "Spec PR awaiting human review.",
+    },
+    {
+      name: "shopfloor:needs-plan",
+      color: "a2eeef",
+      description: "Ready for the plan agent.",
+    },
+    {
+      name: "shopfloor:plan-in-review",
+      color: "a2eeef",
+      description: "Plan PR awaiting human review.",
+    },
+    {
+      name: "shopfloor:needs-impl",
+      color: "a2eeef",
+      description: "Ready for the implementation agent.",
+    },
+    {
+      name: "shopfloor:needs-review",
+      color: "a2eeef",
+      description: "Implementation complete, agent review queued.",
+    },
+    {
+      name: "shopfloor:review-requested-changes",
+      color: "e99695",
+      description: "Agent review requested changes; impl will re-run.",
+    },
+    {
+      name: "shopfloor:review-approved",
+      color: "0e8a16",
+      description: "Agent review passed; ready for human merge.",
+    },
+    {
+      name: "shopfloor:review-stuck",
+      color: "b60205",
+      description: "Review loop exceeded iteration cap; needs human.",
+    },
+    {
+      name: "shopfloor:impl-in-review",
+      color: "a2eeef",
+      description: "Impl PR awaiting human review (skip-review case).",
+    },
+    {
+      name: "shopfloor:skip-review",
+      color: "ededed",
+      description: "Bypass the agent review stage for this ticket.",
+    },
+    {
+      name: "shopfloor:done",
+      color: "0e8a16",
+      description: "Implementation merged. Pipeline complete.",
+    },
+    {
+      name: "shopfloor:revise",
+      color: "ededed",
+      description: "Manual trigger to re-run the current stage.",
+    },
+    {
+      name: "shopfloor:failed:triage",
+      color: "b60205",
+      description: "Triage stage failed.",
+    },
+    {
+      name: "shopfloor:failed:spec",
+      color: "b60205",
+      description: "Spec stage failed.",
+    },
+    {
+      name: "shopfloor:failed:plan",
+      color: "b60205",
+      description: "Plan stage failed.",
+    },
+    {
+      name: "shopfloor:failed:implement",
+      color: "b60205",
+      description: "Implementation stage failed.",
+    },
+    {
+      name: "shopfloor:failed:review",
+      color: "b60205",
+      description: "Review stage failed.",
+    },
+  ];
 
-export async function bootstrapLabels(adapter: GitHubAdapter): Promise<string[]> {
+export async function bootstrapLabels(
+  adapter: GitHubAdapter,
+): Promise<string[]> {
   const existing = new Set(await adapter.listRepoLabels());
   const created: string[] = [];
   for (const def of LABEL_DEFS) {
@@ -1527,10 +1855,12 @@ export async function bootstrapLabels(adapter: GitHubAdapter): Promise<string[]>
   return created;
 }
 
-export async function runBootstrapLabels(adapter: GitHubAdapter): Promise<void> {
+export async function runBootstrapLabels(
+  adapter: GitHubAdapter,
+): Promise<void> {
   const created = await bootstrapLabels(adapter);
   core.info(`Shopfloor bootstrap: created ${created.length} missing labels`);
-  core.setOutput('created_labels', JSON.stringify(created));
+  core.setOutput("created_labels", JSON.stringify(created));
 }
 ```
 
@@ -1550,7 +1880,7 @@ inputs:
     required: true
 outputs:
   created_labels:
-    description: 'JSON array of label names that were created'
+    description: "JSON array of label names that were created"
 runs:
   using: node20
   main: ../dist/index.js
@@ -1572,40 +1902,48 @@ git commit -m "feat(router): add bootstrap-labels helper with tests"
 ### Task 2.3: open-stage-pr helper
 
 **Files:**
+
 - Create: `router/test/helpers/open-stage-pr.test.ts`
 - Modify: `router/src/helpers/open-stage-pr.ts`
 
 - [ ] **Step 1: Write failing test**
 
 ```ts
-import { describe, expect, test, vi } from 'vitest';
-import { openStagePr, runOpenStagePr } from '../../src/helpers/open-stage-pr';
-import { GitHubAdapter } from '../../src/github';
+import { describe, expect, test, vi } from "vitest";
+import { openStagePr, runOpenStagePr } from "../../src/helpers/open-stage-pr";
+import { GitHubAdapter } from "../../src/github";
 
-function makeAdapter(octokitOverrides: Partial<Record<string, unknown>> = {}): GitHubAdapter {
-  const createPrMock = vi.fn().mockResolvedValue({ data: { number: 43, html_url: 'https://x/43' } });
+function makeAdapter(
+  octokitOverrides: Partial<Record<string, unknown>> = {},
+): GitHubAdapter {
+  const createPrMock = vi
+    .fn()
+    .mockResolvedValue({ data: { number: 43, html_url: "https://x/43" } });
   return new GitHubAdapter(
     {
       rest: {
-        issues: { createComment: vi.fn().mockResolvedValue({ data: { id: 1 } }), addLabels: vi.fn() },
+        issues: {
+          createComment: vi.fn().mockResolvedValue({ data: { id: 1 } }),
+          addLabels: vi.fn(),
+        },
         pulls: { create: createPrMock, update: vi.fn() },
-        ...octokitOverrides
-      }
+        ...octokitOverrides,
+      },
     } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-    { owner: 'o', repo: 'r' }
+    { owner: "o", repo: "r" },
   );
 }
 
-describe('openStagePr', () => {
-  test('opens a PR with metadata block and returns number', async () => {
+describe("openStagePr", () => {
+  test("opens a PR with metadata block and returns number", async () => {
     const adapter = makeAdapter();
     const result = await openStagePr(adapter, {
       issueNumber: 42,
-      stage: 'spec',
-      branchName: 'shopfloor/spec/42-foo',
-      baseBranch: 'main',
-      title: 'Spec for #42',
-      body: 'Body.'
+      stage: "spec",
+      branchName: "shopfloor/spec/42-foo",
+      baseBranch: "main",
+      title: "Spec for #42",
+      body: "Body.",
     });
     expect(result.prNumber).toBe(43);
   });
@@ -1617,12 +1955,12 @@ describe('openStagePr', () => {
 Implement `router/src/helpers/open-stage-pr.ts`:
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
 export interface OpenStagePrParams {
   issueNumber: number;
-  stage: 'spec' | 'plan' | 'implement';
+  stage: "spec" | "plan" | "implement";
   branchName: string;
   baseBranch: string;
   title: string;
@@ -1633,7 +1971,7 @@ export interface OpenStagePrParams {
 
 export async function openStagePr(
   adapter: GitHubAdapter,
-  params: OpenStagePrParams
+  params: OpenStagePrParams,
 ): Promise<{ prNumber: number; url: string }> {
   const pr = await adapter.openStagePr({
     base: params.baseBranch,
@@ -1643,25 +1981,29 @@ export async function openStagePr(
     stage: params.stage,
     issueNumber: params.issueNumber,
     reviewIteration: params.reviewIteration,
-    draft: params.draft
+    draft: params.draft,
   });
   return { prNumber: pr.number, url: pr.url };
 }
 
 export async function runOpenStagePr(adapter: GitHubAdapter): Promise<void> {
   const params: OpenStagePrParams = {
-    issueNumber: Number(core.getInput('issue_number', { required: true })),
-    stage: core.getInput('stage', { required: true }) as OpenStagePrParams['stage'],
-    branchName: core.getInput('branch_name', { required: true }),
-    baseBranch: core.getInput('base_branch', { required: true }),
-    title: core.getInput('pr_title', { required: true }),
-    body: core.getInput('pr_body', { required: true }),
-    reviewIteration: core.getInput('review_iteration') ? Number(core.getInput('review_iteration')) : undefined,
-    draft: core.getInput('draft') === 'true'
+    issueNumber: Number(core.getInput("issue_number", { required: true })),
+    stage: core.getInput("stage", {
+      required: true,
+    }) as OpenStagePrParams["stage"],
+    branchName: core.getInput("branch_name", { required: true }),
+    baseBranch: core.getInput("base_branch", { required: true }),
+    title: core.getInput("pr_title", { required: true }),
+    body: core.getInput("pr_body", { required: true }),
+    reviewIteration: core.getInput("review_iteration")
+      ? Number(core.getInput("review_iteration"))
+      : undefined,
+    draft: core.getInput("draft") === "true",
   };
   const result = await openStagePr(adapter, params);
-  core.setOutput('pr_number', String(result.prNumber));
-  core.setOutput('pr_url', result.url);
+  core.setOutput("pr_number", String(result.prNumber));
+  core.setOutput("pr_url", result.url);
 }
 ```
 
@@ -1678,6 +2020,7 @@ git commit -m "feat(router): add open-stage-pr helper with tests"
 ### Task 2.4: advance-state helper
 
 **Files:**
+
 - Create: `router/test/helpers/advance-state.test.ts`
 - Modify: `router/src/helpers/advance-state.ts`
 
@@ -1686,21 +2029,32 @@ git commit -m "feat(router): add open-stage-pr helper with tests"
 - [ ] **Step 1: Write failing test**
 
 ```ts
-import { describe, expect, test, vi } from 'vitest';
-import { GitHubAdapter } from '../../src/github';
-import { advanceState } from '../../src/helpers/advance-state';
+import { describe, expect, test, vi } from "vitest";
+import { GitHubAdapter } from "../../src/github";
+import { advanceState } from "../../src/helpers/advance-state";
 
-describe('advanceState', () => {
-  test('removes fromLabels and adds toLabels', async () => {
+describe("advanceState", () => {
+  test("removes fromLabels and adds toLabels", async () => {
     const addLabels = vi.fn().mockResolvedValue({ data: [] });
     const removeLabel = vi.fn().mockResolvedValue({ data: [] });
     const adapter = new GitHubAdapter(
-      { rest: { issues: { addLabels, removeLabel } } } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-      { owner: 'o', repo: 'r' }
+      {
+        rest: { issues: { addLabels, removeLabel } },
+      } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
+      { owner: "o", repo: "r" },
     );
-    await advanceState(adapter, 42, ['shopfloor:needs-spec'], ['shopfloor:spec-in-review']);
-    expect(removeLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'shopfloor:needs-spec' }));
-    expect(addLabels).toHaveBeenCalledWith(expect.objectContaining({ labels: ['shopfloor:spec-in-review'] }));
+    await advanceState(
+      adapter,
+      42,
+      ["shopfloor:needs-spec"],
+      ["shopfloor:spec-in-review"],
+    );
+    expect(removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:needs-spec" }),
+    );
+    expect(addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["shopfloor:spec-in-review"] }),
+    );
   });
 });
 ```
@@ -1708,25 +2062,31 @@ describe('advanceState', () => {
 - [ ] **Step 2: Implement**
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
 export async function advanceState(
   adapter: GitHubAdapter,
   issueNumber: number,
   fromLabels: string[],
-  toLabels: string[]
+  toLabels: string[],
 ): Promise<void> {
   for (const l of fromLabels) await adapter.removeLabel(issueNumber, l);
   for (const l of toLabels) await adapter.addLabel(issueNumber, l);
 }
 
 export async function runAdvanceState(adapter: GitHubAdapter): Promise<void> {
-  const issueNumber = Number(core.getInput('issue_number', { required: true }));
-  const fromLabels = (core.getInput('from_labels') || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const toLabels = (core.getInput('to_labels') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const issueNumber = Number(core.getInput("issue_number", { required: true }));
+  const fromLabels = (core.getInput("from_labels") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const toLabels = (core.getInput("to_labels") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   await advanceState(adapter, issueNumber, fromLabels, toLabels);
-  core.info(`advance-state: ${fromLabels.join(',')} -> ${toLabels.join(',')}`);
+  core.info(`advance-state: ${fromLabels.join(",")} -> ${toLabels.join(",")}`);
 }
 ```
 
@@ -1740,6 +2100,7 @@ git commit -m "feat(router): add advance-state helper with tests"
 ### Task 2.5: report-failure helper
 
 **Files:**
+
 - Create: `router/test/helpers/report-failure.test.ts`
 - Modify: `router/src/helpers/report-failure.ts`
 
@@ -1748,53 +2109,71 @@ git commit -m "feat(router): add advance-state helper with tests"
 - [ ] **Step 1: Test-first**
 
 ```ts
-test('posts diagnostic comment and applies failed label', async () => {
+test("posts diagnostic comment and applies failed label", async () => {
   const createComment = vi.fn().mockResolvedValue({ data: { id: 1 } });
   const addLabels = vi.fn().mockResolvedValue({ data: [] });
   const adapter = new GitHubAdapter(
-    { rest: { issues: { createComment, addLabels } } } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-    { owner: 'o', repo: 'r' }
+    {
+      rest: { issues: { createComment, addLabels } },
+    } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
+    { owner: "o", repo: "r" },
   );
-  await reportFailure(adapter, { issueNumber: 42, stage: 'spec', runUrl: 'https://x/run/1' });
+  await reportFailure(adapter, {
+    issueNumber: 42,
+    stage: "spec",
+    runUrl: "https://x/run/1",
+  });
   expect(createComment).toHaveBeenCalledWith(
-    expect.objectContaining({ body: expect.stringContaining('spec') })
+    expect.objectContaining({ body: expect.stringContaining("spec") }),
   );
-  expect(addLabels).toHaveBeenCalledWith(expect.objectContaining({ labels: ['shopfloor:failed:spec'] }));
+  expect(addLabels).toHaveBeenCalledWith(
+    expect.objectContaining({ labels: ["shopfloor:failed:spec"] }),
+  );
 });
 ```
 
 - [ ] **Step 2: Implement**
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
 export interface ReportFailureParams {
   issueNumber: number;
-  stage: 'triage' | 'spec' | 'plan' | 'implement' | 'review';
+  stage: "triage" | "spec" | "plan" | "implement" | "review";
   runUrl: string;
   targetPrNumber?: number; // optional, when a PR exists; otherwise posts on origin issue
 }
 
-export async function reportFailure(adapter: GitHubAdapter, params: ReportFailureParams): Promise<void> {
+export async function reportFailure(
+  adapter: GitHubAdapter,
+  params: ReportFailureParams,
+): Promise<void> {
   const target = params.targetPrNumber ?? params.issueNumber;
   const body = [
     `**Shopfloor stage \`${params.stage}\` failed.**`,
-    '',
+    "",
     `See the [workflow run](${params.runUrl}) for details.`,
-    '',
-    `You can retry by removing the \`shopfloor:failed:${params.stage}\` label.`
-  ].join('\n');
+    "",
+    `You can retry by removing the \`shopfloor:failed:${params.stage}\` label.`,
+  ].join("\n");
   await adapter.postIssueComment(target, body);
-  await adapter.addLabel(params.issueNumber, `shopfloor:failed:${params.stage}`);
+  await adapter.addLabel(
+    params.issueNumber,
+    `shopfloor:failed:${params.stage}`,
+  );
 }
 
 export async function runReportFailure(adapter: GitHubAdapter): Promise<void> {
   await reportFailure(adapter, {
-    issueNumber: Number(core.getInput('issue_number', { required: true })),
-    stage: core.getInput('stage', { required: true }) as ReportFailureParams['stage'],
-    runUrl: core.getInput('run_url', { required: true }),
-    targetPrNumber: core.getInput('target_pr_number') ? Number(core.getInput('target_pr_number')) : undefined
+    issueNumber: Number(core.getInput("issue_number", { required: true })),
+    stage: core.getInput("stage", {
+      required: true,
+    }) as ReportFailureParams["stage"],
+    runUrl: core.getInput("run_url", { required: true }),
+    targetPrNumber: core.getInput("target_pr_number")
+      ? Number(core.getInput("target_pr_number"))
+      : undefined,
   });
 }
 ```
@@ -1809,6 +2188,7 @@ git commit -m "feat(router): add report-failure helper with tests"
 ### Task 2.6: handle-merge helper
 
 **Files:**
+
 - Create: `router/test/helpers/handle-merge.test.ts`
 - Modify: `router/src/helpers/handle-merge.ts`
 
@@ -1819,51 +2199,85 @@ git commit -m "feat(router): add report-failure helper with tests"
 Test: merging a spec PR transitions the origin issue from `shopfloor:spec-in-review` to `shopfloor:needs-plan`. Merging a plan PR transitions to `needs-impl`. Merging an impl PR transitions to `shopfloor:done` and closes the issue.
 
 ```ts
-test('spec PR merged → needs-plan', async () => {
+test("spec PR merged → needs-plan", async () => {
   const addLabels = vi.fn();
   const removeLabel = vi.fn();
   const createComment = vi.fn().mockResolvedValue({ data: { id: 1 } });
   const adapter = new GitHubAdapter(
-    { rest: { issues: { addLabels, removeLabel, createComment, update: vi.fn() } } } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-    { owner: 'o', repo: 'r' }
+    {
+      rest: {
+        issues: { addLabels, removeLabel, createComment, update: vi.fn() },
+      },
+    } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
+    { owner: "o", repo: "r" },
   );
-  await handleMerge(adapter, { issueNumber: 42, mergedStage: 'spec', prNumber: 43 });
-  expect(removeLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'shopfloor:spec-in-review' }));
-  expect(addLabels).toHaveBeenCalledWith(expect.objectContaining({ labels: ['shopfloor:needs-plan'] }));
+  await handleMerge(adapter, {
+    issueNumber: 42,
+    mergedStage: "spec",
+    prNumber: 43,
+  });
+  expect(removeLabel).toHaveBeenCalledWith(
+    expect.objectContaining({ name: "shopfloor:spec-in-review" }),
+  );
+  expect(addLabels).toHaveBeenCalledWith(
+    expect.objectContaining({ labels: ["shopfloor:needs-plan"] }),
+  );
 });
 ```
 
 - [ ] **Step 2: Implement**
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
-import { advanceState } from './advance-state';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
+import { advanceState } from "./advance-state";
 
 export interface HandleMergeParams {
   issueNumber: number;
-  mergedStage: 'spec' | 'plan' | 'implement';
+  mergedStage: "spec" | "plan" | "implement";
   prNumber: number;
 }
 
-export async function handleMerge(adapter: GitHubAdapter, params: HandleMergeParams): Promise<void> {
+export async function handleMerge(
+  adapter: GitHubAdapter,
+  params: HandleMergeParams,
+): Promise<void> {
   switch (params.mergedStage) {
-    case 'spec':
-      await advanceState(adapter, params.issueNumber, ['shopfloor:spec-in-review'], ['shopfloor:needs-plan']);
-      await adapter.postIssueComment(params.issueNumber, `Spec merged in #${params.prNumber}. Moving to planning stage.`);
-      return;
-    case 'plan':
-      await advanceState(adapter, params.issueNumber, ['shopfloor:plan-in-review'], ['shopfloor:needs-impl']);
-      await adapter.postIssueComment(params.issueNumber, `Plan merged in #${params.prNumber}. Moving to implementation stage.`);
-      return;
-    case 'implement':
+    case "spec":
       await advanceState(
         adapter,
         params.issueNumber,
-        ['shopfloor:impl-in-review', 'shopfloor:review-approved'],
-        ['shopfloor:done']
+        ["shopfloor:spec-in-review"],
+        ["shopfloor:needs-plan"],
       );
-      await adapter.postIssueComment(params.issueNumber, `Implementation merged in #${params.prNumber}. Pipeline complete.`);
+      await adapter.postIssueComment(
+        params.issueNumber,
+        `Spec merged in #${params.prNumber}. Moving to planning stage.`,
+      );
+      return;
+    case "plan":
+      await advanceState(
+        adapter,
+        params.issueNumber,
+        ["shopfloor:plan-in-review"],
+        ["shopfloor:needs-impl"],
+      );
+      await adapter.postIssueComment(
+        params.issueNumber,
+        `Plan merged in #${params.prNumber}. Moving to implementation stage.`,
+      );
+      return;
+    case "implement":
+      await advanceState(
+        adapter,
+        params.issueNumber,
+        ["shopfloor:impl-in-review", "shopfloor:review-approved"],
+        ["shopfloor:done"],
+      );
+      await adapter.postIssueComment(
+        params.issueNumber,
+        `Implementation merged in #${params.prNumber}. Pipeline complete.`,
+      );
       await adapter.closeIssue(params.issueNumber);
       return;
   }
@@ -1871,9 +2285,11 @@ export async function handleMerge(adapter: GitHubAdapter, params: HandleMergePar
 
 export async function runHandleMerge(adapter: GitHubAdapter): Promise<void> {
   await handleMerge(adapter, {
-    issueNumber: Number(core.getInput('issue_number', { required: true })),
-    mergedStage: core.getInput('merged_stage', { required: true }) as HandleMergeParams['mergedStage'],
-    prNumber: Number(core.getInput('pr_number', { required: true }))
+    issueNumber: Number(core.getInput("issue_number", { required: true })),
+    mergedStage: core.getInput("merged_stage", {
+      required: true,
+    }) as HandleMergeParams["mergedStage"],
+    prNumber: Number(core.getInput("pr_number", { required: true })),
   });
 }
 ```
@@ -1888,6 +2304,7 @@ git commit -m "feat(router): add handle-merge helper with tests"
 ### Task 2.7: create-progress-comment and finalize-progress-comment helpers
 
 **Files:**
+
 - Create: `router/test/helpers/progress-comment.test.ts`
 - Modify: `router/src/helpers/create-progress-comment.ts`
 - Modify: `router/src/helpers/finalize-progress-comment.ts`
@@ -1897,25 +2314,32 @@ git commit -m "feat(router): add handle-merge helper with tests"
 - [ ] **Step 1: Test-first**
 
 ```ts
-test('create-progress-comment returns the comment id', async () => {
+test("create-progress-comment returns the comment id", async () => {
   const createComment = vi.fn().mockResolvedValue({ data: { id: 777 } });
   const adapter = new GitHubAdapter(
-    { rest: { issues: { createComment } } } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-    { owner: 'o', repo: 'r' }
+    { rest: { issues: { createComment } } } as unknown as ConstructorParameters<
+      typeof GitHubAdapter
+    >[0],
+    { owner: "o", repo: "r" },
   );
   const id = await createProgressComment(adapter, 45);
   expect(id).toBe(777);
 });
 
-test('finalize replaces comment body', async () => {
+test("finalize replaces comment body", async () => {
   const updateComment = vi.fn().mockResolvedValue({ data: {} });
   const adapter = new GitHubAdapter(
-    { rest: { issues: { updateComment } } } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-    { owner: 'o', repo: 'r' }
+    { rest: { issues: { updateComment } } } as unknown as ConstructorParameters<
+      typeof GitHubAdapter
+    >[0],
+    { owner: "o", repo: "r" },
   );
-  await finalizeProgressComment(adapter, 777, 'success', 'All tasks complete.');
+  await finalizeProgressComment(adapter, 777, "success", "All tasks complete.");
   expect(updateComment).toHaveBeenCalledWith(
-    expect.objectContaining({ comment_id: 777, body: expect.stringContaining('All tasks complete.') })
+    expect.objectContaining({
+      comment_id: 777,
+      body: expect.stringContaining("All tasks complete."),
+    }),
   );
 });
 ```
@@ -1924,43 +2348,58 @@ test('finalize replaces comment body', async () => {
 
 ```ts
 // create-progress-comment.ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
-export async function createProgressComment(adapter: GitHubAdapter, prNumber: number): Promise<number> {
+export async function createProgressComment(
+  adapter: GitHubAdapter,
+  prNumber: number,
+): Promise<number> {
   return adapter.postIssueComment(
     prNumber,
-    '**Shopfloor implementation in progress.**\n\nI will update this comment with progress as I work. Stand by.'
+    "**Shopfloor implementation in progress.**\n\nI will update this comment with progress as I work. Stand by.",
   );
 }
 
-export async function runCreateProgressComment(adapter: GitHubAdapter): Promise<void> {
-  const id = await createProgressComment(adapter, Number(core.getInput('pr_number', { required: true })));
-  core.setOutput('comment_id', String(id));
+export async function runCreateProgressComment(
+  adapter: GitHubAdapter,
+): Promise<void> {
+  const id = await createProgressComment(
+    adapter,
+    Number(core.getInput("pr_number", { required: true })),
+  );
+  core.setOutput("comment_id", String(id));
 }
 ```
 
 ```ts
 // finalize-progress-comment.ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
 export async function finalizeProgressComment(
   adapter: GitHubAdapter,
   commentId: number,
-  terminalState: 'success' | 'failure',
-  finalBody: string
+  terminalState: "success" | "failure",
+  finalBody: string,
 ): Promise<void> {
-  const header = terminalState === 'success' ? '**Shopfloor implementation complete.**' : '**Shopfloor implementation ended with errors.**';
+  const header =
+    terminalState === "success"
+      ? "**Shopfloor implementation complete.**"
+      : "**Shopfloor implementation ended with errors.**";
   await adapter.updateComment(commentId, `${header}\n\n${finalBody}`);
 }
 
-export async function runFinalizeProgressComment(adapter: GitHubAdapter): Promise<void> {
+export async function runFinalizeProgressComment(
+  adapter: GitHubAdapter,
+): Promise<void> {
   await finalizeProgressComment(
     adapter,
-    Number(core.getInput('comment_id', { required: true })),
-    core.getInput('terminal_state', { required: true }) as 'success' | 'failure',
-    core.getInput('final_body', { required: true })
+    Number(core.getInput("comment_id", { required: true })),
+    core.getInput("terminal_state", { required: true }) as
+      | "success"
+      | "failure",
+    core.getInput("final_body", { required: true }),
   );
 }
 ```
@@ -1975,6 +2414,7 @@ git commit -m "feat(router): add progress comment helpers with tests"
 ### Task 2.8: check-review-skip helper
 
 **Files:**
+
 - Create: `router/test/helpers/check-review-skip.test.ts`
 - Modify: `router/src/helpers/check-review-skip.ts`
 
@@ -1983,49 +2423,51 @@ git commit -m "feat(router): add progress comment helpers with tests"
 - [ ] **Step 1: Test-first**
 
 ```ts
-test('returns skip=true when PR has shopfloor:skip-review label', async () => {
+test("returns skip=true when PR has shopfloor:skip-review label", async () => {
   const adapter = makeAdapterWithPr({
-    labels: [{ name: 'shopfloor:skip-review' }],
-    changedFiles: ['src/foo.ts']
+    labels: [{ name: "shopfloor:skip-review" }],
+    changedFiles: ["src/foo.ts"],
   });
   const result = await checkReviewSkip(adapter, 45);
   expect(result.skip).toBe(true);
-  expect(result.reason).toBe('skip_review_label');
+  expect(result.reason).toBe("skip_review_label");
 });
 
-test('returns skip=true when PR changed files are all in docs/shopfloor/', async () => {
-  const adapter = makeAdapterWithPr({ changedFiles: ['docs/shopfloor/specs/42-x.md'] });
+test("returns skip=true when PR changed files are all in docs/shopfloor/", async () => {
+  const adapter = makeAdapterWithPr({
+    changedFiles: ["docs/shopfloor/specs/42-x.md"],
+  });
   const result = await checkReviewSkip(adapter, 45);
   expect(result.skip).toBe(true);
-  expect(result.reason).toBe('only_shopfloor_docs');
+  expect(result.reason).toBe("only_shopfloor_docs");
 });
 
-test('returns skip=false on normal impl PR', async () => {
-  const adapter = makeAdapterWithPr({ changedFiles: ['src/auth.ts'] });
+test("returns skip=false on normal impl PR", async () => {
+  const adapter = makeAdapterWithPr({ changedFiles: ["src/auth.ts"] });
   const result = await checkReviewSkip(adapter, 45);
   expect(result.skip).toBe(false);
 });
 
-test('returns skip=true when origin issue carries shopfloor:skip-review', async () => {
+test("returns skip=true when origin issue carries shopfloor:skip-review", async () => {
   const adapter = makeAdapterWithPr({
-    body: 'Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement',
-    issueLabels: [{ name: 'shopfloor:skip-review' }],
-    changedFiles: ['src/auth.ts']
+    body: "Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement",
+    issueLabels: [{ name: "shopfloor:skip-review" }],
+    changedFiles: ["src/auth.ts"],
   });
   const result = await checkReviewSkip(adapter, 45);
   expect(result.skip).toBe(true);
-  expect(result.reason).toBe('skip_review_label_issue');
+  expect(result.reason).toBe("skip_review_label_issue");
 });
 
-test('returns skip=true when origin issue is closed', async () => {
+test("returns skip=true when origin issue is closed", async () => {
   const adapter = makeAdapterWithPr({
-    body: 'Body\n---\nShopfloor-Issue: #42',
-    issueState: 'closed',
-    changedFiles: ['src/auth.ts']
+    body: "Body\n---\nShopfloor-Issue: #42",
+    issueState: "closed",
+    changedFiles: ["src/auth.ts"],
   });
   const result = await checkReviewSkip(adapter, 45);
   expect(result.skip).toBe(true);
-  expect(result.reason).toBe('origin_issue_closed');
+  expect(result.reason).toBe("origin_issue_closed");
 });
 ```
 
@@ -2077,8 +2519,8 @@ async getIssue(issueNumber: number): Promise<{ labels: Array<{ name: string }>; 
 The helper must check **both** PR labels and the origin issue's labels per spec section 5.5.1 conditions 6 and 7. The origin issue number is parsed from the PR body's `Shopfloor-Issue:` metadata.
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
 
 export interface CheckReviewSkipResult {
   skip: boolean;
@@ -2091,39 +2533,50 @@ function parseIssueNumberFromBody(body: string | null): number | null {
   return m ? Number(m[1]) : null;
 }
 
-export async function checkReviewSkip(adapter: GitHubAdapter, prNumber: number): Promise<CheckReviewSkipResult> {
+export async function checkReviewSkip(
+  adapter: GitHubAdapter,
+  prNumber: number,
+): Promise<CheckReviewSkipResult> {
   const pr = await adapter.getPr(prNumber);
-  if (pr.state === 'closed') return { skip: true, reason: 'pr_closed' };
-  if (pr.draft) return { skip: true, reason: 'pr_draft' };
-  if (pr.labels.some((l) => l.name === 'shopfloor:skip-review')) return { skip: true, reason: 'skip_review_label_pr' };
+  if (pr.state === "closed") return { skip: true, reason: "pr_closed" };
+  if (pr.draft) return { skip: true, reason: "pr_draft" };
+  if (pr.labels.some((l) => l.name === "shopfloor:skip-review"))
+    return { skip: true, reason: "skip_review_label_pr" };
 
   // Spec 5.5.1 condition 7: check origin issue's labels too.
   const originIssueNumber = parseIssueNumberFromBody(pr.body ?? null);
   if (originIssueNumber !== null) {
     const issue = await adapter.getIssue(originIssueNumber);
-    if (issue.state === 'closed') return { skip: true, reason: 'origin_issue_closed' };
-    if (issue.labels.some((l) => l.name === 'shopfloor:skip-review')) {
-      return { skip: true, reason: 'skip_review_label_issue' };
+    if (issue.state === "closed")
+      return { skip: true, reason: "origin_issue_closed" };
+    if (issue.labels.some((l) => l.name === "shopfloor:skip-review")) {
+      return { skip: true, reason: "skip_review_label_issue" };
     }
   }
 
   const files = await adapter.listChangedFiles(prNumber);
-  if (files.length === 0) return { skip: true, reason: 'no_changed_files' };
-  if (files.every((f) => f.startsWith('docs/shopfloor/'))) return { skip: true, reason: 'only_shopfloor_docs' };
+  if (files.length === 0) return { skip: true, reason: "no_changed_files" };
+  if (files.every((f) => f.startsWith("docs/shopfloor/")))
+    return { skip: true, reason: "only_shopfloor_docs" };
 
   // already-reviewed at this SHA
   const reviews = await adapter.getPrReviewsAtSha(prNumber, pr.head.sha);
-  const hasShopfloorReview = reviews.some((r) => r.body.startsWith('<!-- shopfloor-review -->'));
-  if (hasShopfloorReview) return { skip: true, reason: 'already_reviewed_at_sha' };
+  const hasShopfloorReview = reviews.some((r) =>
+    r.body.startsWith("<!-- shopfloor-review -->"),
+  );
+  if (hasShopfloorReview)
+    return { skip: true, reason: "already_reviewed_at_sha" };
 
   return { skip: false };
 }
 
-export async function runCheckReviewSkip(adapter: GitHubAdapter): Promise<void> {
-  const prNumber = Number(core.getInput('pr_number', { required: true }));
+export async function runCheckReviewSkip(
+  adapter: GitHubAdapter,
+): Promise<void> {
+  const prNumber = Number(core.getInput("pr_number", { required: true }));
   const result = await checkReviewSkip(adapter, prNumber);
-  core.setOutput('skip', String(result.skip));
-  if (result.reason) core.setOutput('reason', result.reason);
+  core.setOutput("skip", String(result.skip));
+  if (result.reason) core.setOutput("reason", result.reason);
 }
 ```
 
@@ -2137,6 +2590,7 @@ git commit -m "feat(router): add check-review-skip helper and PR file listing"
 ### Task 2.9: aggregate-review helper (highest-risk piece)
 
 **Files:**
+
 - Create: `router/test/helpers/aggregate-review.test.ts`
 - Create: `router/test/fixtures/reviewer-outputs/compliance-clean.json`
 - Create: `router/test/fixtures/reviewer-outputs/compliance-issues.json`
@@ -2160,44 +2614,72 @@ For `compliance-issues.json` and `bugs-issues.json`, have them share one comment
 - [ ] **Step 2: Write failing tests**
 
 ```ts
-import { describe, expect, test, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import { aggregateReview } from '../../src/helpers/aggregate-review';
-import { GitHubAdapter } from '../../src/github';
+import { describe, expect, test, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { aggregateReview } from "../../src/helpers/aggregate-review";
+import { GitHubAdapter } from "../../src/github";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function fixture(name: string): string {
-  return readFileSync(join(__dirname, '../fixtures/reviewer-outputs', `${name}.json`), 'utf-8');
+  return readFileSync(
+    join(__dirname, "../fixtures/reviewer-outputs", `${name}.json`),
+    "utf-8",
+  );
 }
 
-function makeAdapter(): { adapter: GitHubAdapter; spies: { postReview: ReturnType<typeof vi.fn>; setStatus: ReturnType<typeof vi.fn>; addLabels: ReturnType<typeof vi.fn>; postComment: ReturnType<typeof vi.fn>; updatePr: ReturnType<typeof vi.fn>; getPr: ReturnType<typeof vi.fn> } } {
+function makeAdapter(): {
+  adapter: GitHubAdapter;
+  spies: {
+    postReview: ReturnType<typeof vi.fn>;
+    setStatus: ReturnType<typeof vi.fn>;
+    addLabels: ReturnType<typeof vi.fn>;
+    postComment: ReturnType<typeof vi.fn>;
+    updatePr: ReturnType<typeof vi.fn>;
+    getPr: ReturnType<typeof vi.fn>;
+  };
+} {
   const postReview = vi.fn().mockResolvedValue({ data: {} });
   const setStatus = vi.fn().mockResolvedValue({ data: {} });
   const addLabels = vi.fn().mockResolvedValue({ data: [] });
   const postComment = vi.fn().mockResolvedValue({ data: { id: 1 } });
   const updatePr = vi.fn().mockResolvedValue({ data: {} });
   const getPr = vi.fn().mockResolvedValue({
-    data: { body: 'Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0', head: { sha: 'abc' } }
+    data: {
+      body: "Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0",
+      head: { sha: "abc" },
+    },
   });
 
   const adapter = new GitHubAdapter(
     {
       rest: {
-        pulls: { createReview: postReview, update: updatePr, get: getPr, listReviews: vi.fn().mockResolvedValue({ data: [] }) },
-        issues: { addLabels, createComment: postComment, removeLabel: vi.fn().mockResolvedValue({ data: [] }) },
-        repos: { createCommitStatus: setStatus }
-      }
+        pulls: {
+          createReview: postReview,
+          update: updatePr,
+          get: getPr,
+          listReviews: vi.fn().mockResolvedValue({ data: [] }),
+        },
+        issues: {
+          addLabels,
+          createComment: postComment,
+          removeLabel: vi.fn().mockResolvedValue({ data: [] }),
+        },
+        repos: { createCommitStatus: setStatus },
+      },
     } as unknown as ConstructorParameters<typeof GitHubAdapter>[0],
-    { owner: 'o', repo: 'r' }
+    { owner: "o", repo: "r" },
   );
-  return { adapter, spies: { postReview, setStatus, addLabels, postComment, updatePr, getPr } };
+  return {
+    adapter,
+    spies: { postReview, setStatus, addLabels, postComment, updatePr, getPr },
+  };
 }
 
-describe('aggregateReview', () => {
-  test('all clean → APPROVE review and success status', async () => {
+describe("aggregateReview", () => {
+  test("all clean → APPROVE review and success status", async () => {
     const { adapter, spies } = makeAdapter();
     await aggregateReview(adapter, {
       issueNumber: 42,
@@ -2205,24 +2687,28 @@ describe('aggregateReview', () => {
       confidenceThreshold: 80,
       maxIterations: 3,
       reviewerOutputs: {
-        compliance: fixture('compliance-clean'),
-        bugs: fixture('bugs-clean'),
-        security: fixture('security-clean'),
-        smells: fixture('smells-clean')
-      }
+        compliance: fixture("compliance-clean"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
     });
     expect(spies.postReview).toHaveBeenCalledWith(
       expect.objectContaining({
         pull_number: 45,
-        event: 'APPROVE',
-        comments: []
-      })
+        event: "APPROVE",
+        comments: [],
+      }),
     );
-    expect(spies.setStatus).toHaveBeenCalledWith(expect.objectContaining({ state: 'success' }));
-    expect(spies.addLabels).toHaveBeenCalledWith(expect.objectContaining({ labels: ['shopfloor:review-approved'] }));
+    expect(spies.setStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "success" }),
+    );
+    expect(spies.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["shopfloor:review-approved"] }),
+    );
   });
 
-  test('issues found → REQUEST_CHANGES with filtered+deduped comments', async () => {
+  test("issues found → REQUEST_CHANGES with filtered+deduped comments", async () => {
     const { adapter, spies } = makeAdapter();
     await aggregateReview(adapter, {
       issueNumber: 42,
@@ -2230,31 +2716,46 @@ describe('aggregateReview', () => {
       confidenceThreshold: 80,
       maxIterations: 3,
       reviewerOutputs: {
-        compliance: fixture('compliance-issues'),
-        bugs: fixture('bugs-issues'),
-        security: fixture('security-clean'),
-        smells: fixture('smells-low-confidence')
-      }
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-issues"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-low-confidence"),
+      },
     });
 
     expect(spies.postReview).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'REQUEST_CHANGES' })
+      expect.objectContaining({ event: "REQUEST_CHANGES" }),
     );
 
-    const reviewCall = spies.postReview.mock.calls[0][0] as { comments: Array<{ path: string }> };
+    const reviewCall = spies.postReview.mock.calls[0][0] as {
+      comments: Array<{ path: string }>;
+    };
     // Dedupe: the duplicate comment at src/auth.ts:42 appears once (not twice).
-    expect(reviewCall.comments.filter((c) => c.path === 'src/auth.ts').length).toBe(1);
+    expect(
+      reviewCall.comments.filter((c) => c.path === "src/auth.ts").length,
+    ).toBe(1);
     // Filter: the low-confidence smell is dropped.
-    expect(reviewCall.comments.some((c) => c.body.includes('low-confidence'))).toBe(false);
+    expect(
+      reviewCall.comments.some((c) => c.body.includes("low-confidence")),
+    ).toBe(false);
 
-    expect(spies.setStatus).toHaveBeenCalledWith(expect.objectContaining({ state: 'failure' }));
-    expect(spies.addLabels).toHaveBeenCalledWith(expect.objectContaining({ labels: ['shopfloor:review-requested-changes'] }));
+    expect(spies.setStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "failure" }),
+    );
+    expect(spies.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labels: ["shopfloor:review-requested-changes"],
+      }),
+    );
   });
 
-  test('iteration cap exceeded → review-stuck, no REQUEST_CHANGES posted', async () => {
+  test("iteration cap exceeded → review-stuck, no REQUEST_CHANGES posted", async () => {
     const { adapter, spies } = makeAdapter();
     spies.getPr.mockResolvedValue({
-      data: { body: 'Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 3', head: { sha: 'abc' } }
+      data: {
+        body: "Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 3",
+        head: { sha: "abc" },
+      },
     });
     await aggregateReview(adapter, {
       issueNumber: 42,
@@ -2262,16 +2763,21 @@ describe('aggregateReview', () => {
       confidenceThreshold: 80,
       maxIterations: 3,
       reviewerOutputs: {
-        compliance: fixture('compliance-issues'),
-        bugs: fixture('bugs-clean'),
-        security: fixture('security-clean'),
-        smells: fixture('smells-clean')
-      }
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
     });
-    expect(spies.addLabels).toHaveBeenCalledWith(expect.objectContaining({ labels: ['shopfloor:review-stuck'] }));
+    expect(spies.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["shopfloor:review-stuck"] }),
+    );
     expect(spies.postReview).not.toHaveBeenCalled();
     expect(spies.setStatus).toHaveBeenLastCalledWith(
-      expect.objectContaining({ state: 'failure', description: expect.stringContaining('cap') })
+      expect.objectContaining({
+        state: "failure",
+        description: expect.stringContaining("cap"),
+      }),
     );
   });
 
@@ -2283,13 +2789,15 @@ describe('aggregateReview', () => {
       confidenceThreshold: 80,
       maxIterations: 3,
       reviewerOutputs: {
-        compliance: '',
-        bugs: fixture('bugs-clean'),
-        security: fixture('security-clean'),
-        smells: fixture('smells-clean')
-      }
+        compliance: "",
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
     });
-    expect(spies.postReview).toHaveBeenCalledWith(expect.objectContaining({ event: 'APPROVE' }));
+    expect(spies.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "APPROVE" }),
+    );
   });
 });
 ```
@@ -2297,21 +2805,21 @@ describe('aggregateReview', () => {
 - [ ] **Step 3: Implement `aggregate-review.ts`**
 
 ```ts
-import * as core from '@actions/core';
-import type { GitHubAdapter, ReviewComment } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter, ReviewComment } from "../github";
 
 interface ReviewerOutput {
-  verdict: 'clean' | 'issues_found';
+  verdict: "clean" | "issues_found";
   summary: string;
   comments: Array<{
     path: string;
     line: number;
-    side: 'LEFT' | 'RIGHT';
+    side: "LEFT" | "RIGHT";
     start_line?: number;
-    start_side?: 'LEFT' | 'RIGHT';
+    start_side?: "LEFT" | "RIGHT";
     body: string;
     confidence: number;
-    category: 'compliance' | 'bug' | 'security' | 'smell';
+    category: "compliance" | "bug" | "security" | "smell";
   }>;
 }
 
@@ -2320,17 +2828,21 @@ export interface AggregateReviewParams {
   prNumber: number;
   confidenceThreshold: number;
   maxIterations: number;
-  reviewerOutputs: Record<'compliance' | 'bugs' | 'security' | 'smells', string>;
+  reviewerOutputs: Record<
+    "compliance" | "bugs" | "security" | "smells",
+    string
+  >;
   workflowRunUrl?: string;
 }
 
-const SHOPFLOOR_REVIEW_MARKER = '<!-- shopfloor-review -->';
+const SHOPFLOOR_REVIEW_MARKER = "<!-- shopfloor-review -->";
 
 function parseReviewer(raw: string): ReviewerOutput | null {
   if (!raw || !raw.trim()) return null;
   try {
     const parsed = JSON.parse(raw) as ReviewerOutput;
-    if (parsed.verdict !== 'clean' && parsed.verdict !== 'issues_found') return null;
+    if (parsed.verdict !== "clean" && parsed.verdict !== "issues_found")
+      return null;
     if (!Array.isArray(parsed.comments)) return null;
     return parsed;
   } catch {
@@ -2339,19 +2851,29 @@ function parseReviewer(raw: string): ReviewerOutput | null {
 }
 
 function tokenOverlap(a: string, b: string): number {
-  const aSet = new Set(a.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean));
-  const bSet = new Set(b.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean));
+  const aSet = new Set(
+    a.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean),
+  );
+  const bSet = new Set(
+    b.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean),
+  );
   if (aSet.size === 0 || bSet.size === 0) return 0;
   let intersection = 0;
   for (const t of aSet) if (bSet.has(t)) intersection++;
   return intersection / Math.min(aSet.size, bSet.size);
 }
 
-function dedupeComments(all: ReviewerOutput['comments']): ReviewerOutput['comments'] {
-  const keepers: ReviewerOutput['comments'] = [];
+function dedupeComments(
+  all: ReviewerOutput["comments"],
+): ReviewerOutput["comments"] {
+  const keepers: ReviewerOutput["comments"] = [];
   for (const c of all) {
     const duplicate = keepers.find(
-      (k) => k.path === c.path && k.line === c.line && k.side === c.side && tokenOverlap(k.body, c.body) >= 0.75
+      (k) =>
+        k.path === c.path &&
+        k.line === c.line &&
+        k.side === c.side &&
+        tokenOverlap(k.body, c.body) >= 0.75,
     );
     if (duplicate) {
       if (c.confidence > duplicate.confidence) {
@@ -2373,28 +2895,41 @@ function parseIterationFromBody(body: string | null): number {
 }
 
 function writeIterationToBody(body: string | null, iteration: number): string {
-  const baseBody = body ?? '';
+  const baseBody = body ?? "";
   if (baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
-    return baseBody.replace(/Shopfloor-Review-Iteration:\s*\d+/, `Shopfloor-Review-Iteration: ${iteration}`);
+    return baseBody.replace(
+      /Shopfloor-Review-Iteration:\s*\d+/,
+      `Shopfloor-Review-Iteration: ${iteration}`,
+    );
   }
   return baseBody.trimEnd() + `\nShopfloor-Review-Iteration: ${iteration}\n`;
 }
 
-export async function aggregateReview(adapter: GitHubAdapter, params: AggregateReviewParams): Promise<void> {
+export async function aggregateReview(
+  adapter: GitHubAdapter,
+  params: AggregateReviewParams,
+): Promise<void> {
   const outputs = {
     compliance: parseReviewer(params.reviewerOutputs.compliance),
     bugs: parseReviewer(params.reviewerOutputs.bugs),
     security: parseReviewer(params.reviewerOutputs.security),
-    smells: parseReviewer(params.reviewerOutputs.smells)
+    smells: parseReviewer(params.reviewerOutputs.smells),
   };
-  const parsed = Object.values(outputs).filter((v): v is ReviewerOutput => v !== null);
+  const parsed = Object.values(outputs).filter(
+    (v): v is ReviewerOutput => v !== null,
+  );
   const successfulCells = parsed.length;
 
   const pr = await adapter.getPr(params.prNumber);
   const headSha = pr.head.sha;
   const currentIteration = parseIterationFromBody(pr.body ?? null);
 
-  await adapter.setReviewStatus(headSha, 'pending', 'Shopfloor review: aggregating findings...', params.workflowRunUrl);
+  await adapter.setReviewStatus(
+    headSha,
+    "pending",
+    "Shopfloor review: aggregating findings...",
+    params.workflowRunUrl,
+  );
 
   // Spec 5.5.3 step 3: verify each reviewer stayed in scope. A reviewer producing
   // comments tagged with a different category is a prompt-injection or misbehaviour
@@ -2402,10 +2937,10 @@ export async function aggregateReview(adapter: GitHubAdapter, params: AggregateR
   // through dedupe and filter. This gives us observability without destabilising
   // the pipeline.
   const SOURCE_CATEGORY: Record<string, string> = {
-    compliance: 'compliance',
-    bugs: 'bug',
-    security: 'security',
-    smells: 'smell'
+    compliance: "compliance",
+    bugs: "bug",
+    security: "security",
+    smells: "smell",
   };
   for (const [source, out] of Object.entries(outputs)) {
     if (!out) continue;
@@ -2413,7 +2948,7 @@ export async function aggregateReview(adapter: GitHubAdapter, params: AggregateR
     const outOfScope = out.comments.filter((c) => c.category !== expected);
     if (outOfScope.length > 0) {
       core.warning(
-        `aggregateReview: ${source} reviewer returned ${outOfScope.length} out-of-scope comment(s) (expected category '${expected}')`
+        `aggregateReview: ${source} reviewer returned ${outOfScope.length} out-of-scope comment(s) (expected category '${expected}')`,
       );
     }
   }
@@ -2423,38 +2958,57 @@ export async function aggregateReview(adapter: GitHubAdapter, params: AggregateR
   // Dedupe.
   const deduped = dedupeComments(allComments);
   // Filter.
-  const filtered = deduped.filter((c) => c.confidence >= params.confidenceThreshold);
+  const filtered = deduped.filter(
+    (c) => c.confidence >= params.confidenceThreshold,
+  );
 
-  const allClean = parsed.every((r) => r.verdict === 'clean') && filtered.length === 0;
-  const verdict: 'clean' | 'issues_found' = allClean ? 'clean' : 'issues_found';
+  const allClean =
+    parsed.every((r) => r.verdict === "clean") && filtered.length === 0;
+  const verdict: "clean" | "issues_found" = allClean ? "clean" : "issues_found";
 
-  if (verdict === 'clean') {
-    const body = `${SHOPFLOOR_REVIEW_MARKER}\n**Shopfloor agent review: clean** across ${successfulCells}/4 reviewers.\n\n${parsed.map((r) => `- ${r.summary}`).join('\n')}`;
+  if (verdict === "clean") {
+    const body = `${SHOPFLOOR_REVIEW_MARKER}\n**Shopfloor agent review: clean** across ${successfulCells}/4 reviewers.\n\n${parsed.map((r) => `- ${r.summary}`).join("\n")}`;
     await adapter.postReview({
       prNumber: params.prNumber,
       commitSha: headSha,
-      event: 'APPROVE',
+      event: "APPROVE",
       body,
-      comments: []
+      comments: [],
     });
-    await adapter.setReviewStatus(headSha, 'success', 'Shopfloor review passed', params.workflowRunUrl);
-    await adapter.addLabel(params.issueNumber, 'shopfloor:review-approved');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:needs-review');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:review-requested-changes');
+    await adapter.setReviewStatus(
+      headSha,
+      "success",
+      "Shopfloor review passed",
+      params.workflowRunUrl,
+    );
+    await adapter.addLabel(params.issueNumber, "shopfloor:review-approved");
+    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.removeLabel(
+      params.issueNumber,
+      "shopfloor:review-requested-changes",
+    );
     return;
   }
 
   // Issues found. Check iteration cap.
   const nextIteration = currentIteration + 1;
   if (nextIteration > params.maxIterations) {
-    await adapter.addLabel(params.issueNumber, 'shopfloor:review-stuck');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:needs-review');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:review-requested-changes');
+    await adapter.addLabel(params.issueNumber, "shopfloor:review-stuck");
+    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.removeLabel(
+      params.issueNumber,
+      "shopfloor:review-requested-changes",
+    );
     await adapter.postIssueComment(
       params.prNumber,
-      `Shopfloor agent review has been through ${params.maxIterations} iterations without converging. A human should take over this PR. See commit status for the current findings list.`
+      `Shopfloor agent review has been through ${params.maxIterations} iterations without converging. A human should take over this PR. See commit status for the current findings list.`,
     );
-    await adapter.setReviewStatus(headSha, 'failure', `Shopfloor review: iteration cap reached (${params.maxIterations})`, params.workflowRunUrl);
+    await adapter.setReviewStatus(
+      headSha,
+      "failure",
+      `Shopfloor review: iteration cap reached (${params.maxIterations})`,
+      params.workflowRunUrl,
+    );
     return;
   }
 
@@ -2462,9 +3016,9 @@ export async function aggregateReview(adapter: GitHubAdapter, params: AggregateR
   const reviewBody = [
     SHOPFLOOR_REVIEW_MARKER,
     `**Shopfloor agent review: changes requested** (iteration ${nextIteration}/${params.maxIterations}).`,
-    '',
-    parsed.map((r) => `- ${r.summary}`).join('\n')
-  ].join('\n');
+    "",
+    parsed.map((r) => `- ${r.summary}`).join("\n"),
+  ].join("\n");
 
   const batchedComments: ReviewComment[] = filtered.map((c) => ({
     path: c.path,
@@ -2472,38 +3026,48 @@ export async function aggregateReview(adapter: GitHubAdapter, params: AggregateR
     side: c.side,
     start_line: c.start_line,
     start_side: c.start_side,
-    body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`
+    body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`,
   }));
 
   await adapter.postReview({
     prNumber: params.prNumber,
     commitSha: headSha,
-    event: 'REQUEST_CHANGES',
+    event: "REQUEST_CHANGES",
     body: reviewBody,
-    comments: batchedComments
+    comments: batchedComments,
   });
-  await adapter.setReviewStatus(headSha, 'failure', `Shopfloor review requested changes (iteration ${nextIteration})`, params.workflowRunUrl);
-  await adapter.addLabel(params.issueNumber, 'shopfloor:review-requested-changes');
-  await adapter.removeLabel(params.issueNumber, 'shopfloor:needs-review');
+  await adapter.setReviewStatus(
+    headSha,
+    "failure",
+    `Shopfloor review requested changes (iteration ${nextIteration})`,
+    params.workflowRunUrl,
+  );
+  await adapter.addLabel(
+    params.issueNumber,
+    "shopfloor:review-requested-changes",
+  );
+  await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
 
   // Update PR body with incremented iteration counter.
   const newBody = writeIterationToBody(pr.body ?? null, nextIteration);
   await adapter.updatePrBody(params.prNumber, newBody);
 }
 
-export async function runAggregateReview(adapter: GitHubAdapter): Promise<void> {
+export async function runAggregateReview(
+  adapter: GitHubAdapter,
+): Promise<void> {
   const params: AggregateReviewParams = {
-    issueNumber: Number(core.getInput('issue_number', { required: true })),
-    prNumber: Number(core.getInput('pr_number', { required: true })),
-    confidenceThreshold: Number(core.getInput('confidence_threshold') || 80),
-    maxIterations: Number(core.getInput('max_iterations') || 3),
+    issueNumber: Number(core.getInput("issue_number", { required: true })),
+    prNumber: Number(core.getInput("pr_number", { required: true })),
+    confidenceThreshold: Number(core.getInput("confidence_threshold") || 80),
+    maxIterations: Number(core.getInput("max_iterations") || 3),
     reviewerOutputs: {
-      compliance: core.getInput('compliance_output') || '',
-      bugs: core.getInput('bugs_output') || '',
-      security: core.getInput('security_output') || '',
-      smells: core.getInput('smells_output') || ''
+      compliance: core.getInput("compliance_output") || "",
+      bugs: core.getInput("bugs_output") || "",
+      security: core.getInput("security_output") || "",
+      smells: core.getInput("smells_output") || "",
     },
-    workflowRunUrl: core.getInput('workflow_run_url') || undefined
+    workflowRunUrl: core.getInput("workflow_run_url") || undefined,
   };
   await aggregateReview(adapter, params);
 }
@@ -2524,6 +3088,7 @@ git commit -m "feat(router): add aggregate-review helper with dedupe, filter, it
 ### Task 2.10: Router build step
 
 **Files:**
+
 - Create: `router/esbuild.config.mjs`
 - Modify: `router/package.json` (add build script)
 
@@ -2536,16 +3101,16 @@ Run: `pnpm --filter @shopfloor/router add -D esbuild`
 - [ ] **Step 2: Create `router/esbuild.config.mjs`**
 
 ```js
-import { build } from 'esbuild';
+import { build } from "esbuild";
 
 await build({
-  entryPoints: ['src/index.ts'],
+  entryPoints: ["src/index.ts"],
   bundle: true,
-  outfile: 'dist/index.js',
-  platform: 'node',
-  target: 'node20',
-  format: 'cjs',
-  sourcemap: true
+  outfile: "dist/index.js",
+  platform: "node",
+  target: "node20",
+  format: "cjs",
+  sourcemap: true,
 });
 ```
 
@@ -2588,6 +3153,7 @@ git commit -m "chore(router): add esbuild config and commit dist artifact"
 ### Task 3.1: Scaffold MCP server package
 
 **Files:**
+
 - Create: `mcp-servers/shopfloor-mcp/package.json`
 - Create: `mcp-servers/shopfloor-mcp/tsconfig.json`
 - Create: `mcp-servers/shopfloor-mcp/index.ts`
@@ -2634,7 +3200,7 @@ git commit -m "chore(router): add esbuild config and commit dist artifact"
 #!/usr/bin/env bun
 // Shopfloor MCP server. Exposes Shopfloor-owned tools to the implementation agent.
 // For v0.1: just update_progress. See spec section 6.4.
-console.error('Shopfloor MCP server: not yet implemented');
+console.error("Shopfloor MCP server: not yet implemented");
 process.exit(1);
 ```
 
@@ -2653,24 +3219,25 @@ git commit -m "chore(mcp): scaffold shopfloor MCP server package"
 ### Task 3.2: Test-first implementation of update_progress tool
 
 **Files:**
+
 - Create: `mcp-servers/shopfloor-mcp/test/index.test.ts`
 - Modify: `mcp-servers/shopfloor-mcp/index.ts`
 
 - [ ] **Step 1: Write failing test**
 
 ```ts
-import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest';
-import { updateProgress } from '../index';
+import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
+import { updateProgress } from "../index";
 
-describe('updateProgress tool', () => {
+describe("updateProgress tool", () => {
   const fetchMock = vi.fn();
   beforeEach(() => {
-    vi.stubGlobal('fetch', fetchMock);
-    process.env.GITHUB_TOKEN = 'test-token';
-    process.env.REPO_OWNER = 'niranjan94';
-    process.env.REPO_NAME = 'shopfloor';
-    process.env.SHOPFLOOR_COMMENT_ID = '777';
-    process.env.GITHUB_API_URL = 'https://api.github.com';
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.GITHUB_TOKEN = "test-token";
+    process.env.REPO_OWNER = "niranjan94";
+    process.env.REPO_NAME = "shopfloor";
+    process.env.SHOPFLOOR_COMMENT_ID = "777";
+    process.env.GITHUB_API_URL = "https://api.github.com";
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -2678,27 +3245,39 @@ describe('updateProgress tool', () => {
     delete process.env.SHOPFLOOR_COMMENT_ID;
   });
 
-  test('patches the correct comment endpoint with the body', async () => {
-    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
-    await updateProgress({ body: '# Todo\n- [x] step 1' });
+  test("patches the correct comment endpoint with the body", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    });
+    await updateProgress({ body: "# Todo\n- [x] step 1" });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.github.com/repos/niranjan94/shopfloor/issues/comments/777',
+      "https://api.github.com/repos/niranjan94/shopfloor/issues/comments/777",
       expect.objectContaining({
-        method: 'PATCH',
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
-        body: JSON.stringify({ body: '# Todo\n- [x] step 1' })
-      })
+        method: "PATCH",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token",
+        }),
+        body: JSON.stringify({ body: "# Todo\n- [x] step 1" }),
+      }),
     );
   });
 
-  test('throws when SHOPFLOOR_COMMENT_ID is missing', async () => {
+  test("throws when SHOPFLOOR_COMMENT_ID is missing", async () => {
     delete process.env.SHOPFLOOR_COMMENT_ID;
-    await expect(updateProgress({ body: 'x' })).rejects.toThrow(/SHOPFLOOR_COMMENT_ID/);
+    await expect(updateProgress({ body: "x" })).rejects.toThrow(
+      /SHOPFLOOR_COMMENT_ID/,
+    );
   });
 
-  test('throws when GitHub API returns non-2xx', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 403, text: async () => 'forbidden' });
-    await expect(updateProgress({ body: 'x' })).rejects.toThrow(/403/);
+  test("throws when GitHub API returns non-2xx", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => "forbidden",
+    });
+    await expect(updateProgress({ body: "x" })).rejects.toThrow(/403/);
   });
 });
 ```
@@ -2707,53 +3286,71 @@ describe('updateProgress tool', () => {
 
 ```ts
 #!/usr/bin/env bun
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 
-export async function updateProgress(input: { body: string }): Promise<{ ok: true }> {
+export async function updateProgress(input: {
+  body: string;
+}): Promise<{ ok: true }> {
   const token = process.env.GITHUB_TOKEN;
   const owner = process.env.REPO_OWNER;
   const repo = process.env.REPO_NAME;
   const commentId = process.env.SHOPFLOOR_COMMENT_ID;
-  const apiUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
 
-  if (!token) throw new Error('GITHUB_TOKEN required');
-  if (!owner || !repo) throw new Error('REPO_OWNER and REPO_NAME required');
-  if (!commentId) throw new Error('SHOPFLOOR_COMMENT_ID required');
+  if (!token) throw new Error("GITHUB_TOKEN required");
+  if (!owner || !repo) throw new Error("REPO_OWNER and REPO_NAME required");
+  if (!commentId) throw new Error("SHOPFLOOR_COMMENT_ID required");
 
-  const res = await fetch(`${apiUrl}/repos/${owner}/${repo}/issues/comments/${commentId}`, {
-    method: 'PATCH',
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      'Content-Type': 'application/json'
+  const res = await fetch(
+    `${apiUrl}/repos/${owner}/${repo}/issues/comments/${commentId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ body: input.body }),
     },
-    body: JSON.stringify({ body: input.body })
-  });
+  );
 
   if (!res.ok) {
-    const text = typeof (res as Response).text === 'function' ? await (res as Response).text() : '';
+    const text =
+      typeof (res as Response).text === "function"
+        ? await (res as Response).text()
+        : "";
     throw new Error(`GitHub API returned ${res.status}: ${text}`);
   }
   return { ok: true };
 }
 
 async function runServer(): Promise<void> {
-  const server = new McpServer({ name: 'shopfloor', version: '1.0.0-rc.0' });
+  const server = new McpServer({ name: "shopfloor", version: "1.0.0-rc.0" });
   server.tool(
-    'update_progress',
-    'Replace the body of the Shopfloor implementation progress comment with new content (typically a markdown checklist of tasks with completion state).',
-    { body: z.string().describe('New comment body as markdown') },
+    "update_progress",
+    "Replace the body of the Shopfloor implementation progress comment with new content (typically a markdown checklist of tasks with completion state).",
+    { body: z.string().describe("New comment body as markdown") },
     async ({ body }) => {
       try {
         await updateProgress({ body });
-        return { content: [{ type: 'text', text: 'Progress comment updated.' }] };
+        return {
+          content: [{ type: "text", text: "Progress comment updated." }],
+        };
       } catch (err) {
-        return { content: [{ type: 'text', text: `update_progress failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+        return {
+          content: [
+            {
+              type: "text",
+              text: `update_progress failed: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+          isError: true,
+        };
       }
-    }
+    },
   );
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -2762,7 +3359,7 @@ async function runServer(): Promise<void> {
 // Only run the server when executed as the main script, not when imported by tests.
 if (import.meta.url === `file://${process.argv[1]}`) {
   runServer().catch((err) => {
-    console.error('shopfloor-mcp fatal:', err);
+    console.error("shopfloor-mcp fatal:", err);
     process.exit(1);
   });
 }
@@ -2801,6 +3398,7 @@ Each prompt task invokes the `prompt-engineering` skill (`/prompt-engineering`) 
 ### Task 4.1: Write triage prompt
 
 **Files:**
+
 - Create: `prompts/triage.md`
 
 - [ ] **Step 1: Invoke prompt-engineering skill**
@@ -2838,6 +3436,7 @@ git commit -m "feat(prompts): add triage stage prompt template"
 ### Task 4.2: Write spec prompt
 
 **Files:**
+
 - Create: `prompts/spec.md`
 
 - [ ] **Step 1: Invoke `/prompt-engineering` for the spec agent.**
@@ -2875,6 +3474,7 @@ Commit message: `feat(prompts): add plan stage prompt template`.
 ### Task 4.4: Write implement prompt
 
 **Files:**
+
 - Create: `prompts/implement.md`
 
 - [ ] **Step 1: Invoke `/prompt-engineering` for the implementation agent.**
@@ -2949,6 +3549,7 @@ For each of the four files:
 ### Task 4.6: Prompt snapshot tests
 
 **Files:**
+
 - Create: `router/src/prompt-render.ts`
 - Create: `router/test/prompt-render.test.ts`
 - Create: `router/test/__snapshots__/` (managed by vitest)
@@ -2960,10 +3561,13 @@ For each of the four files:
 `router/src/prompt-render.ts`:
 
 ```ts
-import { readFileSync } from 'node:fs';
+import { readFileSync } from "node:fs";
 
-export function renderPrompt(filePath: string, context: Record<string, string>): string {
-  const template = readFileSync(filePath, 'utf-8');
+export function renderPrompt(
+  filePath: string,
+  context: Record<string, string>,
+): string {
+  const template = readFileSync(filePath, "utf-8");
   return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
     if (key in context) return context[key];
     return `{{MISSING:${key}}}`;
@@ -2974,26 +3578,26 @@ export function renderPrompt(filePath: string, context: Record<string, string>):
 - [ ] **Step 2: Write snapshot test**
 
 ```ts
-import { expect, test } from 'vitest';
-import { renderPrompt } from '../src/prompt-render';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { expect, test } from "vitest";
+import { renderPrompt } from "../src/prompt-render";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(__dirname, '../..');
+const repoRoot = join(__dirname, "../..");
 
-test('triage prompt renders with fixture context', () => {
-  const rendered = renderPrompt(join(repoRoot, 'prompts/triage.md'), {
-    issue_number: '42',
-    issue_title: 'Add GitHub OAuth',
-    issue_body: 'Users want to log in with GitHub.',
-    issue_comments: '',
-    repo_owner: 'niranjan94',
-    repo_name: 'shopfloor',
-    claude_md_contents: ''
+test("triage prompt renders with fixture context", () => {
+  const rendered = renderPrompt(join(repoRoot, "prompts/triage.md"), {
+    issue_number: "42",
+    issue_title: "Add GitHub OAuth",
+    issue_body: "Users want to log in with GitHub.",
+    issue_comments: "",
+    repo_owner: "niranjan94",
+    repo_name: "shopfloor",
+    claude_md_contents: "",
   });
   expect(rendered).toMatchSnapshot();
-  expect(rendered).not.toContain('{{MISSING');
+  expect(rendered).not.toContain("{{MISSING");
 });
 
 // Repeat for spec, plan, implement, review-compliance, review-bugs, review-security, review-smells.
@@ -3018,6 +3622,7 @@ git commit -m "test(prompts): add snapshot tests for prompt rendering"
 ### Task 5.1: Reusable workflow skeleton with route job
 
 **Files:**
+
 - Create: `.github/workflows/shopfloor.yml`
 
 **Note:** This file contains the public interface. Every input the spec defines (section 6.1) must be declared as a `workflow_call` input.
@@ -3041,10 +3646,14 @@ on:
       spec_timeout_minutes: { type: number, default: 20 }
       plan_timeout_minutes: { type: number, default: 30 }
       impl_timeout_minutes: { type: number, default: 60 }
-      branch_prefix: { type: string, default: 'shopfloor/' }
-      artifacts_dir: { type: string, default: 'docs/shopfloor/' }
-      impl_bash_allowlist: { type: string, default: 'pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc' }
-      additional_tools: { type: string, default: '' }
+      branch_prefix: { type: string, default: "shopfloor/" }
+      artifacts_dir: { type: string, default: "docs/shopfloor/" }
+      impl_bash_allowlist:
+        {
+          type: string,
+          default: "pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc",
+        }
+      additional_tools: { type: string, default: "" }
       review_compliance_model: { type: string, default: sonnet }
       review_bugs_model: { type: string, default: opus }
       review_security_model: { type: string, default: opus }
@@ -3134,6 +3743,7 @@ git commit -m "feat(workflow): add reusable workflow skeleton with route job"
 ### Task 5.2: Wire triage stage
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml`
 
 - [ ] **Step 1: Add the `triage` job**
@@ -3141,44 +3751,44 @@ git commit -m "feat(workflow): add reusable workflow skeleton with route job"
 Append under `jobs:`:
 
 ```yaml
-  triage:
-    needs: route
-    if: needs.route.outputs.stage == 'triage'
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.triage_timeout_minutes }}
-    outputs:
-      github_token: ${{ steps.agent.outputs.github_token }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Build triage prompt
-        id: prompt
-        run: |
-          # TODO: interpolate {{placeholders}} into prompts/triage.md and echo the result
-          echo 'prompt_body<<EOF' >> "$GITHUB_OUTPUT"
-          cat prompts/triage.md >> "$GITHUB_OUTPUT"
-          echo 'EOF' >> "$GITHUB_OUTPUT"
-      - id: agent
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.anthropic_api_key }}
-          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt: ${{ steps.prompt.outputs.prompt_body }}
-          claude_args: |
-            --model ${{ inputs.triage_model }}
-            --max-turns ${{ inputs.triage_max_turns }}
-            --allowedTools "Read,Glob,Grep,WebFetch"
-            --json-schema '{"type":"object","properties":{"status":{"enum":["classified","needs_clarification"]},"complexity":{"enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status"]}'
-      - name: Apply triage decision
-        if: success()
-        run: |
-          # TODO: parse steps.agent.outputs.structured_output, call router helpers to post comment and flip labels
-          echo "triage decision application not yet implemented"
-      - name: Report failure
-        if: failure()
-        uses: ./router
-        with:
-          helper: report-failure
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+triage:
+  needs: route
+  if: needs.route.outputs.stage == 'triage'
+  runs-on: ubuntu-latest
+  timeout-minutes: ${{ inputs.triage_timeout_minutes }}
+  outputs:
+    github_token: ${{ steps.agent.outputs.github_token }}
+  steps:
+    - uses: actions/checkout@v6
+    - name: Build triage prompt
+      id: prompt
+      run: |
+        # TODO: interpolate {{placeholders}} into prompts/triage.md and echo the result
+        echo 'prompt_body<<EOF' >> "$GITHUB_OUTPUT"
+        cat prompts/triage.md >> "$GITHUB_OUTPUT"
+        echo 'EOF' >> "$GITHUB_OUTPUT"
+    - id: agent
+      uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ secrets.anthropic_api_key }}
+        claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+        prompt: ${{ steps.prompt.outputs.prompt_body }}
+        claude_args: |
+          --model ${{ inputs.triage_model }}
+          --max-turns ${{ inputs.triage_max_turns }}
+          --allowedTools "Read,Glob,Grep,WebFetch"
+          --json-schema '{"type":"object","properties":{"status":{"enum":["classified","needs_clarification"]},"complexity":{"enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status"]}'
+    - name: Apply triage decision
+      if: success()
+      run: |
+        # TODO: parse steps.agent.outputs.structured_output, call router helpers to post comment and flip labels
+        echo "triage decision application not yet implemented"
+    - name: Report failure
+      if: failure()
+      uses: ./router
+      with:
+        helper: report-failure
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 **Note:** The "Build triage prompt" and "Apply triage decision" steps are placeholders. A follow-up task (5.2a) will replace them with the real interpolation + parse logic via a new `router` helper subcommand (`render-prompt` and `apply-triage-decision`), or inline shell/jq.
@@ -3193,6 +3803,7 @@ git commit -m "feat(workflow): wire triage stage skeleton with claude-code-actio
 ### Task 5.2a: Add `render-prompt` and `apply-triage-decision` helpers
 
 **Files:**
+
 - Modify: `router/src/helpers/` (add two new helpers)
 - Modify: `router/src/index.ts` (register dispatcher entries)
 - Modify: `.github/workflows/shopfloor.yml`
@@ -3225,6 +3836,7 @@ git commit -m "feat(workflow): add render-prompt and apply-triage-decision helpe
 ### Task 5.3: Wire spec stage
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml`
 
 Follow the same pattern as triage:
@@ -3246,121 +3858,122 @@ Same shape as spec, different prompt, different tool allowlist (Read, Glob, Grep
 ### Task 5.5: Wire implement stage with MCP config injection
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml`
 
 **Critical differences from spec/plan:**
 
-- **Pre-work:** create the impl branch, open the PR *before* the agent runs (with placeholder body), post the initial progress comment on that PR, capture its ID.
+- **Pre-work:** create the impl branch, open the PR _before_ the agent runs (with placeholder body), post the initial progress comment on that PR, capture its ID.
 - **Write the MCP config file** to `$RUNNER_TEMP/shopfloor-mcp.json` with `SHOPFLOOR_COMMENT_ID` set to the captured comment ID.
 - **claude_args:** include `--mcp-config $RUNNER_TEMP/shopfloor-mcp.json` and `--allowedTools` including `mcp__shopfloor__update_progress`.
 - **Post-work:** update the PR body with agent's final narrative, finalize the progress comment, check `shopfloor:skip-review` (via `check-review-skip`) then apply either `shopfloor:needs-review` or `shopfloor:impl-in-review`.
 - **Token threading (spec section 9.3):** capture `claude-code-action`'s minted `github_token` as `steps.agent.outputs.github_token`. All subsequent router-helper steps in the same job pass it as their `github_token` input instead of `secrets.GITHUB_TOKEN`, so the router's GitHub API calls appear under the same bot identity as the agent's. Fall back to `secrets.GITHUB_TOKEN` only when the agent step did not produce a token (failure path).
-- **Export the token as a job output:** the job declares `outputs.impl_github_token: ${{ steps.agent.outputs.github_token }}` so downstream jobs in the same workflow run (e.g., the aggregator, if it ever runs in this run) can read it. Note: since the review stage fires on a *separate* workflow run triggered by `synchronize`, this specific output is consumed only within the same-run case (not the impl→review handoff, which crosses workflow runs).
+- **Export the token as a job output:** the job declares `outputs.impl_github_token: ${{ steps.agent.outputs.github_token }}` so downstream jobs in the same workflow run (e.g., the aggregator, if it ever runs in this run) can read it. Note: since the review stage fires on a _separate_ workflow run triggered by `synchronize`, this specific output is consumed only within the same-run case (not the impl→review handoff, which crosses workflow runs).
 
 **Concrete workflow shape:**
 
 ```yaml
-  implement:
-    needs: route
-    if: needs.route.outputs.stage == 'implement'
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.impl_timeout_minutes }}
-    outputs:
-      impl_github_token: ${{ steps.agent.outputs.github_token }}
-      pr_number: ${{ steps.open_pr.outputs.pr_number }}
-      comment_id: ${{ steps.progress.outputs.comment_id }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Create impl branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "${{ needs.route.outputs.branch_name }}"
-          git push -u origin "${{ needs.route.outputs.branch_name }}"
-      - id: open_pr
-        uses: ./router
-        with:
-          helper: open-stage-pr
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          issue_number: ${{ needs.route.outputs.issue_number }}
-          stage: implement
-          branch_name: ${{ needs.route.outputs.branch_name }}
-          base_branch: ${{ github.event.repository.default_branch }}
-          pr_title: "[WIP] Implementation for #${{ needs.route.outputs.issue_number }}"
-          pr_body: "Shopfloor is drafting this PR now. The body will be replaced when work completes."
-          draft: 'false'
-      - id: progress
-        uses: ./router
-        with:
-          helper: create-progress-comment
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_number: ${{ steps.open_pr.outputs.pr_number }}
-      - name: Write Shopfloor MCP config
-        run: |
-          cat > "$RUNNER_TEMP/shopfloor-mcp.json" <<EOF
-          {
-            "mcpServers": {
-              "shopfloor": {
-                "command": "bun",
-                "args": ["run", "${{ github.action_path }}/mcp-servers/shopfloor-mcp/index.ts"],
-                "env": {
-                  "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
-                  "REPO_OWNER": "${{ github.repository_owner }}",
-                  "REPO_NAME": "${{ github.event.repository.name }}",
-                  "SHOPFLOOR_COMMENT_ID": "${{ steps.progress.outputs.comment_id }}",
-                  "GITHUB_API_URL": "${{ github.api_url }}"
-                }
+implement:
+  needs: route
+  if: needs.route.outputs.stage == 'implement'
+  runs-on: ubuntu-latest
+  timeout-minutes: ${{ inputs.impl_timeout_minutes }}
+  outputs:
+    impl_github_token: ${{ steps.agent.outputs.github_token }}
+    pr_number: ${{ steps.open_pr.outputs.pr_number }}
+    comment_id: ${{ steps.progress.outputs.comment_id }}
+  steps:
+    - uses: actions/checkout@v6
+    - name: Create impl branch
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git checkout -b "${{ needs.route.outputs.branch_name }}"
+        git push -u origin "${{ needs.route.outputs.branch_name }}"
+    - id: open_pr
+      uses: ./router
+      with:
+        helper: open-stage-pr
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        issue_number: ${{ needs.route.outputs.issue_number }}
+        stage: implement
+        branch_name: ${{ needs.route.outputs.branch_name }}
+        base_branch: ${{ github.event.repository.default_branch }}
+        pr_title: "[WIP] Implementation for #${{ needs.route.outputs.issue_number }}"
+        pr_body: "Shopfloor is drafting this PR now. The body will be replaced when work completes."
+        draft: "false"
+    - id: progress
+      uses: ./router
+      with:
+        helper: create-progress-comment
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        pr_number: ${{ steps.open_pr.outputs.pr_number }}
+    - name: Write Shopfloor MCP config
+      run: |
+        cat > "$RUNNER_TEMP/shopfloor-mcp.json" <<EOF
+        {
+          "mcpServers": {
+            "shopfloor": {
+              "command": "bun",
+              "args": ["run", "${{ github.action_path }}/mcp-servers/shopfloor-mcp/index.ts"],
+              "env": {
+                "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+                "REPO_OWNER": "${{ github.repository_owner }}",
+                "REPO_NAME": "${{ github.event.repository.name }}",
+                "SHOPFLOOR_COMMENT_ID": "${{ steps.progress.outputs.comment_id }}",
+                "GITHUB_API_URL": "${{ github.api_url }}"
               }
             }
           }
-          EOF
-      - name: Render implement prompt
-        id: prompt
-        uses: ./router
-        with:
-          helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # ... prompt file path and context JSON
-      - id: agent
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.anthropic_api_key }}
-          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt: ${{ steps.prompt.outputs.rendered }}
-          claude_args: |
-            --model ${{ inputs.impl_model }}
-            --max-turns ${{ inputs.impl_max_turns }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),mcp__shopfloor__update_progress"
-            --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
-            --json-schema '<impl schema>'
-      - name: Finalize progress comment
-        if: always()
-        uses: ./router
-        with:
-          helper: finalize-progress-comment
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
-          comment_id: ${{ steps.progress.outputs.comment_id }}
-          terminal_state: ${{ job.status == 'success' && 'success' || 'failure' }}
-          final_body: ${{ fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
-      - name: Update PR body and apply next-state label
-        if: success()
-        uses: ./router
-        with:
-          helper: apply-impl-postwork
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
-          pr_number: ${{ steps.open_pr.outputs.pr_number }}
-          issue_number: ${{ needs.route.outputs.issue_number }}
-          pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
-          pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
-      - name: Report failure
-        if: failure()
-        uses: ./router
-        with:
-          helper: report-failure
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
-          issue_number: ${{ needs.route.outputs.issue_number }}
-          stage: implement
-          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        }
+        EOF
+    - name: Render implement prompt
+      id: prompt
+      uses: ./router
+      with:
+        helper: render-prompt
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        # ... prompt file path and context JSON
+    - id: agent
+      uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ secrets.anthropic_api_key }}
+        claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+        prompt: ${{ steps.prompt.outputs.rendered }}
+        claude_args: |
+          --model ${{ inputs.impl_model }}
+          --max-turns ${{ inputs.impl_max_turns }}
+          --allowedTools "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),mcp__shopfloor__update_progress"
+          --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
+          --json-schema '<impl schema>'
+    - name: Finalize progress comment
+      if: always()
+      uses: ./router
+      with:
+        helper: finalize-progress-comment
+        github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+        comment_id: ${{ steps.progress.outputs.comment_id }}
+        terminal_state: ${{ job.status == 'success' && 'success' || 'failure' }}
+        final_body: ${{ fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
+    - name: Update PR body and apply next-state label
+      if: success()
+      uses: ./router
+      with:
+        helper: apply-impl-postwork
+        github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+        pr_number: ${{ steps.open_pr.outputs.pr_number }}
+        issue_number: ${{ needs.route.outputs.issue_number }}
+        pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
+        pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
+    - name: Report failure
+      if: failure()
+      uses: ./router
+      with:
+        helper: report-failure
+        github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+        issue_number: ${{ needs.route.outputs.issue_number }}
+        stage: implement
+        run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 ```
 
 Note the new `apply-impl-postwork` helper: takes the agent's PR title/body, updates the PR, runs `check-review-skip` internally, and applies either `shopfloor:needs-review` or `shopfloor:impl-in-review`. Add it alongside `apply-triage-decision` in Task 5.2a or as a follow-up commit under Task 5.5.
@@ -3370,25 +3983,26 @@ Commit: `feat(workflow): wire implement stage with MCP config injection and toke
 ### Task 5.6: Wire review stage matrix
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml`
 
 - [ ] **Step 1: Add `review-skip-check` job**
 
 ```yaml
-  review-skip-check:
-    needs: route
-    if: needs.route.outputs.stage == 'review'
-    runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.check.outputs.skip }}
-      reason: ${{ steps.check.outputs.reason }}
-    steps:
-      - uses: actions/checkout@v6
-      - id: check
-        uses: ./router
-        with:
-          helper: check-review-skip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+review-skip-check:
+  needs: route
+  if: needs.route.outputs.stage == 'review'
+  runs-on: ubuntu-latest
+  outputs:
+    skip: ${{ steps.check.outputs.skip }}
+    reason: ${{ steps.check.outputs.reason }}
+  steps:
+    - uses: actions/checkout@v6
+    - id: check
+      uses: ./router
+      with:
+        helper: check-review-skip
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 - [ ] **Step 2: Add four reviewer matrix jobs**
@@ -3396,36 +4010,36 @@ Commit: `feat(workflow): wire implement stage with MCP config injection and toke
 For each reviewer (compliance, bugs, security, smells), declare a job like:
 
 ```yaml
-  review-compliance:
-    needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.review_timeout_minutes }}
-    outputs:
-      structured_output: ${{ steps.agent.outputs.structured_output }}
-      github_token: ${{ steps.agent.outputs.github_token }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
-          fetch-depth: 0
-      - name: Render compliance prompt
-        id: prompt
-        uses: ./router
-        with:
-          helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # ... input file path, context JSON
-      - id: agent
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.anthropic_api_key }}
-          prompt: ${{ steps.prompt.outputs.rendered }}
-          claude_args: |
-            --model ${{ inputs.review_compliance_model }}
-            --max-turns ${{ inputs.review_compliance_max_turns }}
-            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch"
-            --json-schema '<paste schema from spec 5.5.2>'
+review-compliance:
+  needs: [route, review-skip-check]
+  if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
+  runs-on: ubuntu-latest
+  timeout-minutes: ${{ inputs.review_timeout_minutes }}
+  outputs:
+    structured_output: ${{ steps.agent.outputs.structured_output }}
+    github_token: ${{ steps.agent.outputs.github_token }}
+  steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+        fetch-depth: 0
+    - name: Render compliance prompt
+      id: prompt
+      uses: ./router
+      with:
+        helper: render-prompt
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        # ... input file path, context JSON
+    - id: agent
+      uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ secrets.anthropic_api_key }}
+        prompt: ${{ steps.prompt.outputs.rendered }}
+        claude_args: |
+          --model ${{ inputs.review_compliance_model }}
+          --max-turns ${{ inputs.review_compliance_max_turns }}
+          --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch"
+          --json-schema '<paste schema from spec 5.5.2>'
 ```
 
 Repeat for bugs, security, smells with their respective model/max_turns/enabled inputs.
@@ -3442,36 +4056,44 @@ git commit -m "feat(workflow): wire review stage 4-cell matrix with per-reviewer
 - [ ] **Step 1: Add `review-aggregator` job**
 
 ```yaml
-  review-aggregator:
-    needs: [route, review-skip-check, review-compliance, review-bugs, review-security, review-smells]
-    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./router
-        with:
-          helper: aggregate-review
-          # Spec 9.3 token threading: prefer any surviving matrix cell's minted token so the
-          # aggregator's posts (the approving or request-changes review, the commit status)
-          # appear under the same bot identity as the review agents. Fall back across cells
-          # in case one failed; fall back to GITHUB_TOKEN only if all four failed.
-          github_token: >-
-            ${{
-              needs.review-compliance.outputs.github_token ||
-              needs.review-bugs.outputs.github_token ||
-              needs.review-security.outputs.github_token ||
-              needs.review-smells.outputs.github_token ||
-              secrets.GITHUB_TOKEN
-            }}
-          issue_number: ${{ needs.route.outputs.issue_number }}
-          pr_number: ${{ needs.route.outputs.impl_pr_number }}
-          confidence_threshold: ${{ inputs.review_confidence_threshold }}
-          max_iterations: ${{ inputs.max_review_iterations }}
-          compliance_output: ${{ needs.review-compliance.outputs.structured_output }}
-          bugs_output: ${{ needs.review-bugs.outputs.structured_output }}
-          security_output: ${{ needs.review-security.outputs.structured_output }}
-          smells_output: ${{ needs.review-smells.outputs.structured_output }}
-          workflow_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+review-aggregator:
+  needs:
+    [
+      route,
+      review-skip-check,
+      review-compliance,
+      review-bugs,
+      review-security,
+      review-smells,
+    ]
+  if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v6
+    - uses: ./router
+      with:
+        helper: aggregate-review
+        # Spec 9.3 token threading: prefer any surviving matrix cell's minted token so the
+        # aggregator's posts (the approving or request-changes review, the commit status)
+        # appear under the same bot identity as the review agents. Fall back across cells
+        # in case one failed; fall back to GITHUB_TOKEN only if all four failed.
+        github_token: >-
+          ${{
+            needs.review-compliance.outputs.github_token ||
+            needs.review-bugs.outputs.github_token ||
+            needs.review-security.outputs.github_token ||
+            needs.review-smells.outputs.github_token ||
+            secrets.GITHUB_TOKEN
+          }}
+        issue_number: ${{ needs.route.outputs.issue_number }}
+        pr_number: ${{ needs.route.outputs.impl_pr_number }}
+        confidence_threshold: ${{ inputs.review_confidence_threshold }}
+        max_iterations: ${{ inputs.max_review_iterations }}
+        compliance_output: ${{ needs.review-compliance.outputs.structured_output }}
+        bugs_output: ${{ needs.review-bugs.outputs.structured_output }}
+        security_output: ${{ needs.review-security.outputs.structured_output }}
+        smells_output: ${{ needs.review-smells.outputs.structured_output }}
+        workflow_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 ```
 
 The `if: always()` is intentional: the aggregator runs even if some matrix cells failed, treating their missing output as "no findings" (see spec 13 / aggregator test task 2.9).
@@ -3490,36 +4112,37 @@ git commit -m "feat(workflow): wire review aggregator job with if-always and per
 ### Task 5.8: Handle merge transitions
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml`
 
 - [ ] **Step 1: Add a `handle-merge` job** gated on `pull_request.closed && merged == true && pr has Shopfloor-Stage metadata`
 
 ```yaml
-  handle-merge:
-    needs: route
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(needs.route.outputs.reason, 'pr_merged_')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./router
-        with:
-          helper: handle-merge
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          issue_number: ${{ needs.route.outputs.issue_number }}
-          merged_stage: ${{ <derive from reason string> }}
-          pr_number: ${{ github.event.pull_request.number }}
+handle-merge:
+  needs: route
+  if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(needs.route.outputs.reason, 'pr_merged_')
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v6
+    - uses: ./router
+      with:
+        helper: handle-merge
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        issue_number: ${{ needs.route.outputs.issue_number }}
+        merged_stage: ${{ <derive from reason string> }}
+        pr_number: ${{ github.event.pull_request.number }}
 ```
 
 Derivation of `merged_stage` from `reason`: the router's `reason` output looks like `pr_merged_spec_triggered_label_flip`, `pr_merged_plan_triggered_label_flip`, or `pr_merged_implement_triggered_label_flip`. Extract the middle token with a shell step:
 
 ```yaml
-      - id: parse_merged_stage
-        run: |
-          reason='${{ needs.route.outputs.reason }}'
-          # Strip the "pr_merged_" prefix and "_triggered_label_flip" suffix
-          stage="${reason#pr_merged_}"
-          stage="${stage%_triggered_label_flip}"
-          echo "merged_stage=$stage" >> "$GITHUB_OUTPUT"
+- id: parse_merged_stage
+  run: |
+    reason='${{ needs.route.outputs.reason }}'
+    # Strip the "pr_merged_" prefix and "_triggered_label_flip" suffix
+    stage="${reason#pr_merged_}"
+    stage="${stage%_triggered_label_flip}"
+    echo "merged_stage=$stage" >> "$GITHUB_OUTPUT"
 ```
 
 Then reference `${{ steps.parse_merged_stage.outputs.merged_stage }}` in the `handle-merge` helper call below.
@@ -3557,6 +4180,7 @@ Commit: `feat(workflow): finalize concurrency and closed-issue abort guard`.
 ### Task 6.1: Mock GitHub API server
 
 **Files:**
+
 - Create: `test/e2e/harness/mock-github.ts`
 
 **Purpose:** A small Express-like in-process mock that serves the subset of the GitHub REST API Shopfloor uses. Backed by an in-memory state object (issues, PRs, labels, comments, reviews, statuses).
@@ -3598,14 +4222,21 @@ git commit -m "test(e2e): add in-process mock GitHub API server"
 ### Task 6.2: Mock claude-code-action stub
 
 **Files:**
+
 - Create: `test/e2e/harness/mock-claude-code-action.ts`
 
 **Purpose:** Replace `claude-code-action` with a stub that reads a fixture and returns canned structured output. Used by the orchestrator.
 
 ```ts
-export function mockClaudeCodeAction(fixturePath: string): { structured_output: string; github_token?: string } {
-  const data = JSON.parse(readFileSync(fixturePath, 'utf-8'));
-  return { structured_output: JSON.stringify(data), github_token: 'mock-bot-token' };
+export function mockClaudeCodeAction(fixturePath: string): {
+  structured_output: string;
+  github_token?: string;
+} {
+  const data = JSON.parse(readFileSync(fixturePath, "utf-8"));
+  return {
+    structured_output: JSON.stringify(data),
+    github_token: "mock-bot-token",
+  };
 }
 ```
 
@@ -3614,6 +4245,7 @@ Commit: `test(e2e): add mock claude-code-action stub`.
 ### Task 6.3: Orchestrator harness
 
 **Files:**
+
 - Create: `test/e2e/harness/orchestrator.ts`
 
 **Purpose:** Plays the role of the reusable workflow's job wiring. Given a sequence of events, it:
@@ -3625,22 +4257,25 @@ Commit: `test(e2e): add mock claude-code-action stub`.
 - [ ] **Step 1: Implement `Orchestrator` class**
 
 ```ts
-import { startMockServer } from './mock-github';
-import { mockClaudeCodeAction } from './mock-claude-code-action';
-import { GitHubAdapter } from '../../../router/src/github';
-import { resolveStage } from '../../../router/src/state';
+import { startMockServer } from "./mock-github";
+import { mockClaudeCodeAction } from "./mock-claude-code-action";
+import { GitHubAdapter } from "../../../router/src/github";
+import { resolveStage } from "../../../router/src/state";
 // import helpers...
 
 export class Orchestrator {
-  constructor(private readonly adapter: GitHubAdapter, private readonly fixtures: Record<string, string>) {}
+  constructor(
+    private readonly adapter: GitHubAdapter,
+    private readonly fixtures: Record<string, string>,
+  ) {}
 
   async handleEvent(eventName: string, payload: unknown): Promise<void> {
     const decision = resolveStage({ eventName, payload: payload as never });
-    if (decision.stage === 'none') return;
+    if (decision.stage === "none") return;
 
     switch (decision.stage) {
-      case 'triage': {
-        const out = mockClaudeCodeAction(this.fixtures['triage']);
+      case "triage": {
+        const out = mockClaudeCodeAction(this.fixtures["triage"]);
         const parsed = JSON.parse(out.structured_output);
         // Apply triage decision via helper
         // ...
@@ -3662,6 +4297,7 @@ git commit -m "test(e2e): add orchestrator harness driving state + helpers"
 ### Task 6.4: Large-complexity happy path test
 
 **Files:**
+
 - Create: `test/e2e/large-happy-path.test.ts`
 - Create: `test/e2e/fixtures/large/triage.json`
 - Create: `test/e2e/fixtures/large/spec.json`
@@ -3679,25 +4315,45 @@ Triage fixture: `{status: "classified", complexity: "large", rationale: "..."}`.
 - [ ] **Step 2: Write the e2e test**
 
 ```ts
-import { describe, expect, test, beforeEach, afterEach } from 'vitest';
-import { Orchestrator } from './harness/orchestrator';
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
+import { Orchestrator } from "./harness/orchestrator";
 // ... setup
 
-describe('large complexity happy path', () => {
+describe("large complexity happy path", () => {
   let orch: Orchestrator;
   let mockServer: Awaited<ReturnType<typeof startMockServer>>;
 
-  beforeEach(async () => { mockServer = await startMockServer(); orch = new Orchestrator(/* ... */); });
-  afterEach(async () => { await mockServer.close(); });
+  beforeEach(async () => {
+    mockServer = await startMockServer();
+    orch = new Orchestrator(/* ... */);
+  });
+  afterEach(async () => {
+    await mockServer.close();
+  });
 
-  test('issue → spec → plan → impl → review(clean) → done', async () => {
+  test("issue → spec → plan → impl → review(clean) → done", async () => {
     // 1. Simulate issue opened
-    await orch.handleEvent('issues', { action: 'opened', issue: { number: 42, title: 'Add OAuth', body: '...', labels: [], state: 'open' }, repository: { owner: { login: 'o' }, name: 'r' } });
+    await orch.handleEvent("issues", {
+      action: "opened",
+      issue: {
+        number: 42,
+        title: "Add OAuth",
+        body: "...",
+        labels: [],
+        state: "open",
+      },
+      repository: { owner: { login: "o" }, name: "r" },
+    });
     // 2. Simulate label-added events that the orchestrator would fire after stage completions, and so on through the whole pipeline.
     // 3. Assert final state: issue #42 is closed, has label shopfloor:done, the impl PR is approved, commit status is success.
 
     const calls = mockServer.getRecordedCalls();
-    expect(calls).toContainEqual(expect.objectContaining({ method: 'POST', path: expect.stringMatching(/\/pulls$/) })); // at least one PR opened
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        method: "POST",
+        path: expect.stringMatching(/\/pulls$/),
+      }),
+    ); // at least one PR opened
     // ... more assertions
   });
 });
@@ -3719,6 +4375,7 @@ Commit: `test(e2e): add medium and quick happy path tests`.
 ### Task 6.6: Triage clarification and abort tests
 
 **Files:**
+
 - Create: `test/e2e/triage-clarification.test.ts`
 - Create: `test/e2e/abort.test.ts`
 
@@ -3769,6 +4426,7 @@ Commit (if any fixes): `fix: resolve test failures in full suite run`.
 ### Task 7.1: README with install and pitch
 
 **Files:**
+
 - Create: `README.md`
 
 - [ ] **Step 1: Write one-sentence pitch + the three install steps from spec section 8**
@@ -3784,6 +4442,7 @@ git commit -m "docs(readme): add install guide and one-sentence pitch"
 ### Task 7.2: Install guide
 
 **Files:**
+
 - Create: `docs/shopfloor/install.md`
 
 Covers: secret setup, Claude GitHub App install, caller workflow copy-paste, first-run bootstrap walkthrough, optional custom GitHub App.
@@ -3793,6 +4452,7 @@ Commit: `docs(user): add install guide`.
 ### Task 7.3: Configuration guide
 
 **Files:**
+
 - Create: `docs/shopfloor/configuration.md`
 
 Document every input from spec section 6.1 with a usage example.
@@ -3802,6 +4462,7 @@ Commit: `docs(user): add configuration guide`.
 ### Task 7.4: Troubleshooting guide
 
 **Files:**
+
 - Create: `docs/shopfloor/troubleshooting.md`
 
 Cover: branch protection, signed commits, CODEOWNERS, GHES, custom PR templates, failed stages, review-stuck recovery, skip-review usage.
@@ -3811,6 +4472,7 @@ Commit: `docs(user): add troubleshooting guide`.
 ### Task 7.5: Architecture doc (user-facing)
 
 **Files:**
+
 - Create: `docs/shopfloor/architecture.md`
 
 A plain-English summary of the state machine, router/agent boundary, and review loop. Lighter than the spec.
@@ -3820,6 +4482,7 @@ Commit: `docs(user): add architecture guide`.
 ### Task 7.6: FAQ
 
 **Files:**
+
 - Create: `docs/shopfloor/FAQ.md`
 
 Common questions: "Will this commit secrets?", "Does it work on private repos?", "Can I override the model per stage?", "What if I don't want the agent to review my PR?", "How do I pause the pipeline?".
@@ -3833,6 +4496,7 @@ Commit: `docs(user): add FAQ`.
 ### Task 8.1: Dogfood caller workflow
 
 **Files:**
+
 - Create: `.github/workflows/dogfood.yml`
 
 ```yaml
@@ -3866,6 +4530,7 @@ Commit: `feat(dogfood): add self-hosted caller workflow for dogfooding`.
 ### Task 8.2: CI workflow for lint + tests
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 ```yaml
@@ -3924,7 +4589,7 @@ git push origin v1.0.0-rc.1
 
 - [ ] **Step 5: Create a v1 moving tag** (so users can `@v1` their caller workflow)
 
-The `-f` on `push` here is deliberate and limited to the `v1` tag ref. This is the standard pattern for JS GitHub Actions that publish a moving major-version tag. The user's non-negotiable rule against force-pushing applies to *branches* (especially `main`/`master`), not to moving version tags. If in doubt, skip the force-push and create `v1.0.0-rc.2` instead.
+The `-f` on `push` here is deliberate and limited to the `v1` tag ref. This is the standard pattern for JS GitHub Actions that publish a moving major-version tag. The user's non-negotiable rule against force-pushing applies to _branches_ (especially `main`/`master`), not to moving version tags. If in doubt, skip the force-push and create `v1.0.0-rc.2` instead.
 
 ```bash
 git tag -fa v1 -m "v1 moving tag points to v1.0.0-rc.1"

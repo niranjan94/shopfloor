@@ -11,8 +11,14 @@
     "state": "open",
     "draft": false,
     "merged": false,
-    "head": { "ref": "shopfloor/spec/42-x", "sha": "bbbbbb0000000000000000000000000000000000" },
-    "base": { "ref": "main", "sha": "1234567890abcdef1234567890abcdef12345678" },
+    "head": {
+      "ref": "shopfloor/spec/42-x",
+      "sha": "bbbbbb0000000000000000000000000000000000"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "1234567890abcdef1234567890abcdef12345678"
+    },
     "labels": [{ "name": "shopfloor:spec-in-review" }]
   },
   "repository": {

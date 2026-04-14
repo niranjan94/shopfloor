@@ -70,32 +70,32 @@ Every component is versioned in the Shopfloor repository. Users reference a spec
 
 Every Shopfloor-managed issue is in exactly one state at a time, represented by exactly one `shopfloor:*` state label. The states are:
 
-| Label | Meaning |
-|---|---|
-| `shopfloor:triaging` | Triage agent is reading the issue and deciding what to do. |
-| `shopfloor:awaiting-info` | Triage posted clarifying questions; pipeline is paused until a human replies and a maintainer removes this label. |
-| `shopfloor:quick` | Triage classified this as a quick fix. Will skip to implementation. |
-| `shopfloor:medium` | Triage classified this as medium. Will skip spec, go to plan. |
-| `shopfloor:large` | Triage classified this as large. Full spec → plan → impl flow. |
-| `shopfloor:needs-spec` | Ready for the spec agent to run. |
-| `shopfloor:spec-in-review` | Spec PR is open, awaiting human review and merge. |
-| `shopfloor:needs-plan` | Spec has been merged (or skipped). Ready for plan agent. |
-| `shopfloor:plan-in-review` | Plan PR is open, awaiting human review and merge. |
-| `shopfloor:needs-impl` | Plan has been merged (or skipped). Ready for implementation agent. |
-| `shopfloor:needs-review` | Implementation agent has pushed commits to the impl PR; review stage is queued or running. |
-| `shopfloor:review-requested-changes` | Review stage produced actionable findings at or above the confidence threshold; implementation agent will re-run in revision mode on next event cycle. |
-| `shopfloor:review-approved` | Review stage passed. Commit status `shopfloor/review` is `success`. Awaiting human review and merge. |
-| `shopfloor:review-stuck` | The impl↔review loop has hit `max_review_iterations` without converging. Requires a human to intervene by removing the label or taking over the PR. |
-| `shopfloor:impl-in-review` | Equivalent of `shopfloor:review-approved` for tickets that explicitly bypass review via `shopfloor:skip-review`. Implementation PR awaits human merge without an agent review pass. |
-| `shopfloor:done` | Implementation PR has been merged. Terminal state. Original issue auto-closed. |
+| Label                                | Meaning                                                                                                                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shopfloor:triaging`                 | Triage agent is reading the issue and deciding what to do.                                                                                                                          |
+| `shopfloor:awaiting-info`            | Triage posted clarifying questions; pipeline is paused until a human replies and a maintainer removes this label.                                                                   |
+| `shopfloor:quick`                    | Triage classified this as a quick fix. Will skip to implementation.                                                                                                                 |
+| `shopfloor:medium`                   | Triage classified this as medium. Will skip spec, go to plan.                                                                                                                       |
+| `shopfloor:large`                    | Triage classified this as large. Full spec → plan → impl flow.                                                                                                                      |
+| `shopfloor:needs-spec`               | Ready for the spec agent to run.                                                                                                                                                    |
+| `shopfloor:spec-in-review`           | Spec PR is open, awaiting human review and merge.                                                                                                                                   |
+| `shopfloor:needs-plan`               | Spec has been merged (or skipped). Ready for plan agent.                                                                                                                            |
+| `shopfloor:plan-in-review`           | Plan PR is open, awaiting human review and merge.                                                                                                                                   |
+| `shopfloor:needs-impl`               | Plan has been merged (or skipped). Ready for implementation agent.                                                                                                                  |
+| `shopfloor:needs-review`             | Implementation agent has pushed commits to the impl PR; review stage is queued or running.                                                                                          |
+| `shopfloor:review-requested-changes` | Review stage produced actionable findings at or above the confidence threshold; implementation agent will re-run in revision mode on next event cycle.                              |
+| `shopfloor:review-approved`          | Review stage passed. Commit status `shopfloor/review` is `success`. Awaiting human review and merge.                                                                                |
+| `shopfloor:review-stuck`             | The impl↔review loop has hit `max_review_iterations` without converging. Requires a human to intervene by removing the label or taking over the PR.                                 |
+| `shopfloor:impl-in-review`           | Equivalent of `shopfloor:review-approved` for tickets that explicitly bypass review via `shopfloor:skip-review`. Implementation PR awaits human merge without an agent review pass. |
+| `shopfloor:done`                     | Implementation PR has been merged. Terminal state. Original issue auto-closed.                                                                                                      |
 
 Plus these orthogonal labels that can appear on top of any state label:
 
-| Label | Meaning |
-|---|---|
-| `shopfloor:failed:<stage>` | The last run of `<stage>` failed. A maintainer removes this label to retry. No auto-retry. `<stage>` is one of `triage`, `spec`, `plan`, `implement`, or `review`. |
-| `shopfloor:revise` | Manual escape hatch: retrigger the current stage. Used when `Request changes` was not submitted but a human wants the agent to run again. Consumed on trigger (label removed after firing). |
-| `shopfloor:skip-review` | Applied to an impl PR (or to the issue) to completely bypass the agent review stage for this ticket. Useful when a human wants to take over the PR manually. |
+| Label                      | Meaning                                                                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shopfloor:failed:<stage>` | The last run of `<stage>` failed. A maintainer removes this label to retry. No auto-retry. `<stage>` is one of `triage`, `spec`, `plan`, `implement`, or `review`.                          |
+| `shopfloor:revise`         | Manual escape hatch: retrigger the current stage. Used when `Request changes` was not submitted but a human wants the agent to run again. Consumed on trigger (label removed after firing). |
+| `shopfloor:skip-review`    | Applied to an impl PR (or to the issue) to completely bypass the agent review stage for this ticket. Useful when a human wants to take over the PR manually.                                |
 
 ### Transitions
 
@@ -333,7 +333,7 @@ All four stages share a common shape: the router resolves the stage from the eve
 1. Create a new branch from the base branch.
 2. Post an initial "Implementation starting. I will update this comment with progress." comment on the target branch (as a PR is not yet open, this goes on the origin issue until the PR exists, then the router opens the PR early with a placeholder body and repoints the comment to the PR).
 
-   **Design choice:** To keep all progress visible on the PR being built (not on the issue), the router opens the implementation PR *before* the agent begins work, with a placeholder body ("Shopfloor is drafting this PR now..."). The initial progress comment is posted on that PR, and its ID is passed to the agent. Once the agent finishes, the router updates the PR body with the agent's final structured output.
+   **Design choice:** To keep all progress visible on the PR being built (not on the issue), the router opens the implementation PR _before_ the agent begins work, with a placeholder body ("Shopfloor is drafting this PR now..."). The initial progress comment is posted on that PR, and its ID is passed to the agent. Once the agent finishes, the router updates the PR body with the agent's final structured output.
 
 3. Write an MCP config file to `$RUNNER_TEMP/shopfloor-mcp.json` declaring the `shopfloor` server with the comment ID injected:
 
@@ -342,7 +342,10 @@ All four stages share a common shape: the router resolves the stage from the eve
      "mcpServers": {
        "shopfloor": {
          "command": "bun",
-         "args": ["run", "${{ github.action_path }}/mcp-servers/shopfloor-mcp/index.ts"],
+         "args": [
+           "run",
+           "${{ github.action_path }}/mcp-servers/shopfloor-mcp/index.ts"
+         ],
          "env": {
            "GITHUB_TOKEN": "***",
            "REPO_OWNER": "<owner>",
@@ -426,12 +429,12 @@ When skipped, the router posts a one-line comment on the PR (only if not already
 
 Each subagent runs as a matrix cell in the review stage job. All four share the same repository checkout, the same base tool allowlist, and the same schema for structured output. They differ only in the prompt file they use, the model they run on, and (optionally) their max turns.
 
-| Reviewer | Prompt | Default model | Reviews for |
-|---|---|---|---|
+| Reviewer     | Prompt                         | Default model     | Reviews for                                                                                                                                      |
+| ------------ | ------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `compliance` | `prompts/review-compliance.md` | `claude-opus-4-6` | Violations of `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONTRIBUTING.md`, and any similar in-repo guideline files that apply to the changed paths. |
-| `bugs` | `prompts/review-bugs.md` | `claude-opus-4-6` | Obvious bugs, missed requirements from the linked spec/plan, off-by-one errors, null deref risks, incorrect error handling. |
-| `security` | `prompts/review-security.md` | `claude-opus-4-6` | Injection vulnerabilities, auth/authz bypass, secret leakage, unsafe deserialisation, path traversal, insecure defaults. |
-| `smells` | `prompts/review-smells.md` | `claude-opus-4-6` | Code smells, dead code, duplication, overly broad abstractions, unclear names, premature generalisation, excessive comments. |
+| `bugs`       | `prompts/review-bugs.md`       | `claude-opus-4-6` | Obvious bugs, missed requirements from the linked spec/plan, off-by-one errors, null deref risks, incorrect error handling.                      |
+| `security`   | `prompts/review-security.md`   | `claude-opus-4-6` | Injection vulnerabilities, auth/authz bypass, secret leakage, unsafe deserialisation, path traversal, insecure defaults.                         |
+| `smells`     | `prompts/review-smells.md`     | `claude-opus-4-6` | Code smells, dead code, duplication, overly broad abstractions, unclear names, premature generalisation, excessive comments.                     |
 
 Each reviewer is assigned its own tunable inputs on the reusable workflow:
 
@@ -514,7 +517,7 @@ Field semantics:
    - **Clean:** `POST /repos/:owner/:repo/pulls/:pr/reviews` with `event: "APPROVE"`, body containing the Shopfloor marker and a one-paragraph summary from the reviewers' `summary` fields, no comments array.
    - **Issues found:** `POST /repos/:owner/:repo/pulls/:pr/reviews` with `event: "REQUEST_CHANGES"`, body containing the Shopfloor marker and a brief summary of which categories produced findings, `comments` array containing every filtered comment (each with `path`, `body`, and `line`+`side` or `start_line`+`start_side`+`line`+`side` for multi-line).
 9. **Increment the iteration counter only on `issues_found` verdicts.** The counter tracks impl↔review bounces, which only happen when the review requests changes. On a `clean` verdict the counter is left as-is (the loop terminates naturally). Format: a line `Shopfloor-Review-Iteration: <N>` that the router maintains at the bottom of the PR body. A missing counter is treated as `0`.
-10. If the verdict is `issues_found` AND the *incremented* counter would exceed `max_review_iterations` (default: 3), the aggregator does NOT post the Request Changes review (which would trigger another impl run). Instead, it:
+10. If the verdict is `issues_found` AND the _incremented_ counter would exceed `max_review_iterations` (default: 3), the aggregator does NOT post the Request Changes review (which would trigger another impl run). Instead, it:
     - Applies `shopfloor:review-stuck` to the origin issue.
     - Posts a comment on the PR explaining that the iteration cap was reached, linking to the findings, and asking a human to take over.
     - Sets the commit status to `failure` with a `shopfloor/review: iteration cap reached` description.
@@ -570,56 +573,56 @@ Declares `on: workflow_call:` with typed inputs and secrets. Contains one `route
 
 Inputs (all optional with defaults):
 
-| Input | Type | Default                                                         | Purpose |
-|---|---|-----------------------------------------------------------------|---|
-| `triage_model` | string | `sonnet`                                                        | Model for the triage agent. |
-| `spec_model` | string | `opus`                                                          | Model for the spec agent. |
-| `plan_model` | string | `opus`                                                          | Model for the plan agent. |
-| `impl_model` | string | `opus`                                                          | Model for the implementation agent. |
-| `triage_max_turns` | number | `10`                                                            | `--max-turns` for triage. |
-| `spec_max_turns` | number | `10`                                                            | `--max-turns` for spec. |
-| `plan_max_turns` | number | `15`                                                            | `--max-turns` for plan. |
-| `impl_max_turns` | number | `70`                                                            | `--max-turns` for implementation. |
-| `triage_timeout_minutes` | number | `10`                                                            | Job timeout. |
-| `spec_timeout_minutes` | number | `20`                                                            | Job timeout. |
-| `plan_timeout_minutes` | number | `30`                                                            | Job timeout. |
-| `impl_timeout_minutes` | number | `60`                                                            | Job timeout. |
-| `branch_prefix` | string | `shopfloor/`                                                    | Branch prefix for all Shopfloor branches. |
-| `artifacts_dir` | string | `docs/shopfloor/`                                               | Root directory for spec and plan files. |
-| `impl_bash_allowlist` | string | `pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc` | Comma-separated allowlist for the impl agent's `Bash(...)` tools. Appended to the stage-level allowlist. |
-| `additional_tools` | string | `""`                                                            | Extra tools to allowlist for the impl stage (e.g. user-defined MCP tools). |
-| `review_compliance_model` | string | `sonnet`                                                        | Model for the CLAUDE.md compliance reviewer. |
-| `review_bugs_model` | string | `opus`                                                          | Model for the bugs reviewer. |
-| `review_security_model` | string | `opus`                                                          | Model for the security reviewer. |
-| `review_smells_model` | string | `opus`                                                          | Model for the code smells reviewer. |
-| `review_compliance_max_turns` | number | `15`                                                            | `--max-turns` for the compliance reviewer. |
-| `review_bugs_max_turns` | number | `15`                                                             | `--max-turns` for the bugs reviewer. |
-| `review_security_max_turns` | number | `15`                                                             | `--max-turns` for the security reviewer. |
-| `review_smells_max_turns` | number | `15`                                                             | `--max-turns` for the smells reviewer. |
-| `review_compliance_enabled` | boolean | `true`                                                          | Whether to run the compliance reviewer at all. |
-| `review_bugs_enabled` | boolean | `true`                                                          | Whether to run the bugs reviewer at all. |
-| `review_security_enabled` | boolean | `true`                                                          | Whether to run the security reviewer at all. |
-| `review_smells_enabled` | boolean | `true`                                                          | Whether to run the smells reviewer at all. |
-| `review_timeout_minutes` | number | `20`                                                            | Per-matrix-cell timeout for review subagents. |
-| `review_confidence_threshold` | number | `80`                                                            | Minimum confidence score for a review comment to survive aggregation filtering. Range 0-100. |
-| `max_review_iterations` | number | `3`                                                             | Maximum number of impl↔review bounces on a single impl PR before the router bails out with `shopfloor:review-stuck`. |
-| `use_bedrock` | boolean | `false`                                                         | Pass-through to `claude-code-action`. |
-| `use_vertex` | boolean | `false`                                                         | Pass-through to `claude-code-action`. |
-| `use_foundry` | boolean | `false`                                                         | Pass-through to `claude-code-action`. |
-| `ssh_signing_key_enabled` | boolean | `false`                                                         | Whether the caller passes an SSH signing key as a secret for signed commits. |
-| `keep_artifacts_forever` | boolean | `true`                                                          | If false, the impl stage's PR also deletes the matching spec and plan files. |
+| Input                         | Type    | Default                                                         | Purpose                                                                                                              |
+| ----------------------------- | ------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `triage_model`                | string  | `sonnet`                                                        | Model for the triage agent.                                                                                          |
+| `spec_model`                  | string  | `opus`                                                          | Model for the spec agent.                                                                                            |
+| `plan_model`                  | string  | `opus`                                                          | Model for the plan agent.                                                                                            |
+| `impl_model`                  | string  | `opus`                                                          | Model for the implementation agent.                                                                                  |
+| `triage_max_turns`            | number  | `10`                                                            | `--max-turns` for triage.                                                                                            |
+| `spec_max_turns`              | number  | `10`                                                            | `--max-turns` for spec.                                                                                              |
+| `plan_max_turns`              | number  | `15`                                                            | `--max-turns` for plan.                                                                                              |
+| `impl_max_turns`              | number  | `70`                                                            | `--max-turns` for implementation.                                                                                    |
+| `triage_timeout_minutes`      | number  | `10`                                                            | Job timeout.                                                                                                         |
+| `spec_timeout_minutes`        | number  | `20`                                                            | Job timeout.                                                                                                         |
+| `plan_timeout_minutes`        | number  | `30`                                                            | Job timeout.                                                                                                         |
+| `impl_timeout_minutes`        | number  | `60`                                                            | Job timeout.                                                                                                         |
+| `branch_prefix`               | string  | `shopfloor/`                                                    | Branch prefix for all Shopfloor branches.                                                                            |
+| `artifacts_dir`               | string  | `docs/shopfloor/`                                               | Root directory for spec and plan files.                                                                              |
+| `impl_bash_allowlist`         | string  | `pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc` | Comma-separated allowlist for the impl agent's `Bash(...)` tools. Appended to the stage-level allowlist.             |
+| `additional_tools`            | string  | `""`                                                            | Extra tools to allowlist for the impl stage (e.g. user-defined MCP tools).                                           |
+| `review_compliance_model`     | string  | `sonnet`                                                        | Model for the CLAUDE.md compliance reviewer.                                                                         |
+| `review_bugs_model`           | string  | `opus`                                                          | Model for the bugs reviewer.                                                                                         |
+| `review_security_model`       | string  | `opus`                                                          | Model for the security reviewer.                                                                                     |
+| `review_smells_model`         | string  | `opus`                                                          | Model for the code smells reviewer.                                                                                  |
+| `review_compliance_max_turns` | number  | `15`                                                            | `--max-turns` for the compliance reviewer.                                                                           |
+| `review_bugs_max_turns`       | number  | `15`                                                            | `--max-turns` for the bugs reviewer.                                                                                 |
+| `review_security_max_turns`   | number  | `15`                                                            | `--max-turns` for the security reviewer.                                                                             |
+| `review_smells_max_turns`     | number  | `15`                                                            | `--max-turns` for the smells reviewer.                                                                               |
+| `review_compliance_enabled`   | boolean | `true`                                                          | Whether to run the compliance reviewer at all.                                                                       |
+| `review_bugs_enabled`         | boolean | `true`                                                          | Whether to run the bugs reviewer at all.                                                                             |
+| `review_security_enabled`     | boolean | `true`                                                          | Whether to run the security reviewer at all.                                                                         |
+| `review_smells_enabled`       | boolean | `true`                                                          | Whether to run the smells reviewer at all.                                                                           |
+| `review_timeout_minutes`      | number  | `20`                                                            | Per-matrix-cell timeout for review subagents.                                                                        |
+| `review_confidence_threshold` | number  | `80`                                                            | Minimum confidence score for a review comment to survive aggregation filtering. Range 0-100.                         |
+| `max_review_iterations`       | number  | `3`                                                             | Maximum number of impl↔review bounces on a single impl PR before the router bails out with `shopfloor:review-stuck`. |
+| `use_bedrock`                 | boolean | `false`                                                         | Pass-through to `claude-code-action`.                                                                                |
+| `use_vertex`                  | boolean | `false`                                                         | Pass-through to `claude-code-action`.                                                                                |
+| `use_foundry`                 | boolean | `false`                                                         | Pass-through to `claude-code-action`.                                                                                |
+| `ssh_signing_key_enabled`     | boolean | `false`                                                         | Whether the caller passes an SSH signing key as a secret for signed commits.                                         |
+| `keep_artifacts_forever`      | boolean | `true`                                                          | If false, the impl stage's PR also deletes the matching spec and plan files.                                         |
 
 Secrets (all optional except one auth method must be set):
 
-| Secret | Purpose |
-|---|---|
-| `anthropic_api_key` | Anthropic direct API. |
-| `claude_code_oauth_token` | Alternative to API key. |
-| `aws_access_key_id`, `aws_secret_access_key`, `aws_region`, `aws_bearer_token_bedrock` | Bedrock auth. |
-| `anthropic_vertex_project_id`, `cloud_ml_region`, `google_application_credentials` | Vertex auth. |
-| `anthropic_foundry_resource` | Foundry auth. |
-| `github_app_id`, `github_app_private_key` | Custom GitHub App identity (optional, falls back to the Claude GitHub App or `GITHUB_TOKEN`). |
-| `ssh_signing_key` | SSH private key for signed commits (optional). |
+| Secret                                                                                 | Purpose                                                                                       |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `anthropic_api_key`                                                                    | Anthropic direct API.                                                                         |
+| `claude_code_oauth_token`                                                              | Alternative to API key.                                                                       |
+| `aws_access_key_id`, `aws_secret_access_key`, `aws_region`, `aws_bearer_token_bedrock` | Bedrock auth.                                                                                 |
+| `anthropic_vertex_project_id`, `cloud_ml_region`, `google_application_credentials`     | Vertex auth.                                                                                  |
+| `anthropic_foundry_resource`                                                           | Foundry auth.                                                                                 |
+| `github_app_id`, `github_app_private_key`                                              | Custom GitHub App identity (optional, falls back to the Claude GitHub App or `GITHUB_TOKEN`). |
+| `ssh_signing_key`                                                                      | SSH private key for signed commits (optional).                                                |
 
 The workflow's `secrets: inherit` pattern is recommended in the caller so users do not have to list each secret explicitly.
 
@@ -658,16 +661,16 @@ Path: `prompts/` in the Shopfloor repository.
 
 Plain markdown files with `{{placeholder}}` variables substituted at runtime by a small helper (or inline in each stage job using `envsubst`-style substitution). Shipping prompts as files (rather than hardcoded strings in action code) means they can be iterated on independently and diffed over time.
 
-| File | Used by |
-|---|---|
-| `prompts/triage.md` | Triage stage |
-| `prompts/spec.md` | Spec stage |
-| `prompts/plan.md` | Plan stage |
-| `prompts/implement.md` | Implementation stage |
+| File                           | Used by                                |
+| ------------------------------ | -------------------------------------- |
+| `prompts/triage.md`            | Triage stage                           |
+| `prompts/spec.md`              | Spec stage                             |
+| `prompts/plan.md`              | Plan stage                             |
+| `prompts/implement.md`         | Implementation stage                   |
 | `prompts/review-compliance.md` | Review stage, `compliance` matrix cell |
-| `prompts/review-bugs.md` | Review stage, `bugs` matrix cell |
-| `prompts/review-security.md` | Review stage, `security` matrix cell |
-| `prompts/review-smells.md` | Review stage, `smells` matrix cell |
+| `prompts/review-bugs.md`       | Review stage, `bugs` matrix cell       |
+| `prompts/review-security.md`   | Review stage, `security` matrix cell   |
+| `prompts/review-smells.md`     | Review stage, `smells` matrix cell     |
 
 Each prompt begins with a rigid **system prompt block** that establishes:
 
@@ -707,7 +710,7 @@ Shopfloor is a pure consumer. It never forks `claude-code-action`, never vendors
 
 This invariant is load-bearing. It means Shopfloor v0.1 gets every `claude-code-action` bug fix and feature for free on version bumps, and it means the `claude-code-action` team has zero interface obligation to us.
 
-If we ever *need* a feature `claude-code-action` doesn't have (for example, the `CLAUDE_COMMENT_ID` env var in agent mode), the right path is an upstream PR, not a fork.
+If we ever _need_ a feature `claude-code-action` doesn't have (for example, the `CLAUDE_COMMENT_ID` env var in agent mode), the right path is an upstream PR, not a fork.
 
 ## 7. Data flow walkthroughs
 
@@ -849,23 +852,23 @@ No configuration file is created. No branch is created. No files are committed. 
 
 Required in the caller workflow's `permissions:` block:
 
-| Permission | Level | Why |
-|---|---|---|
-| `contents` | `write` | Create branches, push commits, read repository files. |
-| `pull-requests` | `write` | Open PRs, update PR bodies, read review comments, add labels. |
-| `issues` | `write` | Read issues and comments, post comments, manage labels, close issues. |
-| `id-token` | `write` | Used by `claude-code-action` for OIDC exchange with Bedrock/Vertex/Foundry. Harmless on Anthropic API setups. |
-| `actions` | `read` | Read workflow run metadata for diagnostic links and optional CI log access. |
-| `statuses` | `write` | Required by the review stage aggregator to create and update the `shopfloor/review` commit status on impl PRs. |
-| `checks` | `read` | Read existing status checks (e.g. to avoid re-running the review stage if a prior Shopfloor review already passed for the current HEAD SHA). |
+| Permission      | Level   | Why                                                                                                                                          |
+| --------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `contents`      | `write` | Create branches, push commits, read repository files.                                                                                        |
+| `pull-requests` | `write` | Open PRs, update PR bodies, read review comments, add labels.                                                                                |
+| `issues`        | `write` | Read issues and comments, post comments, manage labels, close issues.                                                                        |
+| `id-token`      | `write` | Used by `claude-code-action` for OIDC exchange with Bedrock/Vertex/Foundry. Harmless on Anthropic API setups.                                |
+| `actions`       | `read`  | Read workflow run metadata for diagnostic links and optional CI log access.                                                                  |
+| `statuses`      | `write` | Required by the review stage aggregator to create and update the `shopfloor/review` commit status on impl PRs.                               |
+| `checks`        | `read`  | Read existing status checks (e.g. to avoid re-running the review stage if a prior Shopfloor review already passed for the current HEAD SHA). |
 
 Explicitly **not** required:
 
-| Permission | Why not |
-|---|---|
-| `checks: write` | Shopfloor uses commit statuses, not check runs. `checks: read` is sufficient. |
-| `workflows: write` | Deliberately avoided. The impl agent must not be able to rewrite `.github/workflows/*`. Users who want this can add it themselves via `additional_permissions`. |
-| `discussions`, `packages`, `pages`, `security-events` | Unused. |
+| Permission                                            | Why not                                                                                                                                                         |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checks: write`                                       | Shopfloor uses commit statuses, not check runs. `checks: read` is sufficient.                                                                                   |
+| `workflows: write`                                    | Deliberately avoided. The impl agent must not be able to rewrite `.github/workflows/*`. Users who want this can add it themselves via `additional_permissions`. |
+| `discussions`, `packages`, `pages`, `security-events` | Unused.                                                                                                                                                         |
 
 ### 9.2 GitHub App identity (optional)
 

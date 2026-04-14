@@ -1,6 +1,6 @@
-import { vi } from 'vitest';
-import { GitHubAdapter } from '../../src/github';
-import type { OctokitLike } from '../../src/types';
+import { vi } from "vitest";
+import { GitHubAdapter } from "../../src/github";
+import type { OctokitLike } from "../../src/types";
 
 export interface MockBundle {
   adapter: GitHubAdapter;
@@ -23,8 +23,8 @@ export interface MockBundle {
   };
 }
 
-export function makeMockAdapter(repo = { owner: 'o', repo: 'r' }): MockBundle {
-  const mocks: MockBundle['mocks'] = {
+export function makeMockAdapter(repo = { owner: "o", repo: "r" }): MockBundle {
+  const mocks: MockBundle["mocks"] = {
     addLabels: vi.fn().mockResolvedValue({ data: [] }),
     removeLabel: vi.fn().mockResolvedValue({ data: [] }),
     createComment: vi.fn().mockResolvedValue({ data: { id: 1 } }),
@@ -32,14 +32,20 @@ export function makeMockAdapter(repo = { owner: 'o', repo: 'r' }): MockBundle {
     createLabel: vi.fn().mockResolvedValue({ data: {} }),
     listLabelsForRepo: vi.fn().mockResolvedValue({ data: [] }),
     updateIssue: vi.fn().mockResolvedValue({ data: {} }),
-    getIssue: vi.fn().mockResolvedValue({ data: { labels: [], state: 'open' } }),
-    createPr: vi.fn().mockResolvedValue({ data: { number: 100, html_url: 'https://x/pr/100' } }),
+    getIssue: vi
+      .fn()
+      .mockResolvedValue({ data: { labels: [], state: "open" } }),
+    createPr: vi
+      .fn()
+      .mockResolvedValue({
+        data: { number: 100, html_url: "https://x/pr/100" },
+      }),
     updatePr: vi.fn().mockResolvedValue({ data: {} }),
     getPr: vi.fn().mockResolvedValue({ data: {} }),
     listFiles: vi.fn().mockResolvedValue({ data: [] }),
     createReview: vi.fn().mockResolvedValue({ data: {} }),
     listReviews: vi.fn().mockResolvedValue({ data: [] }),
-    createCommitStatus: vi.fn().mockResolvedValue({ data: {} })
+    createCommitStatus: vi.fn().mockResolvedValue({ data: {} }),
   };
   const octokit = {
     rest: {
@@ -51,7 +57,7 @@ export function makeMockAdapter(repo = { owner: 'o', repo: 'r' }): MockBundle {
         createLabel: mocks.createLabel,
         listLabelsForRepo: mocks.listLabelsForRepo,
         update: mocks.updateIssue,
-        get: mocks.getIssue
+        get: mocks.getIssue,
       },
       pulls: {
         create: mocks.createPr,
@@ -59,12 +65,12 @@ export function makeMockAdapter(repo = { owner: 'o', repo: 'r' }): MockBundle {
         get: mocks.getPr,
         listFiles: mocks.listFiles,
         createReview: mocks.createReview,
-        listReviews: mocks.listReviews
+        listReviews: mocks.listReviews,
       },
       repos: {
-        createCommitStatus: mocks.createCommitStatus
-      }
-    }
+        createCommitStatus: mocks.createCommitStatus,
+      },
+    },
   } as unknown as OctokitLike;
   const adapter = new GitHubAdapter(octokit, repo);
   return { adapter, mocks };

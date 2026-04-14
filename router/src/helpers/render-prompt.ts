@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
-import * as core from '@actions/core';
-import type { GitHubAdapter } from '../github';
-import { renderPrompt } from '../prompt-render';
+import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
+import * as core from "@actions/core";
+import type { GitHubAdapter } from "../github";
+import { renderPrompt } from "../prompt-render";
 
 /**
  * Resolve a prompt file path. If the path is absolute and exists, return it as-is.
@@ -15,7 +15,7 @@ export function resolvePromptFile(promptFile: string): string {
   if (existsSync(promptFile)) return promptFile;
   const actionPath = process.env.GITHUB_ACTION_PATH;
   if (actionPath) {
-    const fromActionSibling = join(actionPath, '..', promptFile);
+    const fromActionSibling = join(actionPath, "..", promptFile);
     if (existsSync(fromActionSibling)) return fromActionSibling;
     const fromActionSelf = join(actionPath, promptFile);
     if (existsSync(fromActionSelf)) return fromActionSelf;
@@ -25,14 +25,14 @@ export function resolvePromptFile(promptFile: string): string {
 
 function parseContextJson(raw: string): Record<string, string> {
   const parsed = JSON.parse(raw) as unknown;
-  if (parsed === null || typeof parsed !== 'object') {
-    throw new Error('context must be a JSON object');
+  if (parsed === null || typeof parsed !== "object") {
+    throw new Error("context must be a JSON object");
   }
   return Object.fromEntries(
     Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [
       k,
-      v === null || v === undefined ? '' : String(v)
-    ])
+      v === null || v === undefined ? "" : String(v),
+    ]),
   );
 }
 
@@ -43,56 +43,63 @@ export interface MergeAllowedToolsOptions {
 
 export function mergeAllowedTools(options: MergeAllowedToolsOptions): string {
   const base = options.baseAllowedTools
-    .split(',')
+    .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   const merged = new Set(base);
 
   if (!existsSync(options.settingsFile)) {
-    return Array.from(merged).join(',');
+    return Array.from(merged).join(",");
   }
 
   let projectTools: string[] = [];
   try {
-    const settings = JSON.parse(readFileSync(options.settingsFile, 'utf-8')) as unknown;
-    const allow = (settings as { permissions?: { allow?: unknown } })?.permissions?.allow;
+    const settings = JSON.parse(
+      readFileSync(options.settingsFile, "utf-8"),
+    ) as unknown;
+    const allow = (settings as { permissions?: { allow?: unknown } })
+      ?.permissions?.allow;
     if (Array.isArray(allow)) {
       // Exclude entries that contain `"` — they would escape out of the double-quoted
       // --allowedTools shell argument and corrupt the args string.
       projectTools = allow.filter(
-        (t): t is string => typeof t === 'string' && t.length > 0 && !t.includes('"')
+        (t): t is string =>
+          typeof t === "string" && t.length > 0 && !t.includes('"'),
       );
     }
   } catch (err) {
     core.warning(
-      `render-prompt: failed to parse ${options.settingsFile}: ${err instanceof Error ? err.message : String(err)}`
+      `render-prompt: failed to parse ${options.settingsFile}: ${err instanceof Error ? err.message : String(err)}`,
     );
-    return Array.from(merged).join(',');
+    return Array.from(merged).join(",");
   }
 
   if (projectTools.length > 0) {
     core.info(
-      `render-prompt: merged ${projectTools.length} project permission(s) from ${options.settingsFile} into allowed tools`
+      `render-prompt: merged ${projectTools.length} project permission(s) from ${options.settingsFile} into allowed tools`,
     );
   }
   for (const t of projectTools) merged.add(t);
-  return Array.from(merged).join(',');
+  return Array.from(merged).join(",");
 }
 
 export async function runRenderPrompt(_adapter: GitHubAdapter): Promise<void> {
-  const promptFile = core.getInput('prompt_file', { required: true });
-  const contextFile = core.getInput('context_file');
-  const contextJson = core.getInput('context_json');
-  const baseAllowedTools = core.getInput('base_allowed_tools');
-  const settingsFile = core.getInput('settings_file') || '.claude/settings.json';
+  const promptFile = core.getInput("prompt_file", { required: true });
+  const contextFile = core.getInput("context_file");
+  const contextJson = core.getInput("context_json");
+  const baseAllowedTools = core.getInput("base_allowed_tools");
+  const settingsFile =
+    core.getInput("settings_file") || ".claude/settings.json";
 
   if (!contextFile && !contextJson) {
-    throw new Error('render-prompt: either context_file or context_json is required');
+    throw new Error(
+      "render-prompt: either context_file or context_json is required",
+    );
   }
 
   let rawContext: string;
   if (contextFile) {
-    rawContext = readFileSync(contextFile, 'utf-8');
+    rawContext = readFileSync(contextFile, "utf-8");
   } else {
     rawContext = contextJson;
   }
@@ -102,23 +109,25 @@ export async function runRenderPrompt(_adapter: GitHubAdapter): Promise<void> {
     context = parseContextJson(rawContext);
   } catch (err) {
     throw new Error(
-      `render-prompt: failed to parse context: ${err instanceof Error ? err.message : String(err)}`
+      `render-prompt: failed to parse context: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
   const resolvedPromptFile = resolvePromptFile(promptFile);
   const rendered = renderPrompt(resolvedPromptFile, context);
-  if (rendered.includes('{{MISSING:')) {
-    const missing = Array.from(rendered.matchAll(/\{\{MISSING:([a-zA-Z0-9_]+)\}\}/g)).map(
-      (m) => m[1]
+  if (rendered.includes("{{MISSING:")) {
+    const missing = Array.from(
+      rendered.matchAll(/\{\{MISSING:([a-zA-Z0-9_]+)\}\}/g),
+    ).map((m) => m[1]);
+    core.warning(
+      `render-prompt: missing context keys: ${Array.from(new Set(missing)).join(", ")}`,
     );
-    core.warning(`render-prompt: missing context keys: ${Array.from(new Set(missing)).join(', ')}`);
   }
-  core.setOutput('rendered', rendered);
+  core.setOutput("rendered", rendered);
 
   const allowedTools = mergeAllowedTools({
     baseAllowedTools: baseAllowedTools,
-    settingsFile
+    settingsFile,
   });
-  core.setOutput('allowed_tools', allowedTools);
+  core.setOutput("allowed_tools", allowedTools);
 }

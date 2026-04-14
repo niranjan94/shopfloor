@@ -63,11 +63,12 @@ Your entire response MUST be a single valid JSON object matching this schema. No
 ```
 
 Rules:
+
 - `status: "classified"` requires a non-empty `complexity` and `rationale`. `clarifying_questions` MUST be an empty array.
 - `status: "needs_clarification"` requires a non-empty `clarifying_questions` array. `complexity` MUST still be your best guess (it gets stored for later), and `rationale` MUST explain why you cannot yet classify with confidence.
 - Every string in `clarifying_questions` must be a single, specific, answerable question. No multi-part questions.
 - Do not include any field not in the schema.
-</output_format>
+  </output_format>
 
 <examples>
 <example>

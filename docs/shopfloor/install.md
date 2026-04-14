@@ -52,16 +52,16 @@ The simplest path is the official [Claude GitHub App](https://github.com/apps/cl
 
 Go to **Settings → Secrets and variables → Actions → New repository secret** and add whichever of these apply to your provider:
 
-| Secret | Required when using |
-|---|---|
-| `ANTHROPIC_API_KEY` | Claude API |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Bedrock with IAM credentials |
-| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock with a bearer token |
-| `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex |
-| `ANTHROPIC_FOUNDRY_RESOURCE` | Foundry |
-| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | Custom GitHub App (optional) |
-| `SSH_SIGNING_KEY` | Signed commits (optional) |
+| Secret                                                                             | Required when using          |
+| ---------------------------------------------------------------------------------- | ---------------------------- |
+| `ANTHROPIC_API_KEY`                                                                | Claude API                   |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                          | Claude Code OAuth            |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`                         | Bedrock with IAM credentials |
+| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Bedrock with a bearer token  |
+| `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex                       |
+| `ANTHROPIC_FOUNDRY_RESOURCE`                                                       | Foundry                      |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`                                          | Custom GitHub App (optional) |
+| `SSH_SIGNING_KEY`                                                                  | Signed commits (optional)    |
 
 You only need to set the secrets for the provider you actually use. `GITHUB_TOKEN` is provided by GitHub automatically — do not add it yourself.
 

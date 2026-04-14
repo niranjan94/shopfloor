@@ -1,18 +1,18 @@
-import * as core from '@actions/core';
-import type { GitHubAdapter, ReviewComment } from '../github';
+import * as core from "@actions/core";
+import type { GitHubAdapter, ReviewComment } from "../github";
 
 interface ReviewerOutput {
-  verdict: 'clean' | 'issues_found';
+  verdict: "clean" | "issues_found";
   summary: string;
   comments: Array<{
     path: string;
     line: number;
-    side: 'LEFT' | 'RIGHT';
+    side: "LEFT" | "RIGHT";
     start_line?: number;
-    start_side?: 'LEFT' | 'RIGHT';
+    start_side?: "LEFT" | "RIGHT";
     body: string;
     confidence: number;
-    category: 'compliance' | 'bug' | 'security' | 'smell';
+    category: "compliance" | "bug" | "security" | "smell";
   }>;
 }
 
@@ -21,17 +21,21 @@ export interface AggregateReviewParams {
   prNumber: number;
   confidenceThreshold: number;
   maxIterations: number;
-  reviewerOutputs: Record<'compliance' | 'bugs' | 'security' | 'smells', string>;
+  reviewerOutputs: Record<
+    "compliance" | "bugs" | "security" | "smells",
+    string
+  >;
   workflowRunUrl?: string;
 }
 
-const SHOPFLOOR_REVIEW_MARKER = '<!-- shopfloor-review -->';
+const SHOPFLOOR_REVIEW_MARKER = "<!-- shopfloor-review -->";
 
 function parseReviewer(raw: string): ReviewerOutput | null {
   if (!raw || !raw.trim()) return null;
   try {
     const parsed = JSON.parse(raw) as ReviewerOutput;
-    if (parsed.verdict !== 'clean' && parsed.verdict !== 'issues_found') return null;
+    if (parsed.verdict !== "clean" && parsed.verdict !== "issues_found")
+      return null;
     if (!Array.isArray(parsed.comments)) return null;
     return parsed;
   } catch {
@@ -40,8 +44,12 @@ function parseReviewer(raw: string): ReviewerOutput | null {
 }
 
 function tokenOverlap(a: string, b: string): number {
-  const aSet = new Set(a.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean));
-  const bSet = new Set(b.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean));
+  const aSet = new Set(
+    a.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean),
+  );
+  const bSet = new Set(
+    b.slice(0, 200).toLowerCase().split(/\W+/).filter(Boolean),
+  );
   if (aSet.size === 0 || bSet.size === 0) return 0;
   let intersection = 0;
   for (const t of aSet) if (bSet.has(t)) intersection++;
@@ -49,16 +57,16 @@ function tokenOverlap(a: string, b: string): number {
 }
 
 function dedupeComments(
-  all: ReviewerOutput['comments']
-): ReviewerOutput['comments'] {
-  const keepers: ReviewerOutput['comments'] = [];
+  all: ReviewerOutput["comments"],
+): ReviewerOutput["comments"] {
+  const keepers: ReviewerOutput["comments"] = [];
   for (const c of all) {
     const duplicate = keepers.find(
       (k) =>
         k.path === c.path &&
         k.line === c.line &&
         k.side === c.side &&
-        tokenOverlap(k.body, c.body) >= 0.75
+        tokenOverlap(k.body, c.body) >= 0.75,
     );
     if (duplicate) {
       if (c.confidence > duplicate.confidence) {
@@ -79,11 +87,11 @@ function parseIterationFromBody(body: string | null): number {
 }
 
 function writeIterationToBody(body: string | null, iteration: number): string {
-  const baseBody = body ?? '';
+  const baseBody = body ?? "";
   if (baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
     return baseBody.replace(
       /Shopfloor-Review-Iteration:\s*\d+/,
-      `Shopfloor-Review-Iteration: ${iteration}`
+      `Shopfloor-Review-Iteration: ${iteration}`,
     );
   }
   return baseBody.trimEnd() + `\nShopfloor-Review-Iteration: ${iteration}\n`;
@@ -91,15 +99,17 @@ function writeIterationToBody(body: string | null, iteration: number): string {
 
 export async function aggregateReview(
   adapter: GitHubAdapter,
-  params: AggregateReviewParams
+  params: AggregateReviewParams,
 ): Promise<void> {
   const outputs = {
     compliance: parseReviewer(params.reviewerOutputs.compliance),
     bugs: parseReviewer(params.reviewerOutputs.bugs),
     security: parseReviewer(params.reviewerOutputs.security),
-    smells: parseReviewer(params.reviewerOutputs.smells)
+    smells: parseReviewer(params.reviewerOutputs.smells),
   };
-  const parsed = Object.values(outputs).filter((v): v is ReviewerOutput => v !== null);
+  const parsed = Object.values(outputs).filter(
+    (v): v is ReviewerOutput => v !== null,
+  );
   const successfulCells = parsed.length;
 
   const pr = await adapter.getPr(params.prNumber);
@@ -108,16 +118,16 @@ export async function aggregateReview(
 
   await adapter.setReviewStatus(
     headSha,
-    'pending',
-    'Shopfloor review: aggregating findings...',
-    params.workflowRunUrl
+    "pending",
+    "Shopfloor review: aggregating findings...",
+    params.workflowRunUrl,
   );
 
   const SOURCE_CATEGORY: Record<string, string> = {
-    compliance: 'compliance',
-    bugs: 'bug',
-    security: 'security',
-    smells: 'smell'
+    compliance: "compliance",
+    bugs: "bug",
+    security: "security",
+    smells: "smell",
   };
   for (const [source, out] of Object.entries(outputs)) {
     if (!out) continue;
@@ -125,54 +135,63 @@ export async function aggregateReview(
     const outOfScope = out.comments.filter((c) => c.category !== expected);
     if (outOfScope.length > 0) {
       core.warning(
-        `aggregateReview: ${source} reviewer returned ${outOfScope.length} out-of-scope comment(s) (expected category '${expected}')`
+        `aggregateReview: ${source} reviewer returned ${outOfScope.length} out-of-scope comment(s) (expected category '${expected}')`,
       );
     }
   }
 
   const allComments = parsed.flatMap((r) => r.comments);
   const deduped = dedupeComments(allComments);
-  const filtered = deduped.filter((c) => c.confidence >= params.confidenceThreshold);
+  const filtered = deduped.filter(
+    (c) => c.confidence >= params.confidenceThreshold,
+  );
 
-  const allClean = parsed.every((r) => r.verdict === 'clean') && filtered.length === 0;
+  const allClean =
+    parsed.every((r) => r.verdict === "clean") && filtered.length === 0;
 
   if (allClean) {
     const body = `${SHOPFLOOR_REVIEW_MARKER}\n**Shopfloor agent review: clean** across ${successfulCells}/4 reviewers.\n\n${parsed
       .map((r) => `- ${r.summary}`)
-      .join('\n')}`;
+      .join("\n")}`;
     await adapter.postReview({
       prNumber: params.prNumber,
       commitSha: headSha,
-      event: 'APPROVE',
+      event: "APPROVE",
       body,
-      comments: []
+      comments: [],
     });
     await adapter.setReviewStatus(
       headSha,
-      'success',
-      'Shopfloor review passed',
-      params.workflowRunUrl
+      "success",
+      "Shopfloor review passed",
+      params.workflowRunUrl,
     );
-    await adapter.addLabel(params.issueNumber, 'shopfloor:review-approved');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:needs-review');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:review-requested-changes');
+    await adapter.addLabel(params.issueNumber, "shopfloor:review-approved");
+    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.removeLabel(
+      params.issueNumber,
+      "shopfloor:review-requested-changes",
+    );
     return;
   }
 
   const nextIteration = currentIteration + 1;
   if (nextIteration > params.maxIterations) {
-    await adapter.addLabel(params.issueNumber, 'shopfloor:review-stuck');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:needs-review');
-    await adapter.removeLabel(params.issueNumber, 'shopfloor:review-requested-changes');
+    await adapter.addLabel(params.issueNumber, "shopfloor:review-stuck");
+    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.removeLabel(
+      params.issueNumber,
+      "shopfloor:review-requested-changes",
+    );
     await adapter.postIssueComment(
       params.prNumber,
-      `Shopfloor agent review has been through ${params.maxIterations} iterations without converging. A human should take over this PR. See commit status for the current findings list.`
+      `Shopfloor agent review has been through ${params.maxIterations} iterations without converging. A human should take over this PR. See commit status for the current findings list.`,
     );
     await adapter.setReviewStatus(
       headSha,
-      'failure',
+      "failure",
       `Shopfloor review: iteration cap reached (${params.maxIterations})`,
-      params.workflowRunUrl
+      params.workflowRunUrl,
     );
     return;
   }
@@ -180,9 +199,9 @@ export async function aggregateReview(
   const reviewBody = [
     SHOPFLOOR_REVIEW_MARKER,
     `**Shopfloor agent review: changes requested** (iteration ${nextIteration}/${params.maxIterations}).`,
-    '',
-    parsed.map((r) => `- ${r.summary}`).join('\n')
-  ].join('\n');
+    "",
+    parsed.map((r) => `- ${r.summary}`).join("\n"),
+  ].join("\n");
 
   const batchedComments: ReviewComment[] = filtered.map((c) => ({
     path: c.path,
@@ -190,42 +209,47 @@ export async function aggregateReview(
     side: c.side,
     start_line: c.start_line,
     start_side: c.start_side,
-    body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`
+    body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`,
   }));
 
   await adapter.postReview({
     prNumber: params.prNumber,
     commitSha: headSha,
-    event: 'REQUEST_CHANGES',
+    event: "REQUEST_CHANGES",
     body: reviewBody,
-    comments: batchedComments
+    comments: batchedComments,
   });
   await adapter.setReviewStatus(
     headSha,
-    'failure',
+    "failure",
     `Shopfloor review requested changes (iteration ${nextIteration})`,
-    params.workflowRunUrl
+    params.workflowRunUrl,
   );
-  await adapter.addLabel(params.issueNumber, 'shopfloor:review-requested-changes');
-  await adapter.removeLabel(params.issueNumber, 'shopfloor:needs-review');
+  await adapter.addLabel(
+    params.issueNumber,
+    "shopfloor:review-requested-changes",
+  );
+  await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
 
   const newBody = writeIterationToBody(pr.body ?? null, nextIteration);
   await adapter.updatePrBody(params.prNumber, newBody);
 }
 
-export async function runAggregateReview(adapter: GitHubAdapter): Promise<void> {
+export async function runAggregateReview(
+  adapter: GitHubAdapter,
+): Promise<void> {
   const params: AggregateReviewParams = {
-    issueNumber: Number(core.getInput('issue_number', { required: true })),
-    prNumber: Number(core.getInput('pr_number', { required: true })),
-    confidenceThreshold: Number(core.getInput('confidence_threshold') || 80),
-    maxIterations: Number(core.getInput('max_iterations') || 3),
+    issueNumber: Number(core.getInput("issue_number", { required: true })),
+    prNumber: Number(core.getInput("pr_number", { required: true })),
+    confidenceThreshold: Number(core.getInput("confidence_threshold") || 80),
+    maxIterations: Number(core.getInput("max_iterations") || 3),
     reviewerOutputs: {
-      compliance: core.getInput('compliance_output') || '',
-      bugs: core.getInput('bugs_output') || '',
-      security: core.getInput('security_output') || '',
-      smells: core.getInput('smells_output') || ''
+      compliance: core.getInput("compliance_output") || "",
+      bugs: core.getInput("bugs_output") || "",
+      security: core.getInput("security_output") || "",
+      smells: core.getInput("smells_output") || "",
     },
-    workflowRunUrl: core.getInput('workflow_run_url') || undefined
+    workflowRunUrl: core.getInput("workflow_run_url") || undefined,
   };
   await aggregateReview(adapter, params);
 }

@@ -1,27 +1,33 @@
-export type Stage = 'triage' | 'spec' | 'plan' | 'implement' | 'review' | 'none';
+export type Stage =
+  | "triage"
+  | "spec"
+  | "plan"
+  | "implement"
+  | "review"
+  | "none";
 
-export type Complexity = 'quick' | 'medium' | 'large';
+export type Complexity = "quick" | "medium" | "large";
 
 export type ShopfloorLabel =
-  | 'shopfloor:triaging'
-  | 'shopfloor:awaiting-info'
-  | 'shopfloor:quick'
-  | 'shopfloor:medium'
-  | 'shopfloor:large'
-  | 'shopfloor:needs-spec'
-  | 'shopfloor:spec-in-review'
-  | 'shopfloor:needs-plan'
-  | 'shopfloor:plan-in-review'
-  | 'shopfloor:needs-impl'
-  | 'shopfloor:impl-in-review'
-  | 'shopfloor:needs-review'
-  | 'shopfloor:review-requested-changes'
-  | 'shopfloor:review-approved'
-  | 'shopfloor:review-stuck'
-  | 'shopfloor:skip-review'
-  | 'shopfloor:done'
-  | 'shopfloor:revise'
-  | `shopfloor:failed:${'triage' | 'spec' | 'plan' | 'implement' | 'review'}`;
+  | "shopfloor:triaging"
+  | "shopfloor:awaiting-info"
+  | "shopfloor:quick"
+  | "shopfloor:medium"
+  | "shopfloor:large"
+  | "shopfloor:needs-spec"
+  | "shopfloor:spec-in-review"
+  | "shopfloor:needs-plan"
+  | "shopfloor:plan-in-review"
+  | "shopfloor:needs-impl"
+  | "shopfloor:impl-in-review"
+  | "shopfloor:needs-review"
+  | "shopfloor:review-requested-changes"
+  | "shopfloor:review-approved"
+  | "shopfloor:review-stuck"
+  | "shopfloor:skip-review"
+  | "shopfloor:done"
+  | "shopfloor:revise"
+  | `shopfloor:failed:${"triage" | "spec" | "plan" | "implement" | "review"}`;
 
 export interface RouterDecision {
   stage: Stage;
@@ -38,7 +44,7 @@ export interface RouterDecision {
 
 export interface PrMetadata {
   issueNumber: number;
-  stage: Exclude<Stage, 'none' | 'triage'>;
+  stage: Exclude<Stage, "none" | "triage">;
   reviewIteration: number;
 }
 
@@ -49,7 +55,7 @@ export interface IssuePayload {
     title: string;
     body: string | null;
     labels: Array<{ name: string }>;
-    state: 'open' | 'closed';
+    state: "open" | "closed";
     pull_request?: unknown | null;
   };
   label?: { name: string };
@@ -61,7 +67,7 @@ export interface PullRequestPayload {
   pull_request: {
     number: number;
     body: string | null;
-    state: 'open' | 'closed';
+    state: "open" | "closed";
     draft: boolean;
     merged: boolean;
     head: { ref: string; sha: string };
@@ -74,15 +80,23 @@ export interface PullRequestPayload {
 export interface PullRequestReviewPayload {
   action: string;
   review: {
-    state: 'approved' | 'changes_requested' | 'commented' | 'dismissed' | 'pending';
+    state:
+      | "approved"
+      | "changes_requested"
+      | "commented"
+      | "dismissed"
+      | "pending";
     body: string | null;
     user: { login: string };
   };
-  pull_request: PullRequestPayload['pull_request'];
+  pull_request: PullRequestPayload["pull_request"];
   repository: { owner: { login: string }; name: string };
 }
 
-export type EventPayload = IssuePayload | PullRequestPayload | PullRequestReviewPayload;
+export type EventPayload =
+  | IssuePayload
+  | PullRequestPayload
+  | PullRequestReviewPayload;
 
 export interface StateContext {
   eventName: string;
@@ -139,7 +153,7 @@ export interface OctokitLike {
         owner: string;
         repo: string;
         issue_number: number;
-        state?: 'open' | 'closed';
+        state?: "open" | "closed";
       }): Promise<unknown>;
       get(params: {
         owner: string;
@@ -181,7 +195,7 @@ export interface OctokitLike {
         repo: string;
         pull_number: number;
         commit_id?: string;
-        event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+        event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
         body: string;
         comments?: Array<unknown>;
       }): Promise<unknown>;
@@ -191,7 +205,12 @@ export interface OctokitLike {
         pull_number: number;
         per_page?: number;
       }): Promise<{
-        data: Array<{ id: number; user: unknown; body: string | null; commit_id: string }>;
+        data: Array<{
+          id: number;
+          user: unknown;
+          body: string | null;
+          commit_id: string;
+        }>;
       }>;
     };
     repos: {
@@ -199,7 +218,7 @@ export interface OctokitLike {
         owner: string;
         repo: string;
         sha: string;
-        state: 'pending' | 'success' | 'failure' | 'error';
+        state: "pending" | "success" | "failure" | "error";
         context: string;
         description: string;
         target_url?: string;

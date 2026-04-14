@@ -15,6 +15,7 @@ Shopfloor is [MIT licensed](../../LICENSE) and fully open source. The runtime is
    ```
 
    Then let Dependabot or Renovate propose SHA bumps as normal pull requests you review like any other dependency update.
+
 4. **Fork if you need full control.** Forking `niranjan94/shopfloor` and pinning your caller to your fork removes the upstream maintainer from your supply chain entirely. You can still pull upstream changes manually when you want to.
 
 If none of those steps is acceptable for your threat model, do not run Shopfloor on production repositories. Use it on scratch repositories and personal projects first. See the [install guide](install.md#step-0-audit-the-source-before-you-trust-it) for the full recommended workflow.

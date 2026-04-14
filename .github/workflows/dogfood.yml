@@ -22,4 +22,4 @@ jobs:
       checks: read
     secrets: inherit
     with:
-      trigger_label: 'shopfloor:trigger'
+      trigger_label: "shopfloor:trigger"

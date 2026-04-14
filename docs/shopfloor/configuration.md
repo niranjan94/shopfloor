@@ -21,16 +21,16 @@ jobs:
 
 ## Models
 
-| Input | Default | Notes |
-|---|---|---|
-| `triage_model` | `sonnet` | Triage does classification, not design. Haiku is often enough. |
-| `spec_model` | `opus` | Spec writing needs the strongest model. |
-| `plan_model` | `opus` | Plan writing benefits from strong reasoning. |
-| `impl_model` | `opus` | Implementation benefits from strong tool use and long-horizon reasoning. |
-| `review_compliance_model` | `sonnet` | Compliance checks are mostly pattern matching. |
-| `review_bugs_model` | `opus` | Bug hunting needs strong reasoning. |
-| `review_security_model` | `opus` | Security pattern matching plus exploit reasoning. |
-| `review_smells_model` | `opus` | Refactor suggestions benefit from strong reasoning. |
+| Input                     | Default  | Notes                                                                    |
+| ------------------------- | -------- | ------------------------------------------------------------------------ |
+| `triage_model`            | `sonnet` | Triage does classification, not design. Haiku is often enough.           |
+| `spec_model`              | `opus`   | Spec writing needs the strongest model.                                  |
+| `plan_model`              | `opus`   | Plan writing benefits from strong reasoning.                             |
+| `impl_model`              | `opus`   | Implementation benefits from strong tool use and long-horizon reasoning. |
+| `review_compliance_model` | `sonnet` | Compliance checks are mostly pattern matching.                           |
+| `review_bugs_model`       | `opus`   | Bug hunting needs strong reasoning.                                      |
+| `review_security_model`   | `opus`   | Security pattern matching plus exploit reasoning.                        |
+| `review_smells_model`     | `opus`   | Refactor suggestions benefit from strong reasoning.                      |
 
 You can pass any model alias Claude Code understands: `opus`, `sonnet`, `haiku`, or an exact model id like `claude-opus-4-6`.
 
@@ -38,16 +38,16 @@ You can pass any model alias Claude Code understands: `opus`, `sonnet`, `haiku`,
 
 Shopfloor passes `--effort` to `claude-code-action` per stage. High defaults are used for the design-heavy stages; medium everywhere else.
 
-| Input | Default |
-|---|---|
-| `triage_effort` | `medium` |
-| `spec_effort` | `high` |
-| `plan_effort` | `high` |
-| `impl_effort` | `medium` |
+| Input                      | Default  |
+| -------------------------- | -------- |
+| `triage_effort`            | `medium` |
+| `spec_effort`              | `high`   |
+| `plan_effort`              | `high`   |
+| `impl_effort`              | `medium` |
 | `review_compliance_effort` | `medium` |
-| `review_bugs_effort` | `medium` |
-| `review_security_effort` | `medium` |
-| `review_smells_effort` | `medium` |
+| `review_bugs_effort`       | `medium` |
+| `review_security_effort`   | `medium` |
+| `review_smells_effort`     | `medium` |
 
 Valid values: `low`, `medium`, `high`. Raise an effort dial when an agent is producing shallow output; lower it when the agent is overthinking something that should be mechanical.
 
@@ -55,48 +55,48 @@ Valid values: `low`, `medium`, `high`. Raise an effort dial when an agent is pro
 
 Turn budgets cap how many message rounds each agent can take before Shopfloor aborts the run. If an agent is hitting the cap consistently, increase it; if it is wasting turns thrashing, lower it.
 
-| Input | Default |
-|---|---|
-| `triage_max_turns` | `10` |
-| `spec_max_turns` | `10` |
-| `plan_max_turns` | `15` |
-| `impl_max_turns` | `70` |
-| `review_compliance_max_turns` | `15` |
-| `review_bugs_max_turns` | `15` |
-| `review_security_max_turns` | `15` |
-| `review_smells_max_turns` | `15` |
+| Input                         | Default |
+| ----------------------------- | ------- |
+| `triage_max_turns`            | `10`    |
+| `spec_max_turns`              | `10`    |
+| `plan_max_turns`              | `15`    |
+| `impl_max_turns`              | `70`    |
+| `review_compliance_max_turns` | `15`    |
+| `review_bugs_max_turns`       | `15`    |
+| `review_security_max_turns`   | `15`    |
+| `review_smells_max_turns`     | `15`    |
 
 ## Timeouts
 
 Wall-clock limits enforced by GitHub Actions. Independent of `max_turns` — the tighter of the two wins.
 
-| Input | Default (minutes) |
-|---|---|
-| `triage_timeout_minutes` | `10` |
-| `spec_timeout_minutes` | `20` |
-| `plan_timeout_minutes` | `30` |
-| `impl_timeout_minutes` | `60` |
-| `review_timeout_minutes` | `20` |
+| Input                    | Default (minutes) |
+| ------------------------ | ----------------- |
+| `triage_timeout_minutes` | `10`              |
+| `spec_timeout_minutes`   | `20`              |
+| `plan_timeout_minutes`   | `30`              |
+| `impl_timeout_minutes`   | `60`              |
+| `review_timeout_minutes` | `20`              |
 
 ## Review matrix
 
 Each of the four reviewer cells can be disabled independently. Useful if you already run a dedicated linter for a category or trust human review for it.
 
-| Input | Default |
-|---|---|
-| `review_compliance_enabled` | `true` |
-| `review_bugs_enabled` | `true` |
-| `review_security_enabled` | `true` |
-| `review_smells_enabled` | `true` |
-| `review_confidence_threshold` | `80` (0-100; comments below this confidence are dropped) |
-| `max_review_iterations` | `3` (cap before Shopfloor gives up and applies `shopfloor:review-stuck`) |
+| Input                         | Default                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `review_compliance_enabled`   | `true`                                                                   |
+| `review_bugs_enabled`         | `true`                                                                   |
+| `review_security_enabled`     | `true`                                                                   |
+| `review_smells_enabled`       | `true`                                                                   |
+| `review_confidence_threshold` | `80` (0-100; comments below this confidence are dropped)                 |
+| `max_review_iterations`       | `3` (cap before Shopfloor gives up and applies `shopfloor:review-stuck`) |
 
 ## Tool surface
 
-| Input | Default |
-|---|---|
+| Input                 | Default                                                         |
+| --------------------- | --------------------------------------------------------------- |
 | `impl_bash_allowlist` | `pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc` |
-| `additional_tools` | `` (reserved; not used yet in v0.1) |
+| `additional_tools`    | `` (reserved; not used yet in v0.1)                             |
 
 `impl_bash_allowlist` is a comma-separated list of Bash command prefixes the implementation agent can run. Everything in this list is passed through `Bash(...)` in the agent's `--allowedTools`. Each entry supports the `:*` suffix for prefix matching, so `pnpm test:*` allows `pnpm test`, `pnpm test --watch`, `pnpm test integration`, and so on.
 
@@ -109,27 +109,23 @@ If your repository has a `.claude/settings.json` with `permissions.allow`, Shopf
 ```json
 {
   "permissions": {
-    "allow": [
-      "Bash(pnpm typecheck)",
-      "Bash(pnpm docs:build)",
-      "WebFetch"
-    ]
+    "allow": ["Bash(pnpm typecheck)", "Bash(pnpm docs:build)", "WebFetch"]
   }
 }
 ```
 
 ## Display report
 
-| Input | Default |
-|---|---|
+| Input            | Default                        |
+| ---------------- | ------------------------------ |
 | `display_report` | `'true'` (string, not boolean) |
 
 When `'true'`, `claude-code-action` posts its own summary report to the PR or issue in addition to whatever Shopfloor's helpers post. Useful for transparency; set to `'false'` if you find the duplication noisy. Pass the literal string `'true'` or `'false'` — claude-code-action expects a string, not a workflow boolean.
 
 ## Trigger label gating
 
-| Input | Default |
-|---|---|
+| Input           | Default                |
+| --------------- | ---------------------- |
 | `trigger_label` | `''` (empty = no gate) |
 
 When set, Shopfloor only enters the pipeline for issues that carry this label. Issues already mid-pipeline — identified by any `shopfloor:*` state label — are grandfathered in, so removing the trigger label later does not strand in-flight work.
@@ -155,28 +151,28 @@ With that caller, opening a new issue does nothing. When someone applies the `sh
 
 ## Branching and artifacts
 
-| Input | Default |
-|---|---|
-| `branch_prefix` | `shopfloor/` |
-| `artifacts_dir` | `docs/shopfloor/` |
-| `keep_artifacts_forever` | `true` |
+| Input                    | Default           |
+| ------------------------ | ----------------- |
+| `branch_prefix`          | `shopfloor/`      |
+| `artifacts_dir`          | `docs/shopfloor/` |
+| `keep_artifacts_forever` | `true`            |
 
 Every Shopfloor branch starts with `branch_prefix`. Specs live at `<artifacts_dir>/specs/<issue>-<slug>.md`, plans at `<artifacts_dir>/plans/<issue>-<slug>.md`. Setting `keep_artifacts_forever` to `false` is reserved for a future auto-cleanup mode and has no effect in v0.1.
 
 ## Provider selection
 
-| Input | Default | Notes |
-|---|---|---|
+| Input         | Default | Notes                                                                                  |
+| ------------- | ------- | -------------------------------------------------------------------------------------- |
 | `use_bedrock` | `false` | Set to `true` to route Claude calls through AWS Bedrock. Requires the `AWS_*` secrets. |
-| `use_vertex` | `false` | Route through Google Vertex AI. Requires the Vertex secrets. |
-| `use_foundry` | `false` | Route through Microsoft Foundry. Requires `ANTHROPIC_FOUNDRY_RESOURCE`. |
+| `use_vertex`  | `false` | Route through Google Vertex AI. Requires the Vertex secrets.                           |
+| `use_foundry` | `false` | Route through Microsoft Foundry. Requires `ANTHROPIC_FOUNDRY_RESOURCE`.                |
 
 If none are set, Shopfloor uses whichever of `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` is present.
 
 ## Commit signing
 
-| Input | Default |
-|---|---|
+| Input                     | Default |
+| ------------------------- | ------- |
 | `ssh_signing_key_enabled` | `false` |
 
 Set to `true` and provide `SSH_SIGNING_KEY` as a secret if your branch protection requires signed commits. Shopfloor configures git with the key at the start of each stage job so every commit is signed under the bot identity.
@@ -238,7 +234,7 @@ jobs:
       review_smells_model: opus
       review_confidence_threshold: 90
       max_review_iterations: 4
-      impl_bash_allowlist: 'pnpm install,pnpm test:*,pnpm build,pnpm exec tsc,pnpm audit,pnpm licenses'
+      impl_bash_allowlist: "pnpm install,pnpm test:*,pnpm build,pnpm exec tsc,pnpm audit,pnpm licenses"
       ssh_signing_key_enabled: true
     secrets: inherit
 ```

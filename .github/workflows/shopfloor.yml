@@ -14,12 +14,12 @@ on:
       spec_timeout_minutes: { type: number, default: 20 }
       plan_timeout_minutes: { type: number, default: 30 }
       impl_timeout_minutes: { type: number, default: 60 }
-      branch_prefix: { type: string, default: 'shopfloor/' }
-      artifacts_dir: { type: string, default: 'docs/shopfloor/' }
+      branch_prefix: { type: string, default: "shopfloor/" }
+      artifacts_dir: { type: string, default: "docs/shopfloor/" }
       impl_bash_allowlist:
         type: string
-        default: 'pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc'
-      additional_tools: { type: string, default: '' }
+        default: "pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc"
+      additional_tools: { type: string, default: "" }
       review_compliance_model: { type: string, default: sonnet }
       review_bugs_model: { type: string, default: opus }
       review_security_model: { type: string, default: opus }
@@ -44,7 +44,7 @@ on:
       # Issues already mid-pipeline (any shopfloor:* state label) are grandfathered in,
       # so removing the trigger label later does not strand in-flight work.
       # Leave empty to run on every new issue.
-      trigger_label: { type: string, default: '' }
+      trigger_label: { type: string, default: "" }
       # Effort per stage. Passed as `--effort` to claude-code-action.
       # High for design-heavy stages (spec, plan); medium for everything else as a sane default.
       triage_effort: { type: string, default: medium }
@@ -59,7 +59,7 @@ on:
       # Shopfloor's helpers handle all user-facing reporting, so this is on by default as a
       # transparency aid but can be flipped globally here. Pass the literal string 'true' or 'false';
       # claude-code-action expects a string, not a workflow boolean.
-      display_report: { type: string, default: 'true' }
+      display_report: { type: string, default: "true" }
     secrets:
       anthropic_api_key: { required: false }
       claude_code_oauth_token: { required: false }
@@ -92,14 +92,14 @@ env:
   #   outside api.github.com and therefore not reachable via `gh api` alone. claude-code-action
   #   exports GITHUB_TOKEN into the subprocess env, so `curl -L -H "Authorization: Bearer $GITHUB_TOKEN"`
   #   works for private repos too.
-  SHOPFLOOR_COMMON_TOOLS: 'Agent,Skill,LSP,ToolSearch,Bash(gh api:*),Bash(curl:*)'
+  SHOPFLOOR_COMMON_TOOLS: "Agent,Skill,LSP,ToolSearch,Bash(gh api:*),Bash(curl:*)"
   # Interactive or irrelevant tools that have no place in an automated Shopfloor run.
   # - AskUserQuestion: no human is attached to the run.
   # - EnterPlanMode / ExitPlanMode: plan mode is a human-in-the-loop construct; Shopfloor has its own plan stage.
   # - EnterWorktree / ExitWorktree: Shopfloor runs on a pre-created branch and forbids worktrees.
   # - TodoWrite / TaskCreate: progress tracking goes through mcp__shopfloor__update_progress, not scratch lists.
   # - WebSearch: agents should use WebFetch with a specific URL; open-ended web search is off-budget.
-  SHOPFLOOR_DISALLOWED_TOOLS: 'AskUserQuestion,EnterPlanMode,EnterWorktree,ExitPlanMode,ExitWorktree,TodoWrite,TaskCreate,WebSearch'
+  SHOPFLOOR_DISALLOWED_TOOLS: "AskUserQuestion,EnterPlanMode,EnterWorktree,ExitPlanMode,ExitWorktree,TodoWrite,TaskCreate,WebSearch"
 
 jobs:
   route:
@@ -116,7 +116,7 @@ jobs:
       impl_pr_number: ${{ steps.router.outputs.impl_pr_number }}
       reason: ${{ steps.router.outputs.reason }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - id: bootstrap
         uses: ./router
         with:
@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Build triage context
         id: ctx
         env:
@@ -164,9 +164,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/triage.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -208,7 +208,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Create spec branch
         run: |
           git config user.name "github-actions[bot]"
@@ -248,9 +248,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/spec.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Edit,Write,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -314,7 +314,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Create plan branch
         run: |
           git config user.name "github-actions[bot]"
@@ -354,9 +354,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/plan.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -424,7 +424,7 @@ jobs:
       pr_number: ${{ steps.open_pr.outputs.pr_number }}
       comment_id: ${{ steps.progress.outputs.comment_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Create impl branch
         run: |
           git config user.name "github-actions[bot]"
@@ -505,9 +505,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/implement.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -565,7 +565,7 @@ jobs:
       skip: ${{ steps.check.outputs.skip }}
       reason: ${{ steps.check.outputs.reason }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - id: check
         uses: ./router
         with:
@@ -581,7 +581,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -622,9 +622,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-compliance.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -647,7 +647,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -688,9 +688,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-bugs.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -713,7 +713,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -754,9 +754,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-security.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -779,7 +779,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -820,9 +820,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-smells.md
           context_file: ${{ steps.ctx.outputs.path }}
-          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}'
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1.0.94
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -838,7 +838,15 @@ jobs:
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
 
   review-aggregator:
-    needs: [route, review-skip-check, review-compliance, review-bugs, review-security, review-smells]
+    needs:
+      [
+        route,
+        review-skip-check,
+        review-compliance,
+        review-bugs,
+        review-security,
+        review-smells,
+      ]
     if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
     runs-on: ubuntu-latest
     permissions:
@@ -847,7 +855,7 @@ jobs:
       issues: write
       statuses: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: ./router
         with:
           helper: aggregate-review
@@ -871,7 +879,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - id: parse_merged_stage
         run: |
           reason='${{ needs.route.outputs.reason }}'

@@ -61,17 +61,19 @@ Read CLAUDE.md, AGENTS.md, and CONTRIBUTING.md at the repository root (if they e
 - Formatting rules the project explicitly pins (e.g., "no em dashes").
 
 Do NOT flag:
+
 - Style nits not written down as rules
 - Potential bugs — leave those to the bugs reviewer
 - Security issues — leave those to the security reviewer
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a `confidence` score from 0-100. Use:
+
 - 90-100: The rule is written in a convention file and this PR plainly violates it.
 - 75-89: The convention is strongly implied and the violation is likely, but reasonable engineers might disagree.
 - Below 75: Do NOT emit the comment. The Shopfloor aggregator will filter sub-threshold comments anyway, and low-confidence compliance comments hurt the pipeline's signal more than they help.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema. No prose, no fences.
@@ -96,8 +98,9 @@ Your entire final message MUST be a single valid JSON object matching this schem
 ```
 
 Rules:
+
 - `verdict: "clean"` requires `comments: []`.
 - `category` MUST always be the literal string `compliance`. The aggregator logs a warning and may drop comments with a different category.
 - `line` is the single-line anchor (integer). Set `side` to `RIGHT` for lines in the head and `LEFT` for lines in the base. Use `start_line`/`start_side` only when the comment genuinely spans multiple lines; otherwise omit them.
 - Keep each `body` concise: state the rule, point to the violation, and suggest the fix in 1-3 sentences.
-</output_format>
+  </output_format>
