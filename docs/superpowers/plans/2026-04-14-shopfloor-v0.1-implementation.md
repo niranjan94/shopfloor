@@ -1056,12 +1056,48 @@ git commit -m "test(router): add failing GitHub adapter tests"
 **Files:**
 - Create: `router/src/github.ts`
 
-- [ ] **Step 1: Implement `router/src/github.ts`**
+- [ ] **Step 1: Add `OctokitLike` structural interface to `types.ts`**
 
-Implement `GitHubAdapter` with methods used by the tests plus the ones helper actions will need. Keep it thin: each method maps to one or two octokit calls.
+Because `@actions/github`'s `getOctokit` returns a different type from `@octokit/rest`'s `Octokit`, but the runtime shape is identical for the methods we use, we declare a minimal structural interface that both satisfy. This avoids casts at the call site.
+
+Append to `router/src/types.ts`:
 
 ```ts
-import type { Octokit } from '@octokit/rest';
+// Minimal structural type for the octokit-like object both @octokit/rest and
+// @actions/github's getOctokit return. Only lists methods GitHubAdapter uses.
+export interface OctokitLike {
+  rest: {
+    issues: {
+      addLabels(params: { owner: string; repo: string; issue_number: number; labels: string[] }): Promise<unknown>;
+      removeLabel(params: { owner: string; repo: string; issue_number: number; name: string }): Promise<unknown>;
+      createComment(params: { owner: string; repo: string; issue_number: number; body: string }): Promise<{ data: { id: number } }>;
+      updateComment(params: { owner: string; repo: string; comment_id: number; body: string }): Promise<unknown>;
+      createLabel(params: { owner: string; repo: string; name: string; color: string; description?: string }): Promise<unknown>;
+      listLabelsForRepo(params: { owner: string; repo: string; per_page?: number }): Promise<{ data: Array<{ name: string }> }>;
+      update(params: { owner: string; repo: string; issue_number: number; state?: 'open' | 'closed' }): Promise<unknown>;
+      get(params: { owner: string; repo: string; issue_number: number }): Promise<{ data: { labels: unknown; state: string } }>;
+    };
+    pulls: {
+      create(params: { owner: string; repo: string; base: string; head: string; title: string; body: string; draft?: boolean }): Promise<{ data: { number: number; html_url: string } }>;
+      update(params: { owner: string; repo: string; pull_number: number; body?: string; title?: string }): Promise<unknown>;
+      get(params: { owner: string; repo: string; pull_number: number }): Promise<{ data: unknown }>;
+      listFiles(params: { owner: string; repo: string; pull_number: number; per_page?: number; page?: number }): Promise<{ data: Array<{ filename: string }> }>;
+      createReview(params: { owner: string; repo: string; pull_number: number; commit_id?: string; event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'; body: string; comments?: Array<unknown> }): Promise<unknown>;
+      listReviews(params: { owner: string; repo: string; pull_number: number; per_page?: number }): Promise<{ data: Array<{ id: number; user: unknown; body: string | null; commit_id: string }> }>;
+    };
+    repos: {
+      createCommitStatus(params: { owner: string; repo: string; sha: string; state: 'pending' | 'success' | 'failure' | 'error'; context: string; description: string; target_url?: string }): Promise<unknown>;
+    };
+  };
+}
+```
+
+- [ ] **Step 2: Implement `router/src/github.ts`**
+
+Implement `GitHubAdapter` with methods used by the tests plus the ones helper actions will need. Keep it thin: each method maps to one or two octokit calls. The constructor takes an `OctokitLike` instead of a concrete `Octokit` type, so both `@octokit/rest` and `@actions/github`'s `getOctokit` return value satisfy it.
+
+```ts
+import type { OctokitLike } from './types';
 
 export interface RepoContext {
   owner: string;
@@ -1090,7 +1126,7 @@ export interface ReviewComment {
 
 export class GitHubAdapter {
   constructor(
-    private readonly octokit: Octokit,
+    private readonly octokit: OctokitLike,
     private readonly repo: RepoContext
   ) {}
 
@@ -1298,13 +1334,13 @@ async function main(): Promise<void> {
   const helper = core.getInput('helper', { required: false }) || 'route';
   const token = core.getInput('github_token', { required: true });
   const octokit = getOctokit(token);
-  const adapter = new GitHubAdapter(octokit as unknown as Parameters<typeof GitHubAdapter['prototype']['addLabel']>[0] extends never ? never : never, {
+  const adapter = new GitHubAdapter(octokit as unknown as import('./types').OctokitLike, {
     owner: context.repo.owner,
     repo: context.repo.repo
   });
-
-  // NOTE: octokit import type is `InstanceType<typeof Octokit>` from @actions/github's getOctokit.
-  // The GitHubAdapter expects the @octokit/rest shape; both are compatible at runtime.
+  // The single cast above bridges @actions/github's getOctokit return type to our
+  // structural OctokitLike interface. Both expose the same runtime surface for the
+  // methods we call.
 
   switch (helper) {
     case 'route': {
@@ -1969,7 +2005,31 @@ test('returns skip=false on normal impl PR', async () => {
   const result = await checkReviewSkip(adapter, 45);
   expect(result.skip).toBe(false);
 });
+
+test('returns skip=true when origin issue carries shopfloor:skip-review', async () => {
+  const adapter = makeAdapterWithPr({
+    body: 'Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement',
+    issueLabels: [{ name: 'shopfloor:skip-review' }],
+    changedFiles: ['src/auth.ts']
+  });
+  const result = await checkReviewSkip(adapter, 45);
+  expect(result.skip).toBe(true);
+  expect(result.reason).toBe('skip_review_label_issue');
+});
+
+test('returns skip=true when origin issue is closed', async () => {
+  const adapter = makeAdapterWithPr({
+    body: 'Body\n---\nShopfloor-Issue: #42',
+    issueState: 'closed',
+    changedFiles: ['src/auth.ts']
+  });
+  const result = await checkReviewSkip(adapter, 45);
+  expect(result.skip).toBe(true);
+  expect(result.reason).toBe('origin_issue_closed');
+});
 ```
+
+The `makeAdapterWithPr` test helper must support the new optional `issueLabels`, `issueState`, and `body` fields. Stub `getIssue` in the mock to return whatever the test passes for `issueLabels`/`issueState`.
 
 (Implement `makeAdapterWithPr` as a shared test helper that returns a `GitHubAdapter` stub with the `getPr` and `listChangedFiles` methods mocked to return the given data.)
 
@@ -2001,7 +2061,20 @@ async listChangedFiles(prNumber: number): Promise<string[]> {
 }
 ```
 
-- [ ] **Step 3: Implement `check-review-skip.ts`**
+- [ ] **Step 3: Extend `GitHubAdapter` with `getIssue`**
+
+Add to `router/src/github.ts`:
+
+```ts
+async getIssue(issueNumber: number): Promise<{ labels: Array<{ name: string }>; state: 'open' | 'closed' }> {
+  const res = await this.octokit.rest.issues.get({ ...this.repo, issue_number: issueNumber });
+  return { labels: res.data.labels as Array<{ name: string }>, state: res.data.state as 'open' | 'closed' };
+}
+```
+
+- [ ] **Step 4: Implement `check-review-skip.ts`**
+
+The helper must check **both** PR labels and the origin issue's labels per spec section 5.5.1 conditions 6 and 7. The origin issue number is parsed from the PR body's `Shopfloor-Issue:` metadata.
 
 ```ts
 import * as core from '@actions/core';
@@ -2012,11 +2085,27 @@ export interface CheckReviewSkipResult {
   reason?: string;
 }
 
+function parseIssueNumberFromBody(body: string | null): number | null {
+  if (!body) return null;
+  const m = body.match(/Shopfloor-Issue:\s*#(\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
 export async function checkReviewSkip(adapter: GitHubAdapter, prNumber: number): Promise<CheckReviewSkipResult> {
   const pr = await adapter.getPr(prNumber);
   if (pr.state === 'closed') return { skip: true, reason: 'pr_closed' };
   if (pr.draft) return { skip: true, reason: 'pr_draft' };
-  if (pr.labels.some((l) => l.name === 'shopfloor:skip-review')) return { skip: true, reason: 'skip_review_label' };
+  if (pr.labels.some((l) => l.name === 'shopfloor:skip-review')) return { skip: true, reason: 'skip_review_label_pr' };
+
+  // Spec 5.5.1 condition 7: check origin issue's labels too.
+  const originIssueNumber = parseIssueNumberFromBody(pr.body ?? null);
+  if (originIssueNumber !== null) {
+    const issue = await adapter.getIssue(originIssueNumber);
+    if (issue.state === 'closed') return { skip: true, reason: 'origin_issue_closed' };
+    if (issue.labels.some((l) => l.name === 'shopfloor:skip-review')) {
+      return { skip: true, reason: 'skip_review_label_issue' };
+    }
+  }
 
   const files = await adapter.listChangedFiles(prNumber);
   if (files.length === 0) return { skip: true, reason: 'no_changed_files' };
@@ -2306,6 +2395,28 @@ export async function aggregateReview(adapter: GitHubAdapter, params: AggregateR
   const currentIteration = parseIterationFromBody(pr.body ?? null);
 
   await adapter.setReviewStatus(headSha, 'pending', 'Shopfloor review: aggregating findings...', params.workflowRunUrl);
+
+  // Spec 5.5.3 step 3: verify each reviewer stayed in scope. A reviewer producing
+  // comments tagged with a different category is a prompt-injection or misbehaviour
+  // signal. Log it, but do not drop the comments outright; we still let them flow
+  // through dedupe and filter. This gives us observability without destabilising
+  // the pipeline.
+  const SOURCE_CATEGORY: Record<string, string> = {
+    compliance: 'compliance',
+    bugs: 'bug',
+    security: 'security',
+    smells: 'smell'
+  };
+  for (const [source, out] of Object.entries(outputs)) {
+    if (!out) continue;
+    const expected = SOURCE_CATEGORY[source];
+    const outOfScope = out.comments.filter((c) => c.category !== expected);
+    if (outOfScope.length > 0) {
+      core.warning(
+        `aggregateReview: ${source} reviewer returned ${outOfScope.length} out-of-scope comment(s) (expected category '${expected}')`
+      );
+    }
+  }
 
   // Collect all comments, tagged by source.
   const allComments = parsed.flatMap((r) => r.comments);
@@ -2970,6 +3081,18 @@ on:
       ssh_signing_key: { required: false }
 
 concurrency:
+  # v0.1 limitation: GitHub Actions concurrency expressions cannot parse the
+  # Shopfloor-Issue metadata from a PR body, so we cannot group strictly by
+  # origin issue across issue and PR events. We use "issue.number when present,
+  # otherwise PR number" which serializes:
+  #   - multiple events on the same origin issue
+  #   - multiple events on the same PR
+  # but NOT events that touch the origin issue and its child PRs simultaneously.
+  # Practical impact is minimal because spec/plan/impl PRs write to disjoint
+  # file paths (docs/shopfloor/{specs,plans}/... versus source code), so the
+  # worst-case race produces stale label state rather than data corruption.
+  # The router's state machine detects stale state and emits stage=none when it
+  # sees inconsistent labels, so races degrade gracefully.
   group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
@@ -3131,8 +3254,118 @@ Same shape as spec, different prompt, different tool allowlist (Read, Glob, Grep
 - **Write the MCP config file** to `$RUNNER_TEMP/shopfloor-mcp.json` with `SHOPFLOOR_COMMENT_ID` set to the captured comment ID.
 - **claude_args:** include `--mcp-config $RUNNER_TEMP/shopfloor-mcp.json` and `--allowedTools` including `mcp__shopfloor__update_progress`.
 - **Post-work:** update the PR body with agent's final narrative, finalize the progress comment, check `shopfloor:skip-review` (via `check-review-skip`) then apply either `shopfloor:needs-review` or `shopfloor:impl-in-review`.
+- **Token threading (spec section 9.3):** capture `claude-code-action`'s minted `github_token` as `steps.agent.outputs.github_token`. All subsequent router-helper steps in the same job pass it as their `github_token` input instead of `secrets.GITHUB_TOKEN`, so the router's GitHub API calls appear under the same bot identity as the agent's. Fall back to `secrets.GITHUB_TOKEN` only when the agent step did not produce a token (failure path).
+- **Export the token as a job output:** the job declares `outputs.impl_github_token: ${{ steps.agent.outputs.github_token }}` so downstream jobs in the same workflow run (e.g., the aggregator, if it ever runs in this run) can read it. Note: since the review stage fires on a *separate* workflow run triggered by `synchronize`, this specific output is consumed only within the same-run case (not the impl→review handoff, which crosses workflow runs).
 
-Commit: `feat(workflow): wire implement stage with MCP config injection`.
+**Concrete workflow shape:**
+
+```yaml
+  implement:
+    needs: route
+    if: needs.route.outputs.stage == 'implement'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.impl_timeout_minutes }}
+    outputs:
+      impl_github_token: ${{ steps.agent.outputs.github_token }}
+      pr_number: ${{ steps.open_pr.outputs.pr_number }}
+      comment_id: ${{ steps.progress.outputs.comment_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create impl branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ needs.route.outputs.branch_name }}"
+          git push -u origin "${{ needs.route.outputs.branch_name }}"
+      - id: open_pr
+        uses: ./router
+        with:
+          helper: open-stage-pr
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: implement
+          branch_name: ${{ needs.route.outputs.branch_name }}
+          base_branch: ${{ github.event.repository.default_branch }}
+          pr_title: "[WIP] Implementation for #${{ needs.route.outputs.issue_number }}"
+          pr_body: "Shopfloor is drafting this PR now. The body will be replaced when work completes."
+          draft: 'false'
+      - id: progress
+        uses: ./router
+        with:
+          helper: create-progress-comment
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ steps.open_pr.outputs.pr_number }}
+      - name: Write Shopfloor MCP config
+        run: |
+          cat > "$RUNNER_TEMP/shopfloor-mcp.json" <<EOF
+          {
+            "mcpServers": {
+              "shopfloor": {
+                "command": "bun",
+                "args": ["run", "${{ github.action_path }}/mcp-servers/shopfloor-mcp/index.ts"],
+                "env": {
+                  "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+                  "REPO_OWNER": "${{ github.repository_owner }}",
+                  "REPO_NAME": "${{ github.event.repository.name }}",
+                  "SHOPFLOOR_COMMENT_ID": "${{ steps.progress.outputs.comment_id }}",
+                  "GITHUB_API_URL": "${{ github.api_url }}"
+                }
+              }
+            }
+          }
+          EOF
+      - name: Render implement prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # ... prompt file path and context JSON
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          claude_args: |
+            --model ${{ inputs.impl_model }}
+            --max-turns ${{ inputs.impl_max_turns }}
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),mcp__shopfloor__update_progress"
+            --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
+            --json-schema '<impl schema>'
+      - name: Finalize progress comment
+        if: always()
+        uses: ./router
+        with:
+          helper: finalize-progress-comment
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          comment_id: ${{ steps.progress.outputs.comment_id }}
+          terminal_state: ${{ job.status == 'success' && 'success' || 'failure' }}
+          final_body: ${{ fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
+      - name: Update PR body and apply next-state label
+        if: success()
+        uses: ./router
+        with:
+          helper: apply-impl-postwork
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          pr_number: ${{ steps.open_pr.outputs.pr_number }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
+          pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
+      - name: Report failure
+        if: failure()
+        uses: ./router
+        with:
+          helper: report-failure
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: implement
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+```
+
+Note the new `apply-impl-postwork` helper: takes the agent's PR title/body, updates the PR, runs `check-review-skip` internally, and applies either `shopfloor:needs-review` or `shopfloor:impl-in-review`. Add it alongside `apply-triage-decision` in Task 5.2a or as a follow-up commit under Task 5.5.
+
+Commit: `feat(workflow): wire implement stage with MCP config injection and token threading`.
 
 ### Task 5.6: Wire review stage matrix
 
@@ -3170,10 +3403,11 @@ For each reviewer (compliance, bugs, security, smells), declare a job like:
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
+      github_token: ${{ steps.agent.outputs.github_token }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ needs.route.outputs.impl_pr_number }}/head
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
       - name: Render compliance prompt
         id: prompt
@@ -3217,7 +3451,18 @@ git commit -m "feat(workflow): wire review stage 4-cell matrix with per-reviewer
       - uses: ./router
         with:
           helper: aggregate-review
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Spec 9.3 token threading: prefer any surviving matrix cell's minted token so the
+          # aggregator's posts (the approving or request-changes review, the commit status)
+          # appear under the same bot identity as the review agents. Fall back across cells
+          # in case one failed; fall back to GITHUB_TOKEN only if all four failed.
+          github_token: >-
+            ${{
+              needs.review-compliance.outputs.github_token ||
+              needs.review-bugs.outputs.github_token ||
+              needs.review-security.outputs.github_token ||
+              needs.review-smells.outputs.github_token ||
+              secrets.GITHUB_TOKEN
+            }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           pr_number: ${{ needs.route.outputs.impl_pr_number }}
           confidence_threshold: ${{ inputs.review_confidence_threshold }}
@@ -3265,7 +3510,19 @@ git commit -m "feat(workflow): wire review aggregator job with if-always and per
           pr_number: ${{ github.event.pull_request.number }}
 ```
 
-Derivation of `merged_stage` from `reason`: the router's `reason` output looks like `pr_merged_spec_triggered_label_flip`. Use a composite step to extract the middle token via shell.
+Derivation of `merged_stage` from `reason`: the router's `reason` output looks like `pr_merged_spec_triggered_label_flip`, `pr_merged_plan_triggered_label_flip`, or `pr_merged_implement_triggered_label_flip`. Extract the middle token with a shell step:
+
+```yaml
+      - id: parse_merged_stage
+        run: |
+          reason='${{ needs.route.outputs.reason }}'
+          # Strip the "pr_merged_" prefix and "_triggered_label_flip" suffix
+          stage="${reason#pr_merged_}"
+          stage="${stage%_triggered_label_flip}"
+          echo "merged_stage=$stage" >> "$GITHUB_OUTPUT"
+```
+
+Then reference `${{ steps.parse_merged_stage.outputs.merged_stage }}` in the `handle-merge` helper call below.
 
 - [ ] **Step 2: Commit**
 
@@ -3666,6 +3923,8 @@ git push origin v1.0.0-rc.1
 ```
 
 - [ ] **Step 5: Create a v1 moving tag** (so users can `@v1` their caller workflow)
+
+The `-f` on `push` here is deliberate and limited to the `v1` tag ref. This is the standard pattern for JS GitHub Actions that publish a moving major-version tag. The user's non-negotiable rule against force-pushing applies to *branches* (especially `main`/`master`), not to moving version tags. If in doubt, skip the force-push and create `v1.0.0-rc.2` instead.
 
 ```bash
 git tag -fa v1 -m "v1 moving tag points to v1.0.0-rc.1"
