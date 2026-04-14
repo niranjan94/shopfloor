@@ -116,7 +116,7 @@ jobs:
       impl_pr_number: ${{ steps.router.outputs.impl_pr_number }}
       reason: ${{ steps.router.outputs.reason }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: bootstrap
         uses: ./router
         with:
@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Build triage context
         id: ctx
         env:
@@ -208,7 +208,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create spec branch
         run: |
           git config user.name "github-actions[bot]"
@@ -314,7 +314,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create plan branch
         run: |
           git config user.name "github-actions[bot]"
@@ -424,7 +424,7 @@ jobs:
       pr_number: ${{ steps.open_pr.outputs.pr_number }}
       comment_id: ${{ steps.progress.outputs.comment_id }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create impl branch
         run: |
           git config user.name "github-actions[bot]"
@@ -565,7 +565,7 @@ jobs:
       skip: ${{ steps.check.outputs.skip }}
       reason: ${{ steps.check.outputs.reason }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: check
         uses: ./router
         with:
@@ -581,7 +581,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -647,7 +647,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -713,7 +713,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -779,7 +779,7 @@ jobs:
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
@@ -855,7 +855,7 @@ jobs:
       issues: write
       statuses: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./router
         with:
           helper: aggregate-review
@@ -879,7 +879,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: parse_merged_stage
         run: |
           reason='${{ needs.route.outputs.reason }}'
