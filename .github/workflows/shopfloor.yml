@@ -40,6 +40,26 @@ on:
       use_foundry: { type: boolean, default: false }
       ssh_signing_key_enabled: { type: boolean, default: false }
       keep_artifacts_forever: { type: boolean, default: true }
+      # When set, Shopfloor only enters the pipeline for issues that carry this label.
+      # Issues already mid-pipeline (any shopfloor:* state label) are grandfathered in,
+      # so removing the trigger label later does not strand in-flight work.
+      # Leave empty to run on every new issue.
+      trigger_label: { type: string, default: '' }
+      # Effort per stage. Passed as `--effort` to claude-code-action.
+      # High for design-heavy stages (spec, plan); medium for everything else as a sane default.
+      triage_effort: { type: string, default: medium }
+      spec_effort: { type: string, default: high }
+      plan_effort: { type: string, default: high }
+      impl_effort: { type: string, default: medium }
+      review_compliance_effort: { type: string, default: medium }
+      review_bugs_effort: { type: string, default: medium }
+      review_security_effort: { type: string, default: medium }
+      review_smells_effort: { type: string, default: medium }
+      # Whether claude-code-action should post its own "display report" comment on the PR/issue.
+      # Shopfloor's helpers handle all user-facing reporting, so this is on by default as a
+      # transparency aid but can be flipped globally here. Pass the literal string 'true' or 'false';
+      # claude-code-action expects a string, not a workflow boolean.
+      display_report: { type: string, default: 'true' }
     secrets:
       anthropic_api_key: { required: false }
       claude_code_oauth_token: { required: false }
@@ -65,13 +85,21 @@ env:
     https://github.com/anthropics/claude-plugins-official.git
   # Tools every Shopfloor agent gets on top of its stage-specific allowlist.
   # - Agent, Skill, LSP: subagent dispatch, skill invocation, and LSP-backed code intelligence.
+  # - ToolSearch: deferred-tool discovery. Useful for every stage.
   # - Bash(gh api:*): authenticated calls against api.github.com (issue bodies, PR files, etc.).
   # - Bash(curl:*): authenticated downloads for user-uploaded images/files on issue and comment bodies,
   #   which live on redirect hosts (user-attachments, user-images.githubusercontent.com) that are
   #   outside api.github.com and therefore not reachable via `gh api` alone. claude-code-action
   #   exports GITHUB_TOKEN into the subprocess env, so `curl -L -H "Authorization: Bearer $GITHUB_TOKEN"`
   #   works for private repos too.
-  SHOPFLOOR_COMMON_TOOLS: 'Agent,Skill,LSP,Bash(gh api:*),Bash(curl:*)'
+  SHOPFLOOR_COMMON_TOOLS: 'Agent,Skill,LSP,ToolSearch,Bash(gh api:*),Bash(curl:*)'
+  # Interactive or irrelevant tools that have no place in an automated Shopfloor run.
+  # - AskUserQuestion: no human is attached to the run.
+  # - EnterPlanMode / ExitPlanMode: plan mode is a human-in-the-loop construct; Shopfloor has its own plan stage.
+  # - EnterWorktree / ExitWorktree: Shopfloor runs on a pre-created branch and forbids worktrees.
+  # - TodoWrite / TaskCreate: progress tracking goes through mcp__shopfloor__update_progress, not scratch lists.
+  # - WebSearch: agents should use WebFetch with a specific URL; open-ended web search is off-budget.
+  SHOPFLOOR_DISALLOWED_TOOLS: 'AskUserQuestion,EnterPlanMode,EnterWorktree,ExitPlanMode,ExitWorktree,TodoWrite,TaskCreate,WebSearch'
 
 jobs:
   route:
@@ -99,6 +127,7 @@ jobs:
         with:
           helper: route
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          trigger_label: ${{ inputs.trigger_label }}
 
   triage:
     needs: route
@@ -143,11 +172,14 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.triage_model }}
+            --effort ${{ inputs.triage_effort }}
             --max-turns ${{ inputs.triage_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
       - name: Apply triage decision
         if: success()
         uses: ./router
@@ -224,13 +256,16 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           plugins: |-
             superpowers@claude-plugins-official
           claude_args: |
             --model ${{ inputs.spec_model }}
+            --effort ${{ inputs.spec_effort }}
             --max-turns ${{ inputs.spec_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
       - name: Commit and push spec
         if: success()
         run: |
@@ -327,13 +362,16 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           plugins: |-
             superpowers@claude-plugins-official
           claude_args: |
             --model ${{ inputs.plan_model }}
+            --effort ${{ inputs.plan_effort }}
             --max-turns ${{ inputs.plan_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
       - name: Commit and push plan
         if: success()
         run: |
@@ -475,13 +513,16 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           plugins: |-
             superpowers@claude-plugins-official
           claude_args: |
             --model ${{ inputs.impl_model }}
+            --effort ${{ inputs.impl_effort }}
             --max-turns ${{ inputs.impl_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
       - name: Push impl commits
         if: success()
@@ -589,11 +630,14 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_compliance_model }}
+            --effort ${{ inputs.review_compliance_effort }}
             --max-turns ${{ inputs.review_compliance_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
 
   review-bugs:
     needs: [route, review-skip-check]
@@ -652,11 +696,14 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_bugs_model }}
+            --effort ${{ inputs.review_bugs_effort }}
             --max-turns ${{ inputs.review_bugs_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
 
   review-security:
     needs: [route, review-skip-check]
@@ -715,11 +762,14 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_security_model }}
+            --effort ${{ inputs.review_security_effort }}
             --max-turns ${{ inputs.review_security_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
 
   review-smells:
     needs: [route, review-skip-check]
@@ -778,11 +828,14 @@ jobs:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_smells_model }}
+            --effort ${{ inputs.review_smells_effort }}
             --max-turns ${{ inputs.review_smells_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
 
   review-aggregator:
     needs: [route, review-skip-check, review-compliance, review-bugs, review-security, review-smells]

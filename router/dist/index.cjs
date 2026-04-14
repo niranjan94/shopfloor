@@ -23905,7 +23905,7 @@ var COMPLEXITY_LABELS = {
 function resolveStage(ctx) {
   switch (ctx.eventName) {
     case "issues":
-      return resolveIssueEvent(ctx.payload);
+      return resolveIssueEvent(ctx.payload, ctx.triggerLabel);
     case "issue_comment":
       return { stage: "none", reason: "issue_comment_no_action_v0_1" };
     case "pull_request":
@@ -23950,9 +23950,10 @@ function parsePrMetadata(body) {
 function branchSlug(title) {
   return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().split(/\s+/).slice(0, 5).join("-").slice(0, 40);
 }
-function resolveIssueEvent(payload) {
+function resolveIssueEvent(payload, triggerLabel) {
   const labels = issueLabelSet(payload.issue);
   const issueNumber = payload.issue.number;
+  const hasStateLabel = stateLabel(labels) !== null;
   if (payload.issue.state === "closed") {
     return { stage: "none", issueNumber, reason: "issue_closed_aborted" };
   }
@@ -23962,11 +23963,17 @@ function resolveIssueEvent(payload) {
   if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:review-stuck") {
     return { stage: "review", issueNumber, reason: "review_stuck_removed_force_review" };
   }
-  if (payload.action === "opened" && stateLabel(labels) === null) {
-    return { stage: "triage", issueNumber };
+  if (triggerLabel && triggerLabel.length > 0 && !labels.has(triggerLabel) && !hasStateLabel) {
+    return { stage: "none", issueNumber, reason: "trigger_label_absent" };
   }
   if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:awaiting-info") {
     return { stage: "triage", issueNumber, reason: "re_triage_after_clarification" };
+  }
+  if (payload.action === "opened" && !hasStateLabel) {
+    return { stage: "triage", issueNumber };
+  }
+  if (triggerLabel && triggerLabel.length > 0 && payload.action === "labeled" && payload.label?.name === triggerLabel && !hasStateLabel) {
+    return { stage: "triage", issueNumber, reason: "trigger_label_added" };
   }
   if (labels.has("shopfloor:needs-spec")) {
     return {
@@ -24900,9 +24907,11 @@ async function main() {
   });
   switch (helper) {
     case "route": {
+      const triggerLabel = core13.getInput("trigger_label") || void 0;
       const decision = resolveStage({
         eventName: import_github.context.eventName,
-        payload: import_github.context.payload
+        payload: import_github.context.payload,
+        triggerLabel
       });
       core13.setOutput("stage", decision.stage);
       if (decision.issueNumber !== void 0) {
