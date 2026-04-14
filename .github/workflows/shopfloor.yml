@@ -1,0 +1,92 @@
+name: Shopfloor
+on:
+  workflow_call:
+    inputs:
+      triage_model: { type: string, default: sonnet }
+      spec_model: { type: string, default: opus }
+      plan_model: { type: string, default: opus }
+      impl_model: { type: string, default: opus }
+      triage_max_turns: { type: number, default: 10 }
+      spec_max_turns: { type: number, default: 10 }
+      plan_max_turns: { type: number, default: 15 }
+      impl_max_turns: { type: number, default: 70 }
+      triage_timeout_minutes: { type: number, default: 10 }
+      spec_timeout_minutes: { type: number, default: 20 }
+      plan_timeout_minutes: { type: number, default: 30 }
+      impl_timeout_minutes: { type: number, default: 60 }
+      branch_prefix: { type: string, default: 'shopfloor/' }
+      artifacts_dir: { type: string, default: 'docs/shopfloor/' }
+      impl_bash_allowlist:
+        type: string
+        default: 'pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc'
+      additional_tools: { type: string, default: '' }
+      review_compliance_model: { type: string, default: sonnet }
+      review_bugs_model: { type: string, default: opus }
+      review_security_model: { type: string, default: opus }
+      review_smells_model: { type: string, default: opus }
+      review_compliance_max_turns: { type: number, default: 15 }
+      review_bugs_max_turns: { type: number, default: 15 }
+      review_security_max_turns: { type: number, default: 15 }
+      review_smells_max_turns: { type: number, default: 15 }
+      review_compliance_enabled: { type: boolean, default: true }
+      review_bugs_enabled: { type: boolean, default: true }
+      review_security_enabled: { type: boolean, default: true }
+      review_smells_enabled: { type: boolean, default: true }
+      review_timeout_minutes: { type: number, default: 20 }
+      review_confidence_threshold: { type: number, default: 80 }
+      max_review_iterations: { type: number, default: 3 }
+      use_bedrock: { type: boolean, default: false }
+      use_vertex: { type: boolean, default: false }
+      use_foundry: { type: boolean, default: false }
+      ssh_signing_key_enabled: { type: boolean, default: false }
+      keep_artifacts_forever: { type: boolean, default: true }
+    secrets:
+      anthropic_api_key: { required: false }
+      claude_code_oauth_token: { required: false }
+      aws_access_key_id: { required: false }
+      aws_secret_access_key: { required: false }
+      aws_region: { required: false }
+      aws_bearer_token_bedrock: { required: false }
+      anthropic_vertex_project_id: { required: false }
+      cloud_ml_region: { required: false }
+      google_application_credentials: { required: false }
+      anthropic_foundry_resource: { required: false }
+      github_app_id: { required: false }
+      github_app_private_key: { required: false }
+      ssh_signing_key: { required: false }
+
+concurrency:
+  # v0.1 limitation: GitHub Actions concurrency expressions cannot parse the
+  # Shopfloor-Issue metadata from a PR body, so the serialization key falls back
+  # to the issue or PR number. Events on a PR and its origin issue can race;
+  # the router's state machine tolerates stale label state by emitting stage=none
+  # when it sees inconsistent labels.
+  group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.router.outputs.stage }}
+      issue_number: ${{ steps.router.outputs.issue_number }}
+      complexity: ${{ steps.router.outputs.complexity }}
+      branch_name: ${{ steps.router.outputs.branch_name }}
+      spec_file_path: ${{ steps.router.outputs.spec_file_path }}
+      plan_file_path: ${{ steps.router.outputs.plan_file_path }}
+      revision_mode: ${{ steps.router.outputs.revision_mode }}
+      review_iteration: ${{ steps.router.outputs.review_iteration }}
+      impl_pr_number: ${{ steps.router.outputs.impl_pr_number }}
+      reason: ${{ steps.router.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: bootstrap
+        uses: ./router
+        with:
+          helper: bootstrap-labels
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - id: router
+        uses: ./router
+        with:
+          helper: route
+          github_token: ${{ secrets.GITHUB_TOKEN }}
