@@ -570,44 +570,44 @@ Declares `on: workflow_call:` with typed inputs and secrets. Contains one `route
 
 Inputs (all optional with defaults):
 
-| Input | Type | Default | Purpose |
-|---|---|---|---|
-| `triage_model` | string | `claude-opus-4-6` | Model for the triage agent. |
-| `spec_model` | string | `claude-opus-4-6` | Model for the spec agent. |
-| `plan_model` | string | `claude-opus-4-6` | Model for the plan agent. |
-| `impl_model` | string | `claude-opus-4-6` | Model for the implementation agent. |
-| `triage_max_turns` | number | `5` | `--max-turns` for triage. |
-| `spec_max_turns` | number | `10` | `--max-turns` for spec. |
-| `plan_max_turns` | number | `15` | `--max-turns` for plan. |
-| `impl_max_turns` | number | `40` | `--max-turns` for implementation. |
-| `triage_timeout_minutes` | number | `10` | Job timeout. |
-| `spec_timeout_minutes` | number | `20` | Job timeout. |
-| `plan_timeout_minutes` | number | `30` | Job timeout. |
-| `impl_timeout_minutes` | number | `60` | Job timeout. |
-| `branch_prefix` | string | `shopfloor/` | Branch prefix for all Shopfloor branches. |
-| `artifacts_dir` | string | `docs/shopfloor/` | Root directory for spec and plan files. |
+| Input | Type | Default                                                         | Purpose |
+|---|---|-----------------------------------------------------------------|---|
+| `triage_model` | string | `sonnet`                                                        | Model for the triage agent. |
+| `spec_model` | string | `opus`                                                          | Model for the spec agent. |
+| `plan_model` | string | `opus`                                                          | Model for the plan agent. |
+| `impl_model` | string | `opus`                                                          | Model for the implementation agent. |
+| `triage_max_turns` | number | `10`                                                            | `--max-turns` for triage. |
+| `spec_max_turns` | number | `10`                                                            | `--max-turns` for spec. |
+| `plan_max_turns` | number | `15`                                                            | `--max-turns` for plan. |
+| `impl_max_turns` | number | `70`                                                            | `--max-turns` for implementation. |
+| `triage_timeout_minutes` | number | `10`                                                            | Job timeout. |
+| `spec_timeout_minutes` | number | `20`                                                            | Job timeout. |
+| `plan_timeout_minutes` | number | `30`                                                            | Job timeout. |
+| `impl_timeout_minutes` | number | `60`                                                            | Job timeout. |
+| `branch_prefix` | string | `shopfloor/`                                                    | Branch prefix for all Shopfloor branches. |
+| `artifacts_dir` | string | `docs/shopfloor/`                                               | Root directory for spec and plan files. |
 | `impl_bash_allowlist` | string | `pnpm install,pnpm test:*,pnpm lint:*,pnpm build,pnpm exec tsc` | Comma-separated allowlist for the impl agent's `Bash(...)` tools. Appended to the stage-level allowlist. |
-| `additional_tools` | string | `""` | Extra tools to allowlist for the impl stage (e.g. user-defined MCP tools). |
-| `review_compliance_model` | string | `claude-opus-4-6` | Model for the CLAUDE.md compliance reviewer. |
-| `review_bugs_model` | string | `claude-opus-4-6` | Model for the bugs reviewer. |
-| `review_security_model` | string | `claude-opus-4-6` | Model for the security reviewer. |
-| `review_smells_model` | string | `claude-opus-4-6` | Model for the code smells reviewer. |
-| `review_compliance_max_turns` | number | `8` | `--max-turns` for the compliance reviewer. |
-| `review_bugs_max_turns` | number | `8` | `--max-turns` for the bugs reviewer. |
-| `review_security_max_turns` | number | `8` | `--max-turns` for the security reviewer. |
-| `review_smells_max_turns` | number | `8` | `--max-turns` for the smells reviewer. |
-| `review_compliance_enabled` | boolean | `true` | Whether to run the compliance reviewer at all. |
-| `review_bugs_enabled` | boolean | `true` | Whether to run the bugs reviewer at all. |
-| `review_security_enabled` | boolean | `true` | Whether to run the security reviewer at all. |
-| `review_smells_enabled` | boolean | `true` | Whether to run the smells reviewer at all. |
-| `review_timeout_minutes` | number | `20` | Per-matrix-cell timeout for review subagents. |
-| `review_confidence_threshold` | number | `80` | Minimum confidence score for a review comment to survive aggregation filtering. Range 0-100. |
-| `max_review_iterations` | number | `3` | Maximum number of impl↔review bounces on a single impl PR before the router bails out with `shopfloor:review-stuck`. |
-| `use_bedrock` | boolean | `false` | Pass-through to `claude-code-action`. |
-| `use_vertex` | boolean | `false` | Pass-through to `claude-code-action`. |
-| `use_foundry` | boolean | `false` | Pass-through to `claude-code-action`. |
-| `ssh_signing_key_enabled` | boolean | `false` | Whether the caller passes an SSH signing key as a secret for signed commits. |
-| `keep_artifacts_forever` | boolean | `true` | If false, the impl stage's PR also deletes the matching spec and plan files. |
+| `additional_tools` | string | `""`                                                            | Extra tools to allowlist for the impl stage (e.g. user-defined MCP tools). |
+| `review_compliance_model` | string | `sonnet`                                                        | Model for the CLAUDE.md compliance reviewer. |
+| `review_bugs_model` | string | `opus`                                                          | Model for the bugs reviewer. |
+| `review_security_model` | string | `opus`                                                          | Model for the security reviewer. |
+| `review_smells_model` | string | `opus`                                                          | Model for the code smells reviewer. |
+| `review_compliance_max_turns` | number | `15`                                                            | `--max-turns` for the compliance reviewer. |
+| `review_bugs_max_turns` | number | `15`                                                             | `--max-turns` for the bugs reviewer. |
+| `review_security_max_turns` | number | `15`                                                             | `--max-turns` for the security reviewer. |
+| `review_smells_max_turns` | number | `15`                                                             | `--max-turns` for the smells reviewer. |
+| `review_compliance_enabled` | boolean | `true`                                                          | Whether to run the compliance reviewer at all. |
+| `review_bugs_enabled` | boolean | `true`                                                          | Whether to run the bugs reviewer at all. |
+| `review_security_enabled` | boolean | `true`                                                          | Whether to run the security reviewer at all. |
+| `review_smells_enabled` | boolean | `true`                                                          | Whether to run the smells reviewer at all. |
+| `review_timeout_minutes` | number | `20`                                                            | Per-matrix-cell timeout for review subagents. |
+| `review_confidence_threshold` | number | `80`                                                            | Minimum confidence score for a review comment to survive aggregation filtering. Range 0-100. |
+| `max_review_iterations` | number | `3`                                                             | Maximum number of impl↔review bounces on a single impl PR before the router bails out with `shopfloor:review-stuck`. |
+| `use_bedrock` | boolean | `false`                                                         | Pass-through to `claude-code-action`. |
+| `use_vertex` | boolean | `false`                                                         | Pass-through to `claude-code-action`. |
+| `use_foundry` | boolean | `false`                                                         | Pass-through to `claude-code-action`. |
+| `ssh_signing_key_enabled` | boolean | `false`                                                         | Whether the caller passes an SSH signing key as a secret for signed commits. |
+| `keep_artifacts_forever` | boolean | `true`                                                          | If false, the impl stage's PR also deletes the matching spec and plan files. |
 
 Secrets (all optional except one auth method must be set):
 
