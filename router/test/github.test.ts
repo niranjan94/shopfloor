@@ -17,11 +17,9 @@ function makeMockOctokit(): {
     getIssue: vi
       .fn()
       .mockResolvedValue({ data: { labels: [], state: "open" } }),
-    createPr: vi
-      .fn()
-      .mockResolvedValue({
-        data: { number: 100, html_url: "https://x/pr/100" },
-      }),
+    createPr: vi.fn().mockResolvedValue({
+      data: { number: 100, html_url: "https://x/pr/100" },
+    }),
     updatePr: vi.fn().mockResolvedValue({ data: {} }),
     getPr: vi.fn().mockResolvedValue({ data: {} }),
     listFiles: vi.fn().mockResolvedValue({ data: [] }),
