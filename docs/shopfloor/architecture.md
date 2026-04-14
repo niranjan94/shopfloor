@@ -105,7 +105,7 @@ If the verdict is `REQUEST_CHANGES`, Shopfloor increments the PR body's `Shopflo
 
 ## The router helpers
 
-The router is a single TypeScript package at `router/`, bundled with esbuild into `router/dist/index.cjs` and shipped as a `node20` action at `router/action.yml`. It exposes one input (`helper:`) that dispatches to one of 13 helpers:
+The router is a single TypeScript package at `router/`, bundled with esbuild into `router/dist/index.cjs` and shipped as a `node24` action at `router/action.yml`. It exposes one input (`helper:`) that dispatches to one of 13 helpers:
 
 - `route` — resolves the stage from the event
 - `bootstrap-labels` — creates missing `shopfloor:*` labels

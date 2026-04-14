@@ -5,7 +5,7 @@ await build({
   bundle: true,
   outfile: 'dist/index.cjs',
   platform: 'node',
-  target: 'node20',
+  target: 'node24',
   format: 'cjs',
   sourcemap: true
 });
