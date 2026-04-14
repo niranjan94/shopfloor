@@ -1,0 +1,23 @@
+name: Shopfloor on Shopfloor
+on:
+  issues:
+    types: [opened, edited, closed, labeled, unlabeled]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, closed, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  shopfloor:
+    uses: ./.github/workflows/shopfloor.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+      statuses: write
+      checks: read
+    secrets: inherit
