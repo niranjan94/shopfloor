@@ -144,12 +144,17 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
+            echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
+            ISSUE_COMMENTS=""
+          fi
           jq -n \
             --arg issue_number "$ISSUE_NUMBER" \
             --arg issue_title "$ISSUE_TITLE" \
             --arg issue_body "${ISSUE_BODY:-}" \
-            --arg issue_comments "" \
+            --arg issue_comments "$ISSUE_COMMENTS" \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
             --arg claude_md_contents "$(test -f CLAUDE.md && cat CLAUDE.md || echo '')" \
@@ -225,12 +230,17 @@ jobs:
           SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
+            echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
+            ISSUE_COMMENTS=""
+          fi
           jq -n \
             --arg issue_number "$ISSUE_NUMBER" \
             --arg issue_title "$ISSUE_TITLE" \
             --arg issue_body "${ISSUE_BODY:-}" \
-            --arg issue_comments "" \
+            --arg issue_comments "$ISSUE_COMMENTS" \
             --arg triage_rationale "" \
             --arg branch_name "$BRANCH_NAME" \
             --arg spec_file_path "$SPEC_FILE_PATH" \
