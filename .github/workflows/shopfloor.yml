@@ -59,6 +59,11 @@ concurrency:
   group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
+env:
+  SHOPFLOOR_PLUGIN_MARKETPLACES: |-
+    https://github.com/anthropics/claude-code.git
+    https://github.com/anthropics/claude-plugins-official.git
+
 jobs:
   route:
     runs-on: ubuntu-latest
@@ -95,45 +100,44 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build triage context
         id: ctx
-        run: |
-          python3 - <<'PY' > "$RUNNER_TEMP/context.json"
-          import json, os
-          ctx = {
-            "issue_number": os.environ.get("ISSUE_NUMBER",""),
-            "issue_title": os.environ.get("ISSUE_TITLE",""),
-            "issue_body": os.environ.get("ISSUE_BODY",""),
-            "issue_comments": "",
-            "repo_owner": os.environ.get("REPO_OWNER",""),
-            "repo_name": os.environ.get("REPO_NAME",""),
-            "claude_md_contents": open("CLAUDE.md").read() if os.path.exists("CLAUDE.md") else ""
-          }
-          print(json.dumps(ctx))
-          PY
-          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
         env:
           ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          jq -n \
+            --arg issue_number "$ISSUE_NUMBER" \
+            --arg issue_title "$ISSUE_TITLE" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg issue_comments "" \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg claude_md_contents "$(test -f CLAUDE.md && cat CLAUDE.md || echo '')" \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, repo_owner: $repo_owner, repo_name: $repo_name, claude_md_contents: $claude_md_contents}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render triage prompt
         id: prompt
         uses: ./router
         with:
           helper: render-prompt
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt_file: ${{ github.action_path && format('{0}/prompts/triage.md', github.action_path) || 'prompts/triage.md' }}
-          context_json: ${{ steps.ctx.outputs.path }}
+          prompt_file: prompts/triage.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,WebFetch'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.triage_model }}
             --max-turns ${{ inputs.triage_max_turns }}
-            --allowedTools "Read,Glob,Grep,WebFetch"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
       - name: Apply triage decision
         if: success()
         uses: ./router
@@ -168,16 +172,54 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ needs.route.outputs.branch_name }}"
+      - name: Build spec context
+        id: ctx
+        env:
+          ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          jq -n \
+            --arg issue_number "$ISSUE_NUMBER" \
+            --arg issue_title "$ISSUE_TITLE" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg issue_comments "" \
+            --arg triage_rationale "" \
+            --arg branch_name "$BRANCH_NAME" \
+            --arg spec_file_path "$SPEC_FILE_PATH" \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg previous_spec_contents "" \
+            --arg review_comments_json "[]" \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, triage_rationale: $triage_rationale, branch_name: $branch_name, spec_file_path: $spec_file_path, repo_owner: $repo_owner, repo_name: $repo_name, previous_spec_contents: $previous_spec_contents, review_comments_json: $review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render spec prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/spec.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,WebFetch'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/spec.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          plugins: |-
+            superpowers@claude-plugins-official
           claude_args: |
             --model ${{ inputs.spec_model }}
             --max-turns ${{ inputs.spec_max_turns }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,WebFetch"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
       - name: Commit and push spec
         if: success()
         run: |
@@ -232,16 +274,54 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ needs.route.outputs.branch_name }}"
+      - name: Build plan context
+        id: ctx
+        env:
+          ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          PLAN_FILE_PATH: ${{ needs.route.outputs.plan_file_path }}
+          SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          jq -n \
+            --arg issue_number "$ISSUE_NUMBER" \
+            --arg issue_title "$ISSUE_TITLE" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg branch_name "$BRANCH_NAME" \
+            --arg plan_file_path "$PLAN_FILE_PATH" \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg spec_file_contents "$(test -f "$SPEC_FILE_PATH" && cat "$SPEC_FILE_PATH" || echo '')" \
+            --arg previous_plan_contents "" \
+            --arg review_comments_json "[]" \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, branch_name: $branch_name, plan_file_path: $plan_file_path, repo_owner: $repo_owner, repo_name: $repo_name, spec_file_contents: $spec_file_contents, previous_plan_contents: $previous_plan_contents, review_comments_json: $review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render plan prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/plan.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/plan.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          plugins: |-
+            superpowers@claude-plugins-official
           claude_args: |
             --model ${{ inputs.plan_model }}
             --max-turns ${{ inputs.plan_max_turns }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
       - name: Commit and push plan
         if: success()
         run: |
@@ -337,16 +417,58 @@ jobs:
             }
           }
           EOF
+      - name: Build implement context
+        id: ctx
+        env:
+          ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
+          PLAN_FILE_PATH: ${{ needs.route.outputs.plan_file_path }}
+          PROGRESS_COMMENT_ID: ${{ steps.progress.outputs.comment_id }}
+          BASH_ALLOWLIST: ${{ inputs.impl_bash_allowlist }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          jq -n \
+            --arg issue_number "$ISSUE_NUMBER" \
+            --arg issue_title "$ISSUE_TITLE" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg spec_file_contents "$(test -f "$SPEC_FILE_PATH" && cat "$SPEC_FILE_PATH" || echo '')" \
+            --arg plan_file_contents "$(test -f "$PLAN_FILE_PATH" && cat "$PLAN_FILE_PATH" || echo '')" \
+            --arg branch_name "$BRANCH_NAME" \
+            --arg progress_comment_id "$PROGRESS_COMMENT_ID" \
+            --arg review_comments_json "[]" \
+            --arg iteration_count "0" \
+            --arg bash_allowlist "$BASH_ALLOWLIST" \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, branch_name: $branch_name, progress_comment_id: $progress_comment_id, review_comments_json: $review_comments_json, iteration_count: $iteration_count, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render implement prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/implement.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),mcp__shopfloor__update_progress'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/implement.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          plugins: |-
+            superpowers@claude-plugins-official
           claude_args: |
             --model ${{ inputs.impl_model }}
             --max-turns ${{ inputs.impl_max_turns }}
-            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),mcp__shopfloor__update_progress"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
       - name: Push impl commits
         if: success()
@@ -410,16 +532,55 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg spec_file_contents "" \
+            --arg plan_file_contents "" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render compliance prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-compliance.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/review-compliance.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_compliance_model }}
             --max-turns ${{ inputs.review_compliance_max_turns }}
-            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
 
   review-bugs:
     needs: [route, review-skip-check]
@@ -434,16 +595,55 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg spec_file_contents "" \
+            --arg plan_file_contents "" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render bugs prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-bugs.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/review-bugs.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_bugs_model }}
             --max-turns ${{ inputs.review_bugs_max_turns }}
-            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
 
   review-security:
     needs: [route, review-skip-check]
@@ -458,16 +658,55 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg spec_file_contents "" \
+            --arg plan_file_contents "" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render security prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-security.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/review-security.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_security_model }}
             --max-turns ${{ inputs.review_security_max_turns }}
-            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
 
   review-smells:
     needs: [route, review-skip-check]
@@ -482,16 +721,55 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg spec_file_contents "" \
+            --arg plan_file_contents "" \
+            --arg issue_body "${ISSUE_BODY:-}" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render smells prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-smells.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: 'Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)'
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
-          prompt_file: prompts/review-smells.md
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
           claude_args: |
             --model ${{ inputs.review_smells_model }}
             --max-turns ${{ inputs.review_smells_max_turns }}
-            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
 
   review-aggregator:
     needs: [route, review-skip-check, review-compliance, review-bugs, review-security, review-smells]
