@@ -67,4 +67,39 @@ describe('resolveStage', () => {
     const decision = resolveStage(ctx('issues', 'issue-unlabeled-review-stuck'));
     expect(decision.stage).toBe('review');
   });
+
+  test('awaiting-info label removed -> re-triage', () => {
+    const decision = resolveStage(ctx('issues', 'issue-unlabeled-awaiting-info'));
+    expect(decision.stage).toBe('triage');
+    expect(decision.reason).toBe('re_triage_after_clarification');
+  });
+
+  test('impl PR with skip-review label -> none', () => {
+    const decision = resolveStage(ctx('pull_request', 'pr-synchronize-impl-with-skip-review'));
+    expect(decision.stage).toBe('none');
+    expect(decision.reason).toBe('skip_review_label_present');
+  });
+
+  test('draft impl PR -> none', () => {
+    const decision = resolveStage(ctx('pull_request', 'pr-synchronize-impl-draft'));
+    expect(decision.stage).toBe('none');
+    expect(decision.reason).toBe('pr_is_draft');
+  });
+
+  test('approved review -> none', () => {
+    const decision = resolveStage(ctx('pull_request_review', 'pr-review-approved'));
+    expect(decision.stage).toBe('none');
+  });
+
+  test('spec PR with changes_requested -> spec (revision mode)', () => {
+    const decision = resolveStage(ctx('pull_request_review', 'pr-review-spec-changes-requested'));
+    expect(decision.stage).toBe('spec');
+    expect(decision.revisionMode).toBe(true);
+  });
+
+  test('branch slug derivation handles special characters', () => {
+    const decision = resolveStage(ctx('issues', 'issue-labeled-needs-plan-no-title'));
+    expect(decision.stage).toBe('plan');
+    expect(decision.branchName).toBe('shopfloor/plan/42-fix-cant-log-in');
+  });
 });

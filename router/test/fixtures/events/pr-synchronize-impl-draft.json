@@ -1,0 +1,17 @@
+{
+  "action": "synchronize",
+  "pull_request": {
+    "number": 45,
+    "body": "Implementation for #42.\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0\n",
+    "state": "open",
+    "draft": true,
+    "merged": false,
+    "head": { "ref": "shopfloor/impl/42-x", "sha": "abcdef0000000000000000000000000000000000" },
+    "base": { "ref": "main", "sha": "1234567890abcdef1234567890abcdef12345678" },
+    "labels": []
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}
