@@ -28,9 +28,11 @@ async function main(): Promise<void> {
 
   switch (helper) {
     case 'route': {
+      const triggerLabel = core.getInput('trigger_label') || undefined;
       const decision = resolveStage({
         eventName: context.eventName,
-        payload: context.payload as never
+        payload: context.payload as never,
+        triggerLabel
       });
       core.setOutput('stage', decision.stage);
       if (decision.issueNumber !== undefined) {

@@ -33,7 +33,7 @@ const COMPLEXITY_LABELS: Record<string, Complexity> = {
 export function resolveStage(ctx: StateContext): RouterDecision {
   switch (ctx.eventName) {
     case 'issues':
-      return resolveIssueEvent(ctx.payload as IssuePayload);
+      return resolveIssueEvent(ctx.payload as IssuePayload, ctx.triggerLabel);
     case 'issue_comment':
       return { stage: 'none', reason: 'issue_comment_no_action_v0_1' };
     case 'pull_request':
@@ -92,9 +92,10 @@ function branchSlug(title: string): string {
     .slice(0, 40);
 }
 
-function resolveIssueEvent(payload: IssuePayload): RouterDecision {
+function resolveIssueEvent(payload: IssuePayload, triggerLabel?: string): RouterDecision {
   const labels = issueLabelSet(payload.issue);
   const issueNumber = payload.issue.number;
+  const hasStateLabel = stateLabel(labels) !== null;
 
   if (payload.issue.state === 'closed') {
     return { stage: 'none', issueNumber, reason: 'issue_closed_aborted' };
@@ -108,12 +109,32 @@ function resolveIssueEvent(payload: IssuePayload): RouterDecision {
     return { stage: 'review', issueNumber, reason: 'review_stuck_removed_force_review' };
   }
 
-  if (payload.action === 'opened' && stateLabel(labels) === null) {
-    return { stage: 'triage', issueNumber };
+  // Trigger-label gating: when a trigger label is configured, we only let issues
+  // enter the pipeline if they carry it. Issues already mid-pipeline (identified by
+  // any shopfloor:* state label) are grandfathered in so removing the trigger label
+  // later does not strand in-flight work.
+  if (triggerLabel && triggerLabel.length > 0 && !labels.has(triggerLabel) && !hasStateLabel) {
+    return { stage: 'none', issueNumber, reason: 'trigger_label_absent' };
   }
 
   if (payload.action === 'unlabeled' && payload.label?.name === 'shopfloor:awaiting-info') {
     return { stage: 'triage', issueNumber, reason: 're_triage_after_clarification' };
+  }
+
+  if (payload.action === 'opened' && !hasStateLabel) {
+    return { stage: 'triage', issueNumber };
+  }
+
+  // When a trigger label is configured, adding it to a previously-ignored issue also
+  // enters the pipeline at the triage stage.
+  if (
+    triggerLabel &&
+    triggerLabel.length > 0 &&
+    payload.action === 'labeled' &&
+    payload.label?.name === triggerLabel &&
+    !hasStateLabel
+  ) {
+    return { stage: 'triage', issueNumber, reason: 'trigger_label_added' };
   }
 
   if (labels.has('shopfloor:needs-spec')) {

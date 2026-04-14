@@ -88,6 +88,12 @@ export interface StateContext {
   eventName: string;
   payload: EventPayload;
   shopfloorBotLogin?: string;
+  /**
+   * Optional gate label. When set, the state machine refuses to enter the pipeline
+   * for issues that do not carry this label. Once the issue has any `shopfloor:*`
+   * state label, the gate stops applying so iteration continues normally.
+   */
+  triggerLabel?: string;
 }
 
 export interface OctokitLike {

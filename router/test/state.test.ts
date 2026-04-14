@@ -102,4 +102,43 @@ describe('resolveStage', () => {
     expect(decision.stage).toBe('plan');
     expect(decision.branchName).toBe('shopfloor/plan/42-fix-cant-log-in');
   });
+
+  test('trigger_label set, new issue without it -> none (trigger_label_absent)', () => {
+    const decision = resolveStage(
+      ctx('issues', 'issue-opened-bare', { triggerLabel: 'shopfloor:enabled' })
+    );
+    expect(decision.stage).toBe('none');
+    expect(decision.reason).toBe('trigger_label_absent');
+  });
+
+  test('trigger_label set, issue opened with the label -> triage', () => {
+    const decision = resolveStage(
+      ctx('issues', 'issue-opened-with-trigger-label', { triggerLabel: 'shopfloor:enabled' })
+    );
+    expect(decision.stage).toBe('triage');
+    expect(decision.issueNumber).toBe(42);
+  });
+
+  test('trigger_label set, labeled event adds it -> triage (trigger_label_added)', () => {
+    const decision = resolveStage(
+      ctx('issues', 'issue-labeled-trigger-label-added', { triggerLabel: 'shopfloor:enabled' })
+    );
+    expect(decision.stage).toBe('triage');
+    expect(decision.reason).toBe('trigger_label_added');
+  });
+
+  test('trigger_label set, mid-pipeline issue advances normally without the label', () => {
+    // Fixture "issue-labeled-needs-spec" has only shopfloor:large and shopfloor:needs-spec,
+    // not the trigger label. Because it has a state label (needs-spec), the gate is grandfathered
+    // and the state machine still emits spec.
+    const decision = resolveStage(
+      ctx('issues', 'issue-labeled-needs-spec', { triggerLabel: 'shopfloor:enabled' })
+    );
+    expect(decision.stage).toBe('spec');
+  });
+
+  test('trigger_label empty string -> treated as unset, existing behavior preserved', () => {
+    const decision = resolveStage(ctx('issues', 'issue-opened-bare', { triggerLabel: '' }));
+    expect(decision.stage).toBe('triage');
+  });
 });

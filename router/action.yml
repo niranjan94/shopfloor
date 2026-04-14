@@ -8,6 +8,9 @@ inputs:
   github_token:
     description: GitHub token
     required: true
+  trigger_label:
+    description: 'Optional label that an issue must carry before Shopfloor will enter the pipeline. Leave empty to run on every new issue.'
+    required: false
 
   # open-stage-pr inputs
   issue_number: { description: 'Issue number the helper operates on', required: false }
