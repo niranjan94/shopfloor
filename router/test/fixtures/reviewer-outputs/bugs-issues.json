@@ -1,0 +1,14 @@
+{
+  "verdict": "issues_found",
+  "summary": "Bugs reviewer flagged an npx usage bug.",
+  "comments": [
+    {
+      "path": "src/auth.ts",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "Do not use npx per CLAUDE.md guidelines; use pnpx instead. This will fail CI.",
+      "confidence": 85,
+      "category": "bug"
+    }
+  ]
+}

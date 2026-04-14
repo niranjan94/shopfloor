@@ -1,0 +1,14 @@
+{
+  "verdict": "issues_found",
+  "summary": "Compliance reviewer flagged a CLAUDE.md violation.",
+  "comments": [
+    {
+      "path": "src/auth.ts",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "Do not use npx per CLAUDE.md guidelines; use pnpx instead.",
+      "confidence": 90,
+      "category": "compliance"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "verdict": "issues_found",
+  "summary": "Smells reviewer flagged a low-confidence style nit.",
+  "comments": [
+    {
+      "path": "src/utils.ts",
+      "line": 10,
+      "side": "RIGHT",
+      "body": "Consider renaming this variable; low-confidence style nit.",
+      "confidence": 60,
+      "category": "smell"
+    }
+  ]
+}
