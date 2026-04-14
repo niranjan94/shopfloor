@@ -15,6 +15,27 @@ Drop it into any repository and every new issue gets routed through triage → s
 
 Every stage writes labels and comments through a deterministic TypeScript router, not through the agent itself. Agents only emit structured output. This keeps GitHub state predictable and agent behavior auditable.
 
+## Before you install: read the source
+
+**Shopfloor runs inside your repository with write access to branches, pull requests, issues, labels, and commit statuses. It also spawns Claude agents that can execute Bash commands on your CI runners.** That is a lot of authority to hand to a third-party action.
+
+Shopfloor is [MIT licensed](LICENSE) and fully open source precisely so you can verify what it does before turning it on. The entire runtime fits in roughly 1,500 lines of TypeScript plus a few hundred lines of YAML. You can read the whole thing in an afternoon.
+
+**We strongly recommend that you:**
+
+1. **Read the source before you install it.** Start with [`router/src/state.ts`](router/src/state.ts) (the state machine), [`.github/workflows/shopfloor.yml`](.github/workflows/shopfloor.yml) (the wiring), and the prompt templates under [`prompts/`](prompts/). Those three directories are where every decision that affects your repository is made.
+2. **Audit the bundled action artifact.** `router/dist/index.cjs` is the compiled TypeScript bundle that actually executes on your runners. It is committed to the repository (standard practice for JS GitHub Actions) and is reproducible from `router/src/` — run `pnpm --filter @shopfloor/router build` locally and diff against the committed file.
+3. **Pin to a verified commit SHA, not a moving tag.** The `@v1` tag in the snippet below is convenient for early evaluation but is a supply-chain risk: whoever controls this repository can retag `v1` to any commit at any time. For production use, replace `@v1` with a specific 40-character SHA you have personally inspected:
+
+   ```yaml
+   uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@<40-char-sha>
+   ```
+
+   Dependabot or Renovate can then propose SHA bumps that you review like any other dependency update.
+4. **Fork before you trust.** If you are running Shopfloor against a repository with production secrets or sensitive code, consider forking `niranjan94/shopfloor`, pinning your caller to your fork at a SHA you control, and pulling upstream changes manually. That removes the maintainer of this repository from your supply chain entirely.
+
+If you are not comfortable doing any of the above, Shopfloor is probably not a good fit for your threat model. Use it on scratch repositories and personal projects until you are.
+
 ## Install
 
 1. **Add secrets** to your repository: either `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (or the Bedrock/Vertex/Foundry equivalents). Shopfloor forwards whichever you set to `claude-code-action`.
@@ -35,6 +56,8 @@ on:
 
 jobs:
   shopfloor:
+    # SECURITY: @v1 is a moving tag. For production, pin to a 40-char SHA you have audited.
+    # See the "Before you install" section above.
     uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
     permissions:
       contents: write

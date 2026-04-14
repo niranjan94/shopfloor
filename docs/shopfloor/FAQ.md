@@ -1,5 +1,24 @@
 # Shopfloor FAQ
 
+## How do I trust Shopfloor? What about supply-chain attacks?
+
+Short answer: do not trust it by default. Audit it, then pin to a SHA.
+
+Shopfloor is [MIT licensed](../../LICENSE) and fully open source. The runtime is roughly 1,500 lines of TypeScript plus a few hundred lines of YAML — small enough to read in an afternoon. Before running it on anything important:
+
+1. **Read the source.** Start with [`router/src/state.ts`](../../router/src/state.ts), [`.github/workflows/shopfloor.yml`](../../.github/workflows/shopfloor.yml), and the prompt templates under [`prompts/`](../../prompts/). Every decision Shopfloor makes about your repository originates in one of those three places.
+2. **Verify the bundled artifact.** The committed `router/dist/index.cjs` is the actual code that runs on your runners. Clone the repo, run `pnpm --filter @shopfloor/router build`, and `git diff` to confirm the bundle is reproducible from source. CI runs this check on every push to main.
+3. **Pin to a 40-character commit SHA, not a moving tag.** `@v1` and even named release tags are mutable. Replace them with a SHA you have audited:
+
+   ```yaml
+   uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@<40-char-sha>
+   ```
+
+   Then let Dependabot or Renovate propose SHA bumps as normal pull requests you review like any other dependency update.
+4. **Fork if you need full control.** Forking `niranjan94/shopfloor` and pinning your caller to your fork removes the upstream maintainer from your supply chain entirely. You can still pull upstream changes manually when you want to.
+
+If none of those steps is acceptable for your threat model, do not run Shopfloor on production repositories. Use it on scratch repositories and personal projects first. See the [install guide](install.md#step-0-audit-the-source-before-you-trust-it) for the full recommended workflow.
+
 ## Will this commit secrets to my repository?
 
 No. Shopfloor's agents do not have access to any secret directly. Secrets live in GitHub Actions and are forwarded to `claude-code-action` as inputs or into specific env vars for the MCP server. The agents' `Bash` allowlist does not include commands that could exfiltrate env vars (`env`, `printenv`, arbitrary shell), and their commit messages are authored by the bot identity, not by a human who might paste a token.
