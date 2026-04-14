@@ -130,6 +130,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -143,7 +144,7 @@ jobs:
         uses: ./router
         with:
           helper: apply-triage-decision
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           decision_json: ${{ steps.agent.outputs.structured_output }}
       - name: Report failure
@@ -210,6 +211,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -232,7 +234,7 @@ jobs:
         uses: ./router
         with:
           helper: open-stage-pr
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: spec
           branch_name: ${{ needs.route.outputs.branch_name }}
@@ -244,7 +246,7 @@ jobs:
         uses: ./router
         with:
           helper: advance-state
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           from_labels: shopfloor:needs-spec,shopfloor:triaging
           to_labels: shopfloor:spec-in-review
@@ -312,6 +314,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -334,7 +337,7 @@ jobs:
         uses: ./router
         with:
           helper: open-stage-pr
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: plan
           branch_name: ${{ needs.route.outputs.branch_name }}
@@ -346,7 +349,7 @@ jobs:
         uses: ./router
         with:
           helper: advance-state
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           from_labels: shopfloor:needs-plan
           to_labels: shopfloor:plan-in-review
@@ -459,6 +462,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -478,7 +482,7 @@ jobs:
         uses: ./router
         with:
           helper: finalize-progress-comment
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           comment_id: ${{ steps.progress.outputs.comment_id }}
           terminal_state: ${{ job.status == 'success' && 'success' || 'failure' }}
           final_body: ${{ steps.agent.outputs.structured_output && fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
@@ -487,7 +491,7 @@ jobs:
         uses: ./router
         with:
           helper: apply-impl-postwork
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           pr_number: ${{ steps.open_pr.outputs.pr_number }}
           pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
@@ -497,7 +501,7 @@ jobs:
         uses: ./router
         with:
           helper: report-failure
-          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: implement
           run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -526,7 +530,6 @@ jobs:
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
-      github_token: ${{ steps.agent.outputs.github_token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -573,6 +576,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -589,7 +593,6 @@ jobs:
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
-      github_token: ${{ steps.agent.outputs.github_token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -636,6 +639,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -652,7 +656,6 @@ jobs:
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
-      github_token: ${{ steps.agent.outputs.github_token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -699,6 +702,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -715,7 +719,6 @@ jobs:
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
-      github_token: ${{ steps.agent.outputs.github_token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -762,6 +765,7 @@ jobs:
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
           prompt: ${{ steps.prompt.outputs.rendered }}
@@ -785,14 +789,7 @@ jobs:
       - uses: ./router
         with:
           helper: aggregate-review
-          github_token: >-
-            ${{
-              needs.review-compliance.outputs.github_token ||
-              needs.review-bugs.outputs.github_token ||
-              needs.review-security.outputs.github_token ||
-              needs.review-smells.outputs.github_token ||
-              secrets.GITHUB_TOKEN
-            }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           pr_number: ${{ needs.route.outputs.impl_pr_number }}
           confidence_threshold: ${{ inputs.review_confidence_threshold }}
