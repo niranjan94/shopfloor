@@ -157,8 +157,7 @@ jobs:
             --arg issue_comments "$ISSUE_COMMENTS" \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
-            --arg claude_md_contents "$(test -f CLAUDE.md && cat CLAUDE.md || echo '')" \
-            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, repo_owner: $repo_owner, repo_name: $repo_name, claude_md_contents: $claude_md_contents}' \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, repo_owner: $repo_owner, repo_name: $repo_name}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render triage prompt

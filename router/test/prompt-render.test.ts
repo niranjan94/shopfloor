@@ -29,7 +29,6 @@ test("triage prompt renders with fixture context", () => {
     issue_comments: "",
     repo_owner: "niranjan94",
     repo_name: "shopfloor",
-    claude_md_contents: "",
   });
   expect(rendered).toMatchSnapshot();
   expect(rendered).not.toContain("{{MISSING");

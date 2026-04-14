@@ -30,10 +30,6 @@ Issue number: #{{issue_number}}
 {{issue_comments}}
 </existing_comments>
 </issue>
-
-<project_conventions>
-{{claude_md_contents}}
-</project_conventions>
 </context>
 
 <classification_rubric>
