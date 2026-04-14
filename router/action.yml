@@ -31,4 +31,4 @@ outputs:
     description: 'Why the router returned this decision'
 runs:
   using: node20
-  main: dist/index.js
+  main: dist/index.cjs
