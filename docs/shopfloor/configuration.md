@@ -34,6 +34,23 @@ jobs:
 
 You can pass any model alias Claude Code understands: `opus`, `sonnet`, `haiku`, or an exact model id like `claude-opus-4-6`.
 
+## Effort
+
+Shopfloor passes `--effort` to `claude-code-action` per stage. High defaults are used for the design-heavy stages; medium everywhere else.
+
+| Input | Default |
+|---|---|
+| `triage_effort` | `medium` |
+| `spec_effort` | `high` |
+| `plan_effort` | `high` |
+| `impl_effort` | `medium` |
+| `review_compliance_effort` | `medium` |
+| `review_bugs_effort` | `medium` |
+| `review_security_effort` | `medium` |
+| `review_smells_effort` | `medium` |
+
+Valid values: `low`, `medium`, `high`. Raise an effort dial when an agent is producing shallow output; lower it when the agent is overthinking something that should be mechanical.
+
 ## Turn budgets
 
 Turn budgets cap how many message rounds each agent can take before Shopfloor aborts the run. If an agent is hitting the cap consistently, increase it; if it is wasting turns thrashing, lower it.
@@ -100,6 +117,41 @@ If your repository has a `.claude/settings.json` with `permissions.allow`, Shopf
   }
 }
 ```
+
+## Display report
+
+| Input | Default |
+|---|---|
+| `display_report` | `'true'` (string, not boolean) |
+
+When `'true'`, `claude-code-action` posts its own summary report to the PR or issue in addition to whatever Shopfloor's helpers post. Useful for transparency; set to `'false'` if you find the duplication noisy. Pass the literal string `'true'` or `'false'` — claude-code-action expects a string, not a workflow boolean.
+
+## Trigger label gating
+
+| Input | Default |
+|---|---|
+| `trigger_label` | `''` (empty = no gate) |
+
+When set, Shopfloor only enters the pipeline for issues that carry this label. Issues already mid-pipeline — identified by any `shopfloor:*` state label — are grandfathered in, so removing the trigger label later does not strand in-flight work.
+
+**Entry points recognized when the gate is on:**
+
+- Issue opened with the trigger label already applied (e.g., via issue template) → triage.
+- Existing issue receives the trigger label via `issues.labeled` → triage.
+- Any other `opened` or `labeled` event without the trigger label → `stage=none`.
+
+Example: only run Shopfloor on issues explicitly marked for automation.
+
+```yaml
+jobs:
+  shopfloor:
+    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
+    with:
+      trigger_label: shopfloor:trigger
+    secrets: inherit
+```
+
+With that caller, opening a new issue does nothing. When someone applies the `shopfloor:trigger` label, the triage stage fires.
 
 ## Branching and artifacts
 

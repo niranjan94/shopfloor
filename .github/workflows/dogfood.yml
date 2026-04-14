@@ -21,3 +21,5 @@ jobs:
       statuses: write
       checks: read
     secrets: inherit
+    with:
+      trigger_label: 'shopfloor:trigger'
