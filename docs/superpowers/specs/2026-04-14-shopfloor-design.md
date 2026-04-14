@@ -383,7 +383,7 @@ All four stages share a common shape: the router resolves the stage from the eve
 
 - Update the PR with the agent-supplied title and body, appending the metadata block (`Shopfloor-Issue: #<n>`, `Shopfloor-Stage: implement`).
 - Update the progress tracking comment one final time with a "done" marker, whether the agent updated it last or not. This ensures a consistent terminal state even if the agent crashed mid-run.
-- Apply `shopfloor:impl-in-review` to the issue.
+- Check for `shopfloor:skip-review` on the impl PR or the origin issue. If present, apply `shopfloor:impl-in-review` and skip the review handoff. If absent, apply `shopfloor:needs-review`. See section 5.5 for the full trigger semantics and the skip-review branch contract.
 - Post "Implementation drafted: #<pr-number>" on the origin issue.
 
 ### 5.5 Review stage
@@ -394,7 +394,7 @@ All four stages share a common shape: the router resolves the stage from the eve
 2. The origin issue (parsed from the `Shopfloor-Issue: #N` metadata in the PR body) is not closed, AND
 3. Neither the PR nor the origin issue carries the `shopfloor:skip-review` label, AND
 4. The skip-condition gate (section 5.5.1) passes, AND
-5. The current iteration counter in the PR body metadata is less than or equal to `max_review_iterations`.
+5. The current iteration counter in the PR body metadata is less than or equal to `max_review_iterations`. (The `<=` is deliberate. The run-entry gate admits the stage; the post-run guard in section 5.5.3 step 10 is what actually caps the loop, so the final allowed iteration must pass this gate to reach the guard.)
 
 OR:
 
