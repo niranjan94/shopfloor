@@ -1,0 +1,70 @@
+import { describe, expect, test } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { resolveStage } from '../src/state';
+import type { StateContext } from '../src/types';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function loadFixture(name: string): unknown {
+  return JSON.parse(readFileSync(join(__dirname, 'fixtures', 'events', `${name}.json`), 'utf-8'));
+}
+
+function ctx(
+  eventName: string,
+  fixtureName: string,
+  overrides: Partial<StateContext> = {}
+): StateContext {
+  return {
+    eventName,
+    payload: loadFixture(fixtureName) as StateContext['payload'],
+    ...overrides
+  };
+}
+
+describe('resolveStage', () => {
+  test('new issue with no labels -> triage', () => {
+    const decision = resolveStage(ctx('issues', 'issue-opened-bare'));
+    expect(decision.stage).toBe('triage');
+    expect(decision.issueNumber).toBe(42);
+  });
+
+  test('issue labeled shopfloor:needs-spec -> spec', () => {
+    const decision = resolveStage(ctx('issues', 'issue-labeled-needs-spec'));
+    expect(decision.stage).toBe('spec');
+    expect(decision.issueNumber).toBe(42);
+  });
+
+  test('synchronize on impl PR -> review', () => {
+    const decision = resolveStage(ctx('pull_request', 'pr-synchronize-impl'));
+    expect(decision.stage).toBe('review');
+    expect(decision.implPrNumber).toBe(45);
+    expect(decision.reviewIteration).toBe(0);
+  });
+
+  test('spec PR merged -> none (reason triggers label flip)', () => {
+    const decision = resolveStage(ctx('pull_request', 'pr-closed-merged-spec'));
+    expect(decision.stage).toBe('none');
+    expect(decision.reason).toBe('pr_merged_spec_triggered_label_flip');
+  });
+
+  test('changes_requested review on impl PR -> implement (revision mode)', () => {
+    const decision = resolveStage(
+      ctx('pull_request_review', 'pr-review-submitted-changes-requested')
+    );
+    expect(decision.stage).toBe('implement');
+    expect(decision.revisionMode).toBe(true);
+  });
+
+  test('closed issue -> none, reason aborted', () => {
+    const decision = resolveStage(ctx('issues', 'issue-closed'));
+    expect(decision.stage).toBe('none');
+    expect(decision.reason).toBe('issue_closed_aborted');
+  });
+
+  test('review-stuck label removed -> review', () => {
+    const decision = resolveStage(ctx('issues', 'issue-unlabeled-review-stuck'));
+    expect(decision.stage).toBe('review');
+  });
+});

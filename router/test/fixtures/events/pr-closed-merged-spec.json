@@ -1,0 +1,17 @@
+{
+  "action": "closed",
+  "pull_request": {
+    "number": 43,
+    "body": "Spec for #42.\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: spec\n",
+    "state": "closed",
+    "draft": false,
+    "merged": true,
+    "head": { "ref": "shopfloor/spec/42-github-oauth-login", "sha": "aaaaaa0000000000000000000000000000000000" },
+    "base": { "ref": "main", "sha": "1234567890abcdef1234567890abcdef12345678" },
+    "labels": [{ "name": "shopfloor:spec-in-review" }]
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}
