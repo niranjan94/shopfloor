@@ -1,0 +1,23 @@
+{
+  "name": "shopfloor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Niranjan Rajendran (https://github.com/niranjan94)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niranjan94/shopfloor.git"
+  },
+  "homepage": "https://shopfloor.niranjan.io",
+  "bugs": {
+    "url": "https://github.com/niranjan94/shopfloor/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
