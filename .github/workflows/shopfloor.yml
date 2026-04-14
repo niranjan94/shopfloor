@@ -56,11 +56,6 @@ on:
       ssh_signing_key: { required: false }
 
 concurrency:
-  # v0.1 limitation: GitHub Actions concurrency expressions cannot parse the
-  # Shopfloor-Issue metadata from a PR body, so the serialization key falls back
-  # to the issue or PR number. Events on a PR and its origin issue can race;
-  # the router's state machine tolerates stale label state by emitting stage=none
-  # when it sees inconsistent labels.
   group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
@@ -90,3 +85,466 @@ jobs:
         with:
           helper: route
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  triage:
+    needs: route
+    if: needs.route.outputs.stage == 'triage'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.triage_timeout_minutes }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build triage context
+        id: ctx
+        run: |
+          python3 - <<'PY' > "$RUNNER_TEMP/context.json"
+          import json, os
+          ctx = {
+            "issue_number": os.environ.get("ISSUE_NUMBER",""),
+            "issue_title": os.environ.get("ISSUE_TITLE",""),
+            "issue_body": os.environ.get("ISSUE_BODY",""),
+            "issue_comments": "",
+            "repo_owner": os.environ.get("REPO_OWNER",""),
+            "repo_name": os.environ.get("REPO_NAME",""),
+            "claude_md_contents": open("CLAUDE.md").read() if os.path.exists("CLAUDE.md") else ""
+          }
+          print(json.dumps(ctx))
+          PY
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+        env:
+          ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+      - name: Render triage prompt
+        id: prompt
+        uses: ./router
+        with:
+          helper: render-prompt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt_file: ${{ github.action_path && format('{0}/prompts/triage.md', github.action_path) || 'prompts/triage.md' }}
+          context_json: ${{ steps.ctx.outputs.path }}
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          claude_args: |
+            --model ${{ inputs.triage_model }}
+            --max-turns ${{ inputs.triage_max_turns }}
+            --allowedTools "Read,Glob,Grep,WebFetch"
+      - name: Apply triage decision
+        if: success()
+        uses: ./router
+        with:
+          helper: apply-triage-decision
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          decision_json: ${{ steps.agent.outputs.structured_output }}
+      - name: Report failure
+        if: failure()
+        uses: ./router
+        with:
+          helper: report-failure
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: triage
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  spec:
+    needs: route
+    if: needs.route.outputs.stage == 'spec'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.spec_timeout_minutes }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create spec branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ needs.route.outputs.branch_name }}"
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/spec.md
+          claude_args: |
+            --model ${{ inputs.spec_model }}
+            --max-turns ${{ inputs.spec_max_turns }}
+            --allowedTools "Read,Glob,Grep,Edit,Write,WebFetch"
+      - name: Commit and push spec
+        if: success()
+        run: |
+          git add "${{ needs.route.outputs.spec_file_path }}"
+          git commit -m "docs(spec): add ${{ needs.route.outputs.spec_file_path }}"
+          git push -u origin "${{ needs.route.outputs.branch_name }}"
+      - name: Open spec PR
+        if: success()
+        id: open_pr
+        uses: ./router
+        with:
+          helper: open-stage-pr
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: spec
+          branch_name: ${{ needs.route.outputs.branch_name }}
+          base_branch: ${{ github.event.repository.default_branch }}
+          pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
+          pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
+      - name: Advance state to spec-in-review
+        if: success()
+        uses: ./router
+        with:
+          helper: advance-state
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          from_labels: shopfloor:needs-spec,shopfloor:triaging
+          to_labels: shopfloor:spec-in-review
+      - name: Report failure
+        if: failure()
+        uses: ./router
+        with:
+          helper: report-failure
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: spec
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  plan:
+    needs: route
+    if: needs.route.outputs.stage == 'plan'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.plan_timeout_minutes }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create plan branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ needs.route.outputs.branch_name }}"
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/plan.md
+          claude_args: |
+            --model ${{ inputs.plan_model }}
+            --max-turns ${{ inputs.plan_max_turns }}
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch"
+      - name: Commit and push plan
+        if: success()
+        run: |
+          git add "${{ needs.route.outputs.plan_file_path }}"
+          git commit -m "docs(plan): add ${{ needs.route.outputs.plan_file_path }}"
+          git push -u origin "${{ needs.route.outputs.branch_name }}"
+      - name: Open plan PR
+        if: success()
+        id: open_pr
+        uses: ./router
+        with:
+          helper: open-stage-pr
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: plan
+          branch_name: ${{ needs.route.outputs.branch_name }}
+          base_branch: ${{ github.event.repository.default_branch }}
+          pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
+          pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
+      - name: Advance state to plan-in-review
+        if: success()
+        uses: ./router
+        with:
+          helper: advance-state
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          from_labels: shopfloor:needs-plan
+          to_labels: shopfloor:plan-in-review
+      - name: Report failure
+        if: failure()
+        uses: ./router
+        with:
+          helper: report-failure
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: plan
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  implement:
+    needs: route
+    if: needs.route.outputs.stage == 'implement'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.impl_timeout_minutes }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
+    outputs:
+      pr_number: ${{ steps.open_pr.outputs.pr_number }}
+      comment_id: ${{ steps.progress.outputs.comment_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create impl branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ needs.route.outputs.branch_name }}"
+          git push -u origin "${{ needs.route.outputs.branch_name }}"
+      - id: open_pr
+        uses: ./router
+        with:
+          helper: open-stage-pr
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: implement
+          branch_name: ${{ needs.route.outputs.branch_name }}
+          base_branch: ${{ github.event.repository.default_branch }}
+          pr_title: "[WIP] Implementation for #${{ needs.route.outputs.issue_number }}"
+          pr_body: "Shopfloor is drafting this PR now. The body will be replaced when work completes."
+      - id: progress
+        uses: ./router
+        with:
+          helper: create-progress-comment
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ steps.open_pr.outputs.pr_number }}
+      - name: Write Shopfloor MCP config
+        run: |
+          cat > "$RUNNER_TEMP/shopfloor-mcp.json" <<EOF
+          {
+            "mcpServers": {
+              "shopfloor": {
+                "command": "bun",
+                "args": ["run", "mcp-servers/shopfloor-mcp/index.ts"],
+                "env": {
+                  "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
+                  "REPO_OWNER": "${{ github.repository_owner }}",
+                  "REPO_NAME": "${{ github.event.repository.name }}",
+                  "SHOPFLOOR_COMMENT_ID": "${{ steps.progress.outputs.comment_id }}",
+                  "GITHUB_API_URL": "${{ github.api_url }}"
+                }
+              }
+            }
+          }
+          EOF
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/implement.md
+          claude_args: |
+            --model ${{ inputs.impl_model }}
+            --max-turns ${{ inputs.impl_max_turns }}
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),mcp__shopfloor__update_progress"
+            --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
+      - name: Push impl commits
+        if: success()
+        run: git push origin "${{ needs.route.outputs.branch_name }}"
+      - name: Finalize progress comment
+        if: always()
+        uses: ./router
+        with:
+          helper: finalize-progress-comment
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          comment_id: ${{ steps.progress.outputs.comment_id }}
+          terminal_state: ${{ job.status == 'success' && 'success' || 'failure' }}
+          final_body: ${{ steps.agent.outputs.structured_output && fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
+      - name: Apply impl postwork (update PR, flip labels)
+        if: success()
+        uses: ./router
+        with:
+          helper: apply-impl-postwork
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          pr_number: ${{ steps.open_pr.outputs.pr_number }}
+          pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
+          pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
+      - name: Report failure
+        if: failure()
+        uses: ./router
+        with:
+          helper: report-failure
+          github_token: ${{ steps.agent.outputs.github_token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: implement
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          target_pr_number: ${{ steps.open_pr.outputs.pr_number }}
+
+  review-skip-check:
+    needs: route
+    if: needs.route.outputs.stage == 'review'
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      reason: ${{ steps.check.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        uses: ./router
+        with:
+          helper: check-review-skip
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ needs.route.outputs.impl_pr_number }}
+
+  review-compliance:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+      github_token: ${{ steps.agent.outputs.github_token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/review-compliance.md
+          claude_args: |
+            --model ${{ inputs.review_compliance_model }}
+            --max-turns ${{ inputs.review_compliance_max_turns }}
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch"
+
+  review-bugs:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+      github_token: ${{ steps.agent.outputs.github_token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/review-bugs.md
+          claude_args: |
+            --model ${{ inputs.review_bugs_model }}
+            --max-turns ${{ inputs.review_bugs_max_turns }}
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+
+  review-security:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+      github_token: ${{ steps.agent.outputs.github_token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/review-security.md
+          claude_args: |
+            --model ${{ inputs.review_security_model }}
+            --max-turns ${{ inputs.review_security_max_turns }}
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch"
+
+  review-smells:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+      github_token: ${{ steps.agent.outputs.github_token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+      - id: agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          prompt_file: prompts/review-smells.md
+          claude_args: |
+            --model ${{ inputs.review_smells_model }}
+            --max-turns ${{ inputs.review_smells_max_turns }}
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+
+  review-aggregator:
+    needs: [route, review-skip-check, review-compliance, review-bugs, review-security, review-smells]
+    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./router
+        with:
+          helper: aggregate-review
+          github_token: >-
+            ${{
+              needs.review-compliance.outputs.github_token ||
+              needs.review-bugs.outputs.github_token ||
+              needs.review-security.outputs.github_token ||
+              needs.review-smells.outputs.github_token ||
+              secrets.GITHUB_TOKEN
+            }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          pr_number: ${{ needs.route.outputs.impl_pr_number }}
+          confidence_threshold: ${{ inputs.review_confidence_threshold }}
+          max_iterations: ${{ inputs.max_review_iterations }}
+          compliance_output: ${{ needs.review-compliance.outputs.structured_output }}
+          bugs_output: ${{ needs.review-bugs.outputs.structured_output }}
+          security_output: ${{ needs.review-security.outputs.structured_output }}
+          smells_output: ${{ needs.review-smells.outputs.structured_output }}
+          workflow_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  handle-merge:
+    needs: route
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(needs.route.outputs.reason, 'pr_merged_')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: parse_merged_stage
+        run: |
+          reason='${{ needs.route.outputs.reason }}'
+          stage="${reason#pr_merged_}"
+          stage="${stage%_triggered_label_flip}"
+          echo "merged_stage=$stage" >> "$GITHUB_OUTPUT"
+      - uses: ./router
+        with:
+          helper: handle-merge
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          merged_stage: ${{ steps.parse_merged_stage.outputs.merged_stage }}
+          pr_number: ${{ github.event.pull_request.number }}
