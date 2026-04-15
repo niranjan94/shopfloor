@@ -540,8 +540,11 @@ jobs:
           github_token: ${{ steps.app_token_pr.outputs.token || secrets.GITHUB_TOKEN }}
           pr_number: ${{ steps.open_pr.outputs.pr_number }}
       - name: Write Shopfloor MCP config
+        id: mcp_config
+        env:
+          MCP_CONFIG_PATH: ${{ runner.temp }}/shopfloor-mcp.json
         run: |
-          cat > "$RUNNER_TEMP/shopfloor-mcp.json" <<EOF
+          cat > "$MCP_CONFIG_PATH" <<EOF
           {
             "mcpServers": {
               "shopfloor": {
@@ -558,6 +561,15 @@ jobs:
             }
           }
           EOF
+          # claude-code-action does not shell-expand values in claude_args, so
+          # we must pass an already-resolved absolute path via ${{ runner.temp }}
+          # instead of $RUNNER_TEMP. Fail loudly now if the file is missing so
+          # we don't silently feed Claude an unreadable --mcp-config path.
+          if [ ! -s "$MCP_CONFIG_PATH" ]; then
+            echo "::error title=Shopfloor::MCP config not written at $MCP_CONFIG_PATH" >&2
+            exit 1
+          fi
+          echo "path=$MCP_CONFIG_PATH" >> "$GITHUB_OUTPUT"
       - name: Build implement context
         id: ctx
         env:
@@ -614,7 +626,7 @@ jobs:
             --max-turns ${{ inputs.impl_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
-            --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
+            --mcp-config ${{ steps.mcp_config.outputs.path }}
             --json-schema '{"type":"object","properties":{"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"},"changed_files":{"type":"array","items":{"type":"string"}}},"required":["pr_title","pr_body","summary_for_issue_comment","changed_files"]}'
       # Mint a FRESH GitHub App token here (not at job start). The impl agent can
       # run for up to impl_timeout_minutes (default 60), which exceeds the 1-hour
