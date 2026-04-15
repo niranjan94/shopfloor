@@ -9,11 +9,11 @@ Shopfloor is deliberately boring where it counts: a pure TypeScript state machin
 1. You open an issue. The triage agent classifies it `quick`, `medium`, or `large`, or asks clarifying questions and pauses.
 2. The router advances the issue through the stages appropriate for its complexity:
 
-   | Complexity | Flow                                    |
-   | ---------- | --------------------------------------- |
-   | `quick`    | implement → review                      |
-   | `medium`   | plan → implement → review               |
-   | `large`    | spec → plan → implement → review        |
+   | Complexity | Flow                             |
+   | ---------- | -------------------------------- |
+   | `quick`    | implement → review               |
+   | `medium`   | plan → implement → review        |
+   | `large`    | spec → plan → implement → review |
 
 3. Each non-review stage opens a pull request against your default branch. You review it, request changes or merge. Merging flips the next label and the next stage fires.
 4. The implementation agent commits on its own branch, streams progress into a single pinned PR comment, and flips the PR out of draft when done.
@@ -58,11 +58,11 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
 
 2. **Add secrets** to the repository at **Settings → Secrets and variables → Actions**:
 
-   | Secret                                                             | Needed for                                                                          |
-   | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-   | `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`                   | Agent auth (or the Bedrock / Vertex / Foundry equivalents)                          |
-   | `SHOPFLOOR_GITHUB_APP_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY` | **Required.** The custom router App's credentials                                   |
-   | `SSH_SIGNING_KEY`                                                  | Optional. Signed commits from Shopfloor's branches                                  |
+   | Secret                                                               | Needed for                                                 |
+   | -------------------------------------------------------------------- | ---------------------------------------------------------- |
+   | `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`                     | Agent auth (or the Bedrock / Vertex / Foundry equivalents) |
+   | `SHOPFLOOR_GITHUB_APP_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY` | **Required.** The custom router App's credentials          |
+   | `SSH_SIGNING_KEY`                                                    | Optional. Signed commits from Shopfloor's branches         |
 
 3. **Create `.github/workflows/shopfloor.yml`** in your repository:
 
