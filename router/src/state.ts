@@ -118,7 +118,21 @@ export interface ParsedImplBranchRef {
 // the ref doesn't match the canonical shape, so revision-mode callers can
 // fail closed instead of dispatching a broken impl job.
 export function parseImplBranchRef(ref: string): ParsedImplBranchRef | null {
-  const match = ref.match(/^shopfloor\/impl\/(\d+)-(.+)$/);
+  return parseStageBranchRef(ref, "impl");
+}
+
+// Canonical stage-branch shape for spec, plan, and impl branches:
+// `shopfloor/<kind>/<issueNumber>-<slug>`. Returns null for malformed refs so
+// revision-mode callers can fail closed. Used by resolvePullRequestReviewEvent
+// to recover the issue slug when a human reviewer requests changes on a spec
+// or plan PR (at which point the route has no issue title to hand to
+// branchSlug() and must instead recover the slug the triage helper persisted
+// into the branch name).
+export function parseStageBranchRef(
+  ref: string,
+  kind: "spec" | "plan" | "impl",
+): ParsedImplBranchRef | null {
+  const match = ref.match(new RegExp(`^shopfloor/${kind}/(\\d+)-(.+)$`));
   if (!match) return null;
   const issueNumber = Number(match[1]);
   const slug = match[2];
@@ -442,6 +456,36 @@ function resolvePullRequestReviewEvent(
       implPrNumber: pr.number,
       specFilePath: `docs/shopfloor/specs/${parsed.issueNumber}-${parsed.slug}.md`,
       planFilePath: `docs/shopfloor/plans/${parsed.issueNumber}-${parsed.slug}.md`,
+      reason: isShopfloorReview
+        ? "agent_requested_changes"
+        : "human_requested_changes",
+    };
+  }
+
+  // Spec and plan PRs go through human review. A REQUEST_CHANGES here means
+  // the human wants the agent to rewrite the design artifact. Recover the
+  // branch name and the canonical spec/plan file path from the PR's head
+  // ref so the downstream stage has everything it needs to upsert the
+  // existing PR instead of opening a new one. Fail closed on unparseable
+  // refs the same way the implement branch does.
+  if (meta.stage === "spec" || meta.stage === "plan") {
+    const parsed = parseStageBranchRef(pr.head.ref, meta.stage);
+    if (!parsed) {
+      return {
+        stage: "none",
+        issueNumber: meta.issueNumber,
+        reason: `${meta.stage}_revision_unparseable_branch_ref`,
+      };
+    }
+    const specFilePath = `docs/shopfloor/specs/${parsed.issueNumber}-${parsed.slug}.md`;
+    const planFilePath = `docs/shopfloor/plans/${parsed.issueNumber}-${parsed.slug}.md`;
+    return {
+      stage: meta.stage,
+      issueNumber: meta.issueNumber,
+      revisionMode: true,
+      branchName: pr.head.ref,
+      specFilePath,
+      ...(meta.stage === "plan" ? { planFilePath } : {}),
       reason: isShopfloorReview
         ? "agent_requested_changes"
         : "human_requested_changes",

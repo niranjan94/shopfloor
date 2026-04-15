@@ -86,15 +86,28 @@ describe("precheckStage", () => {
       expect(r.reason).toBe("spec_already_in_progress");
     });
 
-    test("needs-spec absent -> skip=true", async () => {
+    test("spec-in-review present (revision) -> pass", async () => {
       const bundle = makeMockAdapter();
       withLabels(bundle, ["shopfloor:spec-in-review"]);
       const r = await precheckStage(bundle.adapter, {
         stage: "spec",
         issueNumber: 42,
       });
+      expect(r.skip).toBe(false);
+      expect(r.reason).toBe("spec_preconditions_hold");
+    });
+
+    test("neither needs-spec nor spec-in-review -> skip=true", async () => {
+      const bundle = makeMockAdapter();
+      withLabels(bundle, ["shopfloor:needs-plan"]);
+      const r = await precheckStage(bundle.adapter, {
+        stage: "spec",
+        issueNumber: 42,
+      });
       expect(r.skip).toBe(true);
-      expect(r.reason).toBe("spec_needs_spec_label_absent");
+      expect(r.reason).toBe(
+        "spec_neither_needs_spec_nor_in_review_label_present",
+      );
     });
   });
 

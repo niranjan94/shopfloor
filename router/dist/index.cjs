@@ -8,6 +8,10 @@ var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -24,6 +28,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // ../node_modules/.pnpm/@actions+core@1.11.1/node_modules/@actions/core/lib/utils.js
 var require_utils = __commonJS({
@@ -20132,7 +20137,7 @@ var require_dist_node2 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -20144,12 +20149,12 @@ var require_dist_node2 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
     var dist_src_exports = {};
-    __export(dist_src_exports, {
+    __export2(dist_src_exports, {
       endpoint: () => endpoint
     });
-    module2.exports = __toCommonJS(dist_src_exports);
+    module2.exports = __toCommonJS2(dist_src_exports);
     var import_universal_user_agent = require_dist_node();
     var VERSION = "9.0.6";
     var userAgent = `octokit-endpoint.js/${VERSION} ${(0, import_universal_user_agent.getUserAgent)()}`;
@@ -20572,7 +20577,7 @@ var require_dist_node4 = __commonJS({
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __getProtoOf2 = Object.getPrototypeOf;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -20592,12 +20597,12 @@ var require_dist_node4 = __commonJS({
       isNodeMode || !mod || !mod.__esModule ? __defProp2(target, "default", { value: mod, enumerable: true }) : target,
       mod
     ));
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
     var dist_src_exports = {};
-    __export(dist_src_exports, {
+    __export2(dist_src_exports, {
       RequestError: () => RequestError
     });
-    module2.exports = __toCommonJS(dist_src_exports);
+    module2.exports = __toCommonJS2(dist_src_exports);
     var import_deprecation = require_dist_node3();
     var import_once = __toESM2(require_once());
     var logOnceCode = (0, import_once.default)((deprecation) => console.warn(deprecation));
@@ -20662,7 +20667,7 @@ var require_dist_node5 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -20674,12 +20679,12 @@ var require_dist_node5 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
     var dist_src_exports = {};
-    __export(dist_src_exports, {
+    __export2(dist_src_exports, {
       request: () => request
     });
-    module2.exports = __toCommonJS(dist_src_exports);
+    module2.exports = __toCommonJS2(dist_src_exports);
     var import_endpoint = require_dist_node2();
     var import_universal_user_agent = require_dist_node();
     var VERSION = "8.4.1";
@@ -20872,7 +20877,7 @@ var require_dist_node6 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -20884,14 +20889,14 @@ var require_dist_node6 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
-    var index_exports = {};
-    __export(index_exports, {
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var index_exports2 = {};
+    __export2(index_exports2, {
       GraphqlResponseError: () => GraphqlResponseError,
       graphql: () => graphql2,
       withCustomRequest: () => withCustomRequest
     });
-    module2.exports = __toCommonJS(index_exports);
+    module2.exports = __toCommonJS2(index_exports2);
     var import_request3 = require_dist_node5();
     var import_universal_user_agent = require_dist_node();
     var VERSION = "7.1.1";
@@ -21009,7 +21014,7 @@ var require_dist_node7 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -21021,12 +21026,12 @@ var require_dist_node7 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
     var dist_src_exports = {};
-    __export(dist_src_exports, {
+    __export2(dist_src_exports, {
       createTokenAuth: () => createTokenAuth
     });
-    module2.exports = __toCommonJS(dist_src_exports);
+    module2.exports = __toCommonJS2(dist_src_exports);
     var REGEX_IS_INSTALLATION_LEGACY = /^v1\./;
     var REGEX_IS_INSTALLATION = /^ghs_/;
     var REGEX_IS_USER_TO_SERVER = /^ghu_/;
@@ -21080,7 +21085,7 @@ var require_dist_node8 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -21092,12 +21097,12 @@ var require_dist_node8 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
-    var index_exports = {};
-    __export(index_exports, {
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var index_exports2 = {};
+    __export2(index_exports2, {
       Octokit: () => Octokit
     });
-    module2.exports = __toCommonJS(index_exports);
+    module2.exports = __toCommonJS2(index_exports2);
     var import_universal_user_agent = require_dist_node();
     var import_before_after_hook = require_before_after_hook();
     var import_request = require_dist_node5();
@@ -21246,7 +21251,7 @@ var require_dist_node9 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -21258,13 +21263,13 @@ var require_dist_node9 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
     var dist_src_exports = {};
-    __export(dist_src_exports, {
+    __export2(dist_src_exports, {
       legacyRestEndpointMethods: () => legacyRestEndpointMethods,
       restEndpointMethods: () => restEndpointMethods
     });
-    module2.exports = __toCommonJS(dist_src_exports);
+    module2.exports = __toCommonJS2(dist_src_exports);
     var VERSION = "10.4.1";
     var Endpoints = {
       actions: {
@@ -23402,7 +23407,7 @@ var require_dist_node10 = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __export = (target, all) => {
+    var __export2 = (target, all) => {
       for (var name in all)
         __defProp2(target, name, { get: all[name], enumerable: true });
     };
@@ -23414,15 +23419,15 @@ var require_dist_node10 = __commonJS({
       }
       return to;
     };
-    var __toCommonJS = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
     var dist_src_exports = {};
-    __export(dist_src_exports, {
+    __export2(dist_src_exports, {
       composePaginateRest: () => composePaginateRest,
       isPaginatingEndpoint: () => isPaginatingEndpoint,
       paginateRest: () => paginateRest,
       paginatingEndpoints: () => paginatingEndpoints
     });
-    module2.exports = __toCommonJS(dist_src_exports);
+    module2.exports = __toCommonJS2(dist_src_exports);
     var VERSION = "9.2.2";
     function normalizePaginatedListResponse(response) {
       if (!response.data) {
@@ -23878,6 +23883,11 @@ var require_github = __commonJS({
 });
 
 // src/index.ts
+var index_exports = {};
+__export(index_exports, {
+  main: () => main
+});
+module.exports = __toCommonJS(index_exports);
 var core16 = __toESM(require_core(), 1);
 var import_github2 = __toESM(require_github(), 1);
 
@@ -24969,7 +24979,10 @@ function branchSlug(title) {
   return slug.length > 0 ? slug : "issue";
 }
 function parseImplBranchRef(ref) {
-  const match = ref.match(/^shopfloor\/impl\/(\d+)-(.+)$/);
+  return parseStageBranchRef(ref, "impl");
+}
+function parseStageBranchRef(ref, kind) {
+  const match = ref.match(new RegExp(`^shopfloor/${kind}/(\\d+)-(.+)$`));
   if (!match) return null;
   const issueNumber = Number(match[1]);
   const slug = match[2];
@@ -25173,6 +25186,27 @@ function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
       implPrNumber: pr.number,
       specFilePath: `docs/shopfloor/specs/${parsed.issueNumber}-${parsed.slug}.md`,
       planFilePath: `docs/shopfloor/plans/${parsed.issueNumber}-${parsed.slug}.md`,
+      reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
+    };
+  }
+  if (meta.stage === "spec" || meta.stage === "plan") {
+    const parsed = parseStageBranchRef(pr.head.ref, meta.stage);
+    if (!parsed) {
+      return {
+        stage: "none",
+        issueNumber: meta.issueNumber,
+        reason: `${meta.stage}_revision_unparseable_branch_ref`
+      };
+    }
+    const specFilePath = `docs/shopfloor/specs/${parsed.issueNumber}-${parsed.slug}.md`;
+    const planFilePath = `docs/shopfloor/plans/${parsed.issueNumber}-${parsed.slug}.md`;
+    return {
+      stage: meta.stage,
+      issueNumber: meta.issueNumber,
+      revisionMode: true,
+      branchName: pr.head.ref,
+      specFilePath,
+      ...meta.stage === "plan" ? { planFilePath } : {},
       reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
     };
   }
@@ -25408,8 +25442,13 @@ async function precheckStage(adapter, params) {
       return { skip: false, reason: "triage_preconditions_hold" };
     }
     case "spec": {
-      if (!labels.has("shopfloor:needs-spec")) {
-        return { skip: true, reason: "spec_needs_spec_label_absent" };
+      const needsSpec = labels.has("shopfloor:needs-spec");
+      const inReview = labels.has("shopfloor:spec-in-review");
+      if (!needsSpec && !inReview) {
+        return {
+          skip: true,
+          reason: "spec_neither_needs_spec_nor_in_review_label_present"
+        };
       }
       if (labels.has("shopfloor:spec-running")) {
         return { skip: true, reason: "spec_already_in_progress" };
@@ -25417,8 +25456,13 @@ async function precheckStage(adapter, params) {
       return { skip: false, reason: "spec_preconditions_hold" };
     }
     case "plan": {
-      if (!labels.has("shopfloor:needs-plan")) {
-        return { skip: true, reason: "plan_needs_plan_label_absent" };
+      const needsPlan = labels.has("shopfloor:needs-plan");
+      const inReview = labels.has("shopfloor:plan-in-review");
+      if (!needsPlan && !inReview) {
+        return {
+          skip: true,
+          reason: "plan_neither_needs_plan_nor_in_review_label_present"
+        };
       }
       if (labels.has("shopfloor:plan-running")) {
         return { skip: true, reason: "plan_already_in_progress" };
@@ -25736,8 +25780,14 @@ async function main() {
       core16.setFailed(`Unknown helper: ${helper}`);
   }
 }
-main().catch((err) => {
-  core16.setFailed(err instanceof Error ? err.message : String(err));
+if (process.env.GITHUB_ACTIONS === "true") {
+  main().catch((err) => {
+    core16.setFailed(err instanceof Error ? err.message : String(err));
+  });
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  main
 });
 /*! Bundled license information:
 

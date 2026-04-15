@@ -149,6 +149,12 @@ describe("resolveStage", () => {
     );
     expect(decision.stage).toBe("spec");
     expect(decision.revisionMode).toBe(true);
+    expect(decision.issueNumber).toBe(42);
+    // The route must re-emit the spec branch so the downstream spec stage
+    // can upsert the existing PR instead of opening a new one.
+    expect(decision.branchName).toBe("shopfloor/spec/42-x");
+    expect(decision.specFilePath).toBe("docs/shopfloor/specs/42-x.md");
+    expect(decision.reason).toBe("human_requested_changes");
   });
 
   test("branch slug derivation handles special characters", () => {

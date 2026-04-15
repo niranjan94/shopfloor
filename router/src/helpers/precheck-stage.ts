@@ -77,8 +77,17 @@ export async function precheckStage(
       return { skip: false, reason: "triage_preconditions_hold" };
     }
     case "spec": {
-      if (!labels.has("shopfloor:needs-spec")) {
-        return { skip: true, reason: "spec_needs_spec_label_absent" };
+      // First-run precondition: shopfloor:needs-spec.
+      // Revision precondition: shopfloor:spec-in-review (the PR is up for
+      // human review and the reviewer requested changes). Either one lets
+      // the spec stage run; neither present means this is a stale event.
+      const needsSpec = labels.has("shopfloor:needs-spec");
+      const inReview = labels.has("shopfloor:spec-in-review");
+      if (!needsSpec && !inReview) {
+        return {
+          skip: true,
+          reason: "spec_neither_needs_spec_nor_in_review_label_present",
+        };
       }
       if (labels.has("shopfloor:spec-running")) {
         return { skip: true, reason: "spec_already_in_progress" };
@@ -86,8 +95,15 @@ export async function precheckStage(
       return { skip: false, reason: "spec_preconditions_hold" };
     }
     case "plan": {
-      if (!labels.has("shopfloor:needs-plan")) {
-        return { skip: true, reason: "plan_needs_plan_label_absent" };
+      // Same shape as spec: needs-plan for first run, plan-in-review for
+      // the human-gated rework loop.
+      const needsPlan = labels.has("shopfloor:needs-plan");
+      const inReview = labels.has("shopfloor:plan-in-review");
+      if (!needsPlan && !inReview) {
+        return {
+          skip: true,
+          reason: "plan_neither_needs_plan_nor_in_review_label_present",
+        };
       }
       if (labels.has("shopfloor:plan-running")) {
         return { skip: true, reason: "plan_already_in_progress" };
