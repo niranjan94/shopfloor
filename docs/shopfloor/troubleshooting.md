@@ -120,6 +120,34 @@ If the agent is hardcoding `github.com` somewhere, that is a bug — open an iss
 
 **Reproduce locally:** Shopfloor agents are not interactive, so you can replay a stage by running the agent prompt file directly with `claude-code` CLI and the same context JSON the workflow built. See `router/test/prompt-render.test.ts` for examples of context shapes.
 
+## Stalled pipeline recovery
+
+**Symptom:** An issue is carrying `shopfloor:needs-spec` / `shopfloor:needs-plan` / `shopfloor:needs-impl` but the corresponding stage job never ran, OR a stage job shows a precheck-skip notice with `reason=*_already_in_progress` after a crash.
+
+**Cause:** One of:
+
+1. GitHub dropped the advancement `labeled` event (the original failure mode the per-stage concurrency fix closes; should no longer occur on current main).
+2. A runner crashed mid-stage and left a `shopfloor:spec-running` / `plan-running` / `implementing` marker label orphaned. Subsequent stage jobs will precheck-skip with `*_already_in_progress` until the marker is cleared.
+
+**Recovery:**
+
+```bash
+# Replace <N> with the issue number.
+N=123
+
+# 1. If there is an orphaned marker, remove it:
+gh issue edit $N --remove-label shopfloor:implementing \
+  --remove-label shopfloor:spec-running \
+  --remove-label shopfloor:plan-running
+
+# 2. Re-fire the advancement event by cycling the expected next-state label:
+EXPECTED=shopfloor:needs-impl   # or needs-spec / needs-plan as appropriate
+gh issue edit $N --remove-label "$EXPECTED"
+gh issue edit $N --add-label "$EXPECTED"
+```
+
+The add-label event is delivered via the Shopfloor GitHub App's installation token by `gh` on behalf of you (not via `GITHUB_TOKEN`), so the downstream workflow fires cleanly. The per-stage concurrency queue is empty by this point, so the new stage job runs without contention.
+
 ## Still stuck?
 
 Open an issue at [niranjan94/shopfloor/issues](https://github.com/niranjan94/shopfloor/issues) with:
