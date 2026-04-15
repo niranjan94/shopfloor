@@ -89,13 +89,15 @@ function parseIterationFromBody(body: string | null): number {
 
 function writeIterationToBody(body: string | null, iteration: number): string {
   const baseBody = body ?? "";
-  if (baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
-    return baseBody.replace(
-      /Shopfloor-Review-Iteration:\s*\d+/,
-      `Shopfloor-Review-Iteration: ${iteration}`,
+  if (!baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
+    throw new Error(
+      "aggregate-review: refusing to update PR body without existing Shopfloor-Review-Iteration metadata. This indicates apply-impl-postwork did not emit the metadata footer (wiring bug).",
     );
   }
-  return baseBody.trimEnd() + `\nShopfloor-Review-Iteration: ${iteration}\n`;
+  return baseBody.replace(
+    /Shopfloor-Review-Iteration:\s*\d+/,
+    `Shopfloor-Review-Iteration: ${iteration}`,
+  );
 }
 
 export async function aggregateReview(

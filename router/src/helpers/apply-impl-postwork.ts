@@ -9,6 +9,20 @@ export interface ApplyImplPostworkParams {
   prBody: string;
 }
 
+function parseIterationFromBody(body: string | null): number {
+  if (!body) return 0;
+  const m = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  return m ? Number(m[1]) : 0;
+}
+
+function buildImplPrBody(
+  agentBody: string,
+  issueNumber: number,
+  reviewIteration: number,
+): string {
+  return `${agentBody.trimEnd()}\n\n---\nShopfloor-Issue: #${issueNumber}\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: ${reviewIteration}\n`;
+}
+
 export async function applyImplPostwork(
   adapter: GitHubAdapter,
   params: ApplyImplPostworkParams,
@@ -26,9 +40,18 @@ export async function applyImplPostwork(
     );
   }
 
+  // Preserve the review iteration counter so aggregate-review's writeIterationToBody can find and bump it.
+  const existingPr = await adapter.getPr(params.prNumber);
+  const reviewIteration = parseIterationFromBody(existingPr.body);
+  const bodyWithFooter = buildImplPrBody(
+    params.prBody,
+    params.issueNumber,
+    reviewIteration,
+  );
+
   await adapter.updatePr(params.prNumber, {
     title: params.prTitle,
-    body: params.prBody,
+    body: bodyWithFooter,
   });
 
   const skip = await checkReviewSkip(adapter, params.prNumber);

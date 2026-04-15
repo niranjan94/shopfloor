@@ -218,4 +218,33 @@ describe("aggregateReview", () => {
       expect.objectContaining({ event: "APPROVE" }),
     );
   });
+
+  test("writeIterationToBody throws when the body is missing the metadata footer", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "samesha" },
+        body: "bare body with no metadata\n",
+      },
+    });
+    await expect(
+      aggregateReview(bundle.adapter, {
+        issueNumber: 42,
+        prNumber: 45,
+        confidenceThreshold: 80,
+        maxIterations: 3,
+        analysedSha: "samesha",
+        reviewerOutputs: {
+          compliance: fixture("compliance-issues"),
+          bugs: fixture("bugs-clean"),
+          security: fixture("security-clean"),
+          smells: fixture("smells-clean"),
+        },
+      }),
+    ).rejects.toThrow(/Shopfloor-Review-Iteration/);
+  });
 });

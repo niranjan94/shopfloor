@@ -990,6 +990,13 @@ jobs:
   review-compliance:
     needs: [route, review-skip-check]
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled && needs.route.outputs.has_review_app == 'true'
+    # SHA-scoped so duplicate review events (synchronize + ready_for_review
+    # on the same push) cancel each other; different SHAs run independently
+    # and aggregateReview's in-helper analysedSha drift check handles stale
+    # SHAs. Replaces the earlier shopfloor-implement-<issue> shared group.
+    concurrency:
+      group: shopfloor-review-compliance-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1079,6 +1086,13 @@ jobs:
   review-bugs:
     needs: [route, review-skip-check]
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled && needs.route.outputs.has_review_app == 'true'
+    # SHA-scoped so duplicate review events (synchronize + ready_for_review
+    # on the same push) cancel each other; different SHAs run independently
+    # and aggregateReview's in-helper analysedSha drift check handles stale
+    # SHAs. Replaces the earlier shopfloor-implement-<issue> shared group.
+    concurrency:
+      group: shopfloor-review-bugs-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1168,6 +1182,13 @@ jobs:
   review-security:
     needs: [route, review-skip-check]
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled && needs.route.outputs.has_review_app == 'true'
+    # SHA-scoped so duplicate review events (synchronize + ready_for_review
+    # on the same push) cancel each other; different SHAs run independently
+    # and aggregateReview's in-helper analysedSha drift check handles stale
+    # SHAs. Replaces the earlier shopfloor-implement-<issue> shared group.
+    concurrency:
+      group: shopfloor-review-security-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1257,6 +1278,13 @@ jobs:
   review-smells:
     needs: [route, review-skip-check]
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled && needs.route.outputs.has_review_app == 'true'
+    # SHA-scoped so duplicate review events (synchronize + ready_for_review
+    # on the same push) cancel each other; different SHAs run independently
+    # and aggregateReview's in-helper analysedSha drift check handles stale
+    # SHAs. Replaces the earlier shopfloor-implement-<issue> shared group.
+    concurrency:
+      group: shopfloor-review-smells-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1354,9 +1382,13 @@ jobs:
         review-smells,
       ]
     if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && needs.route.outputs.has_review_app == 'true'
+    # SHA-scoped so duplicate review events (synchronize + ready_for_review
+    # on the same push) cancel each other; different SHAs run independently
+    # and aggregateReview's in-helper analysedSha drift check handles stale
+    # SHAs. Replaces the earlier shopfloor-implement-<issue> shared group.
     concurrency:
-      group: shopfloor-implement-${{ needs.route.outputs.issue_number }}
-      cancel-in-progress: false
+      group: shopfloor-review-aggregator-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read

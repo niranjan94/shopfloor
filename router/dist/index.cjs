@@ -24514,15 +24514,15 @@ function parseIterationFromBody(body) {
 }
 function writeIterationToBody(body, iteration) {
   const baseBody = body ?? "";
-  if (baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
-    return baseBody.replace(
-      /Shopfloor-Review-Iteration:\s*\d+/,
-      `Shopfloor-Review-Iteration: ${iteration}`
+  if (!baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
+    throw new Error(
+      "aggregate-review: refusing to update PR body without existing Shopfloor-Review-Iteration metadata. This indicates apply-impl-postwork did not emit the metadata footer (wiring bug)."
     );
   }
-  return baseBody.trimEnd() + `
-Shopfloor-Review-Iteration: ${iteration}
-`;
+  return baseBody.replace(
+    /Shopfloor-Review-Iteration:\s*\d+/,
+    `Shopfloor-Review-Iteration: ${iteration}`
+  );
 }
 async function aggregateReview(adapter, params, reviewAdapter = adapter) {
   const outputs = {
@@ -24879,6 +24879,20 @@ async function runApplyTriageDecision(adapter) {
 
 // src/helpers/apply-impl-postwork.ts
 var core12 = __toESM(require_core(), 1);
+function parseIterationFromBody2(body) {
+  if (!body) return 0;
+  const m = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  return m ? Number(m[1]) : 0;
+}
+function buildImplPrBody(agentBody, issueNumber, reviewIteration) {
+  return `${agentBody.trimEnd()}
+
+---
+Shopfloor-Issue: #${issueNumber}
+Shopfloor-Stage: implement
+Shopfloor-Review-Iteration: ${reviewIteration}
+`;
+}
 async function applyImplPostwork(adapter, params) {
   const issue = await adapter.getIssue(params.issueNumber);
   const current = new Set(
@@ -24889,9 +24903,16 @@ async function applyImplPostwork(adapter, params) {
       `apply-impl-postwork: refusing to finalize implement for issue #${params.issueNumber}: shopfloor:implementing marker is not present. Either the impl job did not add it (wiring bug) or a crash left the issue in an ambiguous state.`
     );
   }
+  const existingPr = await adapter.getPr(params.prNumber);
+  const reviewIteration = parseIterationFromBody2(existingPr.body);
+  const bodyWithFooter = buildImplPrBody(
+    params.prBody,
+    params.issueNumber,
+    reviewIteration
+  );
   await adapter.updatePr(params.prNumber, {
     title: params.prTitle,
-    body: params.prBody
+    body: bodyWithFooter
   });
   const skip = await checkReviewSkip(adapter, params.prNumber);
   const nextLabel = skip.skip ? "shopfloor:impl-in-review" : "shopfloor:needs-review";
