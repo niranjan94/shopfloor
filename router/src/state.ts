@@ -94,15 +94,18 @@ function parsePrMetadata(body: string | null): PrMetadata | null {
   };
 }
 
-function branchSlug(title: string): string {
-  return title
+export function branchSlug(title: string): string {
+  const slug = title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .split(/\s+/)
+    .filter((w) => w.length > 0)
     .slice(0, 5)
     .join("-")
-    .slice(0, 40);
+    .slice(0, 40)
+    .replace(/^-+|-+$/g, "");
+  return slug.length > 0 ? slug : "issue";
 }
 
 const ADVANCEMENT_STATE_LABELS = new Set<string>([

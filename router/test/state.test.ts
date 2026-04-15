@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { resolveStage } from "../src/state";
+import { branchSlug, resolveStage } from "../src/state";
 import type { StateContext } from "../src/types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -135,7 +135,7 @@ describe("resolveStage", () => {
       ctx("issues", "issue-labeled-needs-plan-no-title"),
     );
     expect(decision.stage).toBe("plan");
-    expect(decision.branchName).toBe("shopfloor/plan/42-fix-cant-log-in");
+    expect(decision.branchName).toBe("shopfloor/plan/42-fix-can-t-log-in");
   });
 
   test("trigger_label set, new issue without it -> none (trigger_label_absent)", () => {
@@ -257,5 +257,51 @@ describe("resolveStage", () => {
       liveLabels: ["shopfloor:quick", "shopfloor:needs-impl"],
     });
     expect(decision.stage).not.toBe("triage");
+  });
+});
+
+describe("branchSlug", () => {
+  test("preserves word boundaries across punctuation separators", () => {
+    expect(
+      branchSlug("Add rate limiting to /api/users endpoint (OAuth flow)"),
+    ).toBe("add-rate-limiting-to-api");
+  });
+
+  test("apostrophes become separators, not glue", () => {
+    // Regression: old regex stripped ' to nothing, producing "cant".
+    // The whole point of this fix is that punctuation splits words.
+    expect(branchSlug("Fix: can't log in!")).toBe("fix-can-t-log-in");
+  });
+
+  test("internal slashes split adjacent tokens", () => {
+    expect(branchSlug("/api/users breaks in prod")).toBe(
+      "api-users-breaks-in-prod",
+    );
+  });
+
+  test("collapses runs of punctuation and whitespace", () => {
+    expect(branchSlug("hello,,, world!!!   foo")).toBe("hello-world-foo");
+  });
+
+  test("strips leading and trailing dashes after truncation", () => {
+    expect(branchSlug("!!!wow!!!")).toBe("wow");
+  });
+
+  test("accents-only title falls back to 'issue' sentinel", () => {
+    expect(branchSlug("áéíóú")).toBe("issue");
+  });
+
+  test("punctuation-only title falls back to 'issue' sentinel", () => {
+    expect(branchSlug("!!!???...")).toBe("issue");
+  });
+
+  test("empty title falls back to 'issue' sentinel", () => {
+    expect(branchSlug("")).toBe("issue");
+  });
+
+  test("truncates to 40 chars and strips any trailing dash from the cut", () => {
+    const slug = branchSlug("alpha beta gamma delta epsilon zeta eta theta");
+    expect(slug.length).toBeLessThanOrEqual(40);
+    expect(slug).not.toMatch(/-$/);
   });
 });
