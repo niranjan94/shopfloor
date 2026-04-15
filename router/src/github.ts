@@ -32,6 +32,32 @@ export interface ReviewComment {
   start_side?: "LEFT" | "RIGHT";
 }
 
+type PrReviewRow = {
+  id: number;
+  user: { login: string } | null;
+  body: string;
+  commit_id: string;
+  state: string;
+  submitted_at: string | null;
+};
+
+type PrReviewCommentRow = {
+  id: number;
+  pull_request_review_id: number | null;
+  path: string;
+  line: number | null;
+  side: "LEFT" | "RIGHT" | null;
+  start_line: number | null;
+  start_side: "LEFT" | "RIGHT" | null;
+  body: string;
+};
+
+type IssueCommentRow = {
+  user: { login: string } | null;
+  created_at: string;
+  body: string | null;
+};
+
 export class GitHubAdapter {
   constructor(
     private readonly octokit: OctokitLike,
@@ -300,16 +326,7 @@ export class GitHubAdapter {
       }));
   }
 
-  async listPrReviews(prNumber: number): Promise<
-    Array<{
-      id: number;
-      user: { login: string } | null;
-      body: string;
-      commit_id: string;
-      state: string;
-      submitted_at: string | null;
-    }>
-  > {
+  async listPrReviews(prNumber: number): Promise<PrReviewRow[]> {
     const res = await this.octokit.rest.pulls.listReviews({
       ...this.repo,
       pull_number: prNumber,
@@ -325,28 +342,8 @@ export class GitHubAdapter {
     }));
   }
 
-  async listPrReviewComments(prNumber: number): Promise<
-    Array<{
-      id: number;
-      pull_request_review_id: number | null;
-      path: string;
-      line: number | null;
-      side: "LEFT" | "RIGHT" | null;
-      start_line: number | null;
-      start_side: "LEFT" | "RIGHT" | null;
-      body: string;
-    }>
-  > {
-    const all: Array<{
-      id: number;
-      pull_request_review_id: number | null;
-      path: string;
-      line: number | null;
-      side: "LEFT" | "RIGHT" | null;
-      start_line: number | null;
-      start_side: "LEFT" | "RIGHT" | null;
-      body: string;
-    }> = [];
+  async listPrReviewComments(prNumber: number): Promise<PrReviewCommentRow[]> {
+    const all: PrReviewCommentRow[] = [];
     let page = 1;
     for (;;) {
       const res = await this.octokit.rest.pulls.listReviewComments({
@@ -373,18 +370,8 @@ export class GitHubAdapter {
     return all;
   }
 
-  async listIssueComments(issueNumber: number): Promise<
-    Array<{
-      user: { login: string } | null;
-      created_at: string;
-      body: string | null;
-    }>
-  > {
-    const all: Array<{
-      user: { login: string } | null;
-      created_at: string;
-      body: string | null;
-    }> = [];
+  async listIssueComments(issueNumber: number): Promise<IssueCommentRow[]> {
+    const all: IssueCommentRow[] = [];
     let page = 1;
     for (;;) {
       const res = await this.octokit.rest.issues.listComments({

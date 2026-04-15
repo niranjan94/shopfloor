@@ -252,6 +252,53 @@ describe("GitHubAdapter", () => {
     ]);
   });
 
+  test("listPrReviewComments paginates across exact-100-item pages", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    const firstPage = Array.from({ length: 100 }, (_, i) => ({
+      id: 1000 + i,
+      pull_request_review_id: 10,
+      path: "src/file.ts",
+      line: i + 1,
+      side: "RIGHT",
+      start_line: null,
+      start_side: null,
+      body: `comment ${i}`,
+    }));
+    const secondPage = [
+      {
+        id: 2000,
+        pull_request_review_id: 10,
+        path: "src/file.ts",
+        line: 500,
+        side: "RIGHT",
+        start_line: null,
+        start_side: null,
+        body: "final comment",
+      },
+    ];
+    mocks.listReviewComments
+      .mockResolvedValueOnce({ data: firstPage })
+      .mockResolvedValueOnce({ data: secondPage });
+    const adapter = new GitHubAdapter(octokit, repo);
+    const comments = await adapter.listPrReviewComments(45);
+    expect(comments).toHaveLength(101);
+    expect(mocks.listReviewComments).toHaveBeenCalledTimes(2);
+    expect(mocks.listReviewComments).toHaveBeenNthCalledWith(1, {
+      owner: "niranjan94",
+      repo: "shopfloor",
+      pull_number: 45,
+      per_page: 100,
+      page: 1,
+    });
+    expect(mocks.listReviewComments).toHaveBeenNthCalledWith(2, {
+      owner: "niranjan94",
+      repo: "shopfloor",
+      pull_number: 45,
+      per_page: 100,
+      page: 2,
+    });
+  });
+
   test("listIssueComments returns issue comments with user and created_at", async () => {
     const { octokit, mocks } = makeMockOctokit();
     mocks.listIssueComments.mockResolvedValueOnce({
