@@ -117,11 +117,13 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
-    # The `secrets` context is unavailable inside step-level `if:` expressions, so
-    # we capture App-credential presence into a job-level env var (which CAN read
-    # secrets) and check that var from the warning step's `if:`.
+    # The `secrets` context is unavailable inside step-level `if:` expressions
+    # AND inside downstream jobs' job-level `if:` expressions, so we capture
+    # secret presence into job-level env vars here (where secrets ARE visible)
+    # and re-export them as outputs for other jobs to gate on.
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_REVIEW_APP: ${{ secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != '' }}
     outputs:
       stage: ${{ steps.router.outputs.stage }}
       issue_number: ${{ steps.router.outputs.issue_number }}
@@ -133,6 +135,7 @@ jobs:
       review_iteration: ${{ steps.router.outputs.review_iteration }}
       impl_pr_number: ${{ steps.router.outputs.impl_pr_number }}
       reason: ${{ steps.router.outputs.reason }}
+      has_review_app: ${{ steps.flags.outputs.has_review_app }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -141,6 +144,12 @@ jobs:
           # read-only caller perms that credential has no write scope, so App-
           # token pushes later in the job would 403. Disable persistence.
           persist-credentials: false
+      - id: flags
+        # Forward secret-presence flags as outputs so downstream job-level
+        # `if:` conditions (which cannot reference `secrets` directly) can
+        # gate on the review App being configured.
+        run: |
+          echo "has_review_app=${SHOPFLOOR_HAS_REVIEW_APP}" >> "$GITHUB_OUTPUT"
       - name: Warn if no GitHub App configured
         if: ${{ env.SHOPFLOOR_HAS_APP != 'true' }}
         run: |
@@ -851,7 +860,7 @@ jobs:
     # configuring shopfloor_github_app_review_client_id +
     # shopfloor_github_app_review_private_key; otherwise impl PRs un-draft
     # and wait for a human reviewer.
-    if: needs.route.outputs.stage == 'review' && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
+    if: needs.route.outputs.stage == 'review' && needs.route.outputs.has_review_app == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -882,7 +891,7 @@ jobs:
 
   review-compliance:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled && needs.route.outputs.has_review_app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -971,7 +980,7 @@ jobs:
 
   review-bugs:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled && needs.route.outputs.has_review_app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1060,7 +1069,7 @@ jobs:
 
   review-security:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled && needs.route.outputs.has_review_app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1149,7 +1158,7 @@ jobs:
 
   review-smells:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled && needs.route.outputs.has_review_app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1246,7 +1255,7 @@ jobs:
         review-security,
         review-smells,
       ]
-    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
+    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && needs.route.outputs.has_review_app == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
