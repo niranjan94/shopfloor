@@ -19,7 +19,7 @@ import { runPrecheckStage } from "./helpers/precheck-stage";
 import { runBuildRevisionContext } from "./helpers/build-revision-context";
 import { runRoute } from "./helpers/route";
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const helper = core.getInput("helper", { required: false }) || "route";
   const token = core.getInput("github_token", { required: true });
   const octokit = getOctokit(token);
@@ -78,6 +78,8 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  core.setFailed(err instanceof Error ? err.message : String(err));
-});
+if (process.env.GITHUB_ACTIONS === "true") {
+  main().catch((err) => {
+    core.setFailed(err instanceof Error ? err.message : String(err));
+  });
+}
