@@ -657,7 +657,7 @@ jobs:
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
-      pr_number: ${{ steps.open_pr.outputs.pr_number }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
       comment_id: ${{ steps.progress.outputs.comment_id }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -708,7 +708,7 @@ jobs:
           from_labels: ""
           to_labels: shopfloor:implementing
       - name: Create impl branch
-        if: steps.precheck.outputs.skip != 'true'
+        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -724,8 +724,22 @@ jobs:
           # happen when a human clears the shopfloor:failed:* label) explicitly
           # opt into discarding whatever was there before.
           git push -u origin "${{ needs.route.outputs.branch_name }}" --force
+      # Revision runs: the impl branch already exists on the remote from the
+      # previous iteration. Fetch it into a local ref so subsequent steps see
+      # the same working tree the prior implement run left behind. No
+      # `git checkout -b` (the branch exists) and no empty bootstrap commit
+      # (the PR already has real history).
+      - name: Checkout existing impl branch
+        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
+        env:
+          BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${BRANCH_NAME}":"${BRANCH_NAME}"
+          git checkout "${BRANCH_NAME}"
       - id: open_pr
-        if: steps.precheck.outputs.skip != 'true'
+        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
         uses: ./router
         with:
           helper: open-stage-pr
@@ -743,13 +757,41 @@ jobs:
 
             Tracking: #${{ needs.route.outputs.issue_number }}
           draft: "true"
+      # Revision runs reuse the existing impl PR rather than opening a new
+      # one. Re-emit the route job's impl_pr_number as a step output so the
+      # unified resolver below can feed it to downstream consumers without
+      # colliding with the first-run `open_pr` step id.
+      - name: Resolve existing impl PR number
+        id: open_pr_revision
+        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+        run: |
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+      # Collapse the first-run and revision PR-number sources into one
+      # canonical step output so downstream steps never need to know which
+      # path produced the number. Whichever of the two steps above actually
+      # ran will have populated its respective env var here; the other is
+      # empty because its step was skipped.
+      - name: Resolve unified impl PR number
+        id: pr
+        if: steps.precheck.outputs.skip != 'true'
+        env:
+          FROM_FIRST_RUN: ${{ steps.open_pr.outputs.pr_number }}
+          FROM_REVISION: ${{ steps.open_pr_revision.outputs.pr_number }}
+        run: |
+          if [ -n "$FROM_FIRST_RUN" ]; then
+            echo "pr_number=$FROM_FIRST_RUN" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_number=$FROM_REVISION" >> "$GITHUB_OUTPUT"
+          fi
       - id: progress
         if: steps.precheck.outputs.skip != 'true'
         uses: ./router
         with:
           helper: create-progress-comment
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
-          pr_number: ${{ steps.open_pr.outputs.pr_number }}
+          pr_number: ${{ steps.pr.outputs.pr_number }}
       - name: Write Shopfloor MCP config
         if: steps.precheck.outputs.skip != 'true'
         id: mcp_config
@@ -785,7 +827,7 @@ jobs:
           fi
           echo "path=$MCP_CONFIG_PATH" >> "$GITHUB_OUTPUT"
       - name: Build implement context
-        if: steps.precheck.outputs.skip != 'true'
+        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
         id: ctx
         env:
           ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
@@ -816,6 +858,12 @@ jobs:
           else
             SPEC_SOURCE=$'<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.\n</spec_source>'
           fi
+          # revision_block is empty on first runs. The parent implement.md
+          # references {{revision_block}}; the renderer emits {{MISSING:key}}
+          # if a placeholder is absent from the context, so we must pass an
+          # empty string rather than omit the key. Revision runs take a
+          # different code path (build-revision-context helper) that fills
+          # revision_block with the rendered fragment.
           jq -n \
             --arg issue_number "$ISSUE_NUMBER" \
             --arg issue_title "$ISSUE_TITLE" \
@@ -825,14 +873,50 @@ jobs:
             --arg plan_file_contents "$(test -f "$PLAN_FILE_PATH" && cat "$PLAN_FILE_PATH" || echo '')" \
             --arg branch_name "$BRANCH_NAME" \
             --arg progress_comment_id "$PROGRESS_COMMENT_ID" \
-            --arg review_comments_json "[]" \
-            --arg iteration_count "0" \
+            --arg revision_block "" \
             --arg bash_allowlist "$BASH_ALLOWLIST" \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
-            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, spec_source: $spec_source, plan_file_contents: $plan_file_contents, branch_name: $branch_name, progress_comment_id: $progress_comment_id, review_comments_json: $review_comments_json, iteration_count: $iteration_count, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, spec_source: $spec_source, plan_file_contents: $plan_file_contents, branch_name: $branch_name, progress_comment_id: $progress_comment_id, revision_block: $revision_block, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      # Revision runs build the implement context via a dedicated helper
+      # instead of inline jq. The helper fetches the latest REQUEST_CHANGES
+      # review and its line-level comments, renders the revision fragment,
+      # and writes a context.json with the same shape as the first-run
+      # builder plus a populated revision_block.
+      - name: Build revision context
+        id: ctx_revision
+        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
+        uses: ./router
+        with:
+          helper: build-revision-context
+          github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          pr_number: ${{ needs.route.outputs.impl_pr_number }}
+          branch_name: ${{ needs.route.outputs.branch_name }}
+          spec_file_path: ${{ needs.route.outputs.spec_file_path }}
+          plan_file_path: ${{ needs.route.outputs.plan_file_path }}
+          progress_comment_id: ${{ steps.progress.outputs.comment_id }}
+          bash_allowlist: ${{ inputs.impl_bash_allowlist }}
+          repo_owner: ${{ github.repository_owner }}
+          repo_name: ${{ github.event.repository.name }}
+          output_path: ${{ runner.temp }}/context.json
+      # Collapse the first-run and revision context paths into one output
+      # so the downstream render-prompt step has a single source regardless
+      # of which builder actually ran.
+      - name: Resolve unified context path
+        id: ctx_path
+        if: steps.precheck.outputs.skip != 'true'
+        env:
+          FROM_FIRST_RUN: ${{ steps.ctx.outputs.path }}
+          FROM_REVISION: ${{ steps.ctx_revision.outputs.path }}
+        run: |
+          if [ -n "$FROM_FIRST_RUN" ]; then
+            echo "path=$FROM_FIRST_RUN" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$FROM_REVISION" >> "$GITHUB_OUTPUT"
+          fi
       # Quick issues have no plan to follow and should not invoke
       # superpowers:subagent-driven-development. They get a dedicated
       # one-shot prompt and skip the superpowers plugin load entirely.
@@ -864,7 +948,7 @@ jobs:
           helper: render-prompt
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: ${{ steps.impl_choice.outputs.prompt_file }}
-          context_file: ${{ steps.ctx.outputs.path }}
+          context_file: ${{ steps.ctx_path.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
         if: steps.precheck.outputs.skip != 'true'
@@ -921,11 +1005,13 @@ jobs:
       # that one is a noop. Using the App token here (not GITHUB_TOKEN) is
       # critical: events caused by GITHUB_TOKEN are suppressed and would
       # never trigger the downstream review workflow.
+      # Only first runs need to un-draft the PR; on revision runs the PR is
+      # already ready-for-review and the `gh pr ready` call would fail.
       - name: Mark impl PR ready for review
-        if: ${{ success() && steps.app_token_post.outputs.token != '' && steps.precheck.outputs.skip != 'true' }}
+        if: ${{ success() && steps.app_token_post.outputs.token != '' && steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true' }}
         env:
           GH_TOKEN: ${{ steps.app_token_post.outputs.token }}
-          PR_NUMBER: ${{ steps.open_pr.outputs.pr_number }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           REPO_SLUG: ${{ github.repository }}
         run: gh pr ready "$PR_NUMBER" --repo "$REPO_SLUG"
       - name: Finalize progress comment
@@ -944,7 +1030,7 @@ jobs:
           helper: apply-impl-postwork
           github_token: ${{ steps.app_token_post.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
-          pr_number: ${{ steps.open_pr.outputs.pr_number }}
+          pr_number: ${{ steps.pr.outputs.pr_number }}
           pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
           pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
           # Every review-stage job is gated on this flag (set by the route
@@ -967,7 +1053,7 @@ jobs:
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: implement
           run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          target_pr_number: ${{ steps.open_pr.outputs.pr_number }}
+          target_pr_number: ${{ steps.pr.outputs.pr_number }}
 
   review-skip-check:
     needs: route
