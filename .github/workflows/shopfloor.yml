@@ -125,6 +125,12 @@ jobs:
       reason: ${{ steps.router.outputs.reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # actions/checkout installs an http extraheader using GITHUB_TOKEN
+          # that overrides any x-access-token embedded in the remote URL. With
+          # read-only caller perms that credential has no write scope, so App-
+          # token pushes later in the job would 403. Disable persistence.
+          persist-credentials: false
       - name: Warn if no GitHub App configured
         if: ${{ env.SHOPFLOOR_HAS_APP != 'true' }}
         run: |
@@ -161,6 +167,8 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       # Mint a GitHub App installation token up front and reuse it for every
       # non-claude-code-action step in this job: the context builder's gh api
       # call, render-prompt, apply-triage-decision (whose label flip must
@@ -260,6 +268,8 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       # Single mint up front covers everything in this job: git push, context
       # builder, render-prompt, open-stage-pr, advance-state, report-failure.
       # Only claude-code-action stays on secrets.GITHUB_TOKEN.
@@ -396,6 +406,8 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       # Single mint up front covers everything in this job: git push, context
       # builder, render-prompt, open-stage-pr, advance-state, report-failure.
       # Only claude-code-action stays on secrets.GITHUB_TOKEN.
@@ -546,6 +558,8 @@ jobs:
       comment_id: ${{ steps.progress.outputs.comment_id }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       # The impl job mints App tokens in two phases. The PRE token covers
       # everything before the agent runs: the initial branch push, the draft
       # PR, the progress comment, the context builder's gh api call, and
@@ -833,6 +847,8 @@ jobs:
       reason: ${{ steps.check.outputs.reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
@@ -865,6 +881,12 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+          # Prevent actions/checkout from installing an http extraheader
+          # credential using GITHUB_TOKEN. With read-only caller perms the
+          # extraheader has no write scope and, because it overrides the
+          # x-access-token embedded in our git remote URL, downstream App-
+          # token pushes would 403.
+          persist-credentials: false
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
@@ -948,6 +970,12 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+          # Prevent actions/checkout from installing an http extraheader
+          # credential using GITHUB_TOKEN. With read-only caller perms the
+          # extraheader has no write scope and, because it overrides the
+          # x-access-token embedded in our git remote URL, downstream App-
+          # token pushes would 403.
+          persist-credentials: false
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
@@ -1031,6 +1059,12 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+          # Prevent actions/checkout from installing an http extraheader
+          # credential using GITHUB_TOKEN. With read-only caller perms the
+          # extraheader has no write scope and, because it overrides the
+          # x-access-token embedded in our git remote URL, downstream App-
+          # token pushes would 403.
+          persist-credentials: false
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
@@ -1114,6 +1148,12 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+          # Prevent actions/checkout from installing an http extraheader
+          # credential using GITHUB_TOKEN. With read-only caller perms the
+          # extraheader has no write scope and, because it overrides the
+          # x-access-token embedded in our git remote URL, downstream App-
+          # token pushes would 403.
+          persist-credentials: false
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
@@ -1199,6 +1239,8 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       # Mint a GitHub App token so the posted PR review (event = pull_request_review.submitted)
       # actually triggers the implement job to revise. Reviews posted with secrets.GITHUB_TOKEN
       # never fire pull_request_review events, so the revision loop would never start.
@@ -1235,6 +1277,8 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - id: parse_merged_stage
         run: |
           reason='${{ needs.route.outputs.reason }}'
