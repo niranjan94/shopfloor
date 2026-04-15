@@ -736,8 +736,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin "${BRANCH_NAME}":"${BRANCH_NAME}"
-          git checkout "${BRANCH_NAME}"
+          git fetch origin "${BRANCH_NAME}"
+          git checkout -B "${BRANCH_NAME}" FETCH_HEAD
       - id: open_pr
         if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
         uses: ./router
