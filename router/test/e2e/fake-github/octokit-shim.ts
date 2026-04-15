@@ -70,7 +70,14 @@ export function buildOctokitShim(opts: ShimOptions): OctokitLike {
           return envelope(pulls.listFiles(state, p));
         },
         async createReview(p) {
-          pulls.createReview(state, { ...p, actor, comments: (p.comments ?? []) as never });
+          pulls.createReview(state, {
+            pull_number: p.pull_number,
+            commit_id: p.commit_id ?? "",
+            event: p.event,
+            body: p.body,
+            comments: (p.comments ?? []) as never,
+            actor,
+          });
           return envelope({});
         },
         async listReviews(p) {
