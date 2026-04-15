@@ -12,14 +12,14 @@ on:
 jobs:
   shopfloor:
     uses: ./.github/workflows/shopfloor.yml
+    # Minimum ceiling: every nested Shopfloor job runs on read-only GITHUB_TOKEN
+    # scopes because all writes flow through the Shopfloor GitHub App installation
+    # token. issues/pull-requests read is required so the agent can fetch
+    # uploaded images and files attached to issue/PR bodies via gh api.
     permissions:
-      contents: write
-      pull-requests: read
+      contents: read
       issues: read
-      id-token: write
-      actions: read
-      statuses: read
-      checks: read
+      pull-requests: read
     secrets: inherit
     with:
       trigger_label: "shopfloor:trigger"

@@ -103,6 +103,10 @@ env:
 jobs:
   route:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     # The `secrets` context is unavailable inside step-level `if:` expressions, so
     # we capture App-credential presence into a job-level env var (which CAN read
     # secrets) and check that var from the warning step's `if:`.
@@ -149,6 +153,10 @@ jobs:
     if: needs.route.outputs.stage == 'triage'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
@@ -245,9 +253,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.spec_timeout_minutes }}
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
@@ -381,9 +389,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.plan_timeout_minutes }}
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
@@ -528,10 +536,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.impl_timeout_minutes }}
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      statuses: write
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
@@ -815,6 +822,10 @@ jobs:
     needs: route
     if: needs.route.outputs.stage == 'review'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
@@ -841,6 +852,10 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
@@ -920,6 +935,10 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
@@ -999,6 +1018,10 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
@@ -1078,6 +1101,10 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
@@ -1166,9 +1193,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
-      statuses: write
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
@@ -1203,8 +1229,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      issues: read
+      pull-requests: read
     env:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
