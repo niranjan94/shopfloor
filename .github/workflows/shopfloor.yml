@@ -104,6 +104,11 @@ env:
 jobs:
   route:
     runs-on: ubuntu-latest
+    # The `secrets` context is unavailable inside step-level `if:` expressions, so
+    # we capture App-credential presence into a job-level env var (which CAN read
+    # secrets) and check that var from the warning step's `if:`.
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       stage: ${{ steps.router.outputs.stage }}
       issue_number: ${{ steps.router.outputs.issue_number }}
@@ -118,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Warn if no GitHub App configured
-        if: ${{ secrets.shopfloor_github_app_id == '' || secrets.shopfloor_github_app_private_key == '' }}
+        if: ${{ env.SHOPFLOOR_HAS_APP != 'true' }}
         run: |
           echo "::warning title=Shopfloor::No GitHub App credentials configured (shopfloor_github_app_id / shopfloor_github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
       - id: bootstrap
@@ -138,6 +143,8 @@ jobs:
     if: needs.route.outputs.stage == 'triage'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Build triage context
@@ -197,7 +204,7 @@ jobs:
       # warning comment from the route job.
       - name: Mint GitHub App token
         id: app_token
-        if: ${{ success() && secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
           app-id: ${{ secrets.shopfloor_github_app_id }}
@@ -449,6 +456,8 @@ jobs:
       pull-requests: write
       issues: write
       statuses: write
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       pr_number: ${{ steps.open_pr.outputs.pr_number }}
       comment_id: ${{ steps.progress.outputs.comment_id }}
@@ -563,7 +572,7 @@ jobs:
       # matrix would never fire without this.
       - name: Mint post-agent GitHub App token
         id: app_token_push
-        if: ${{ success() && secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
           app-id: ${{ secrets.shopfloor_github_app_id }}
@@ -909,6 +918,8 @@ jobs:
       pull-requests: write
       issues: write
       statuses: write
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       # Mint a GitHub App token so the posted PR review (event = pull_request_review.submitted)
@@ -916,7 +927,7 @@ jobs:
       # never fire pull_request_review events, so the revision loop would never start.
       - name: Mint GitHub App token
         id: app_token
-        if: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
           app-id: ${{ secrets.shopfloor_github_app_id }}
@@ -943,6 +954,8 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: parse_merged_stage
@@ -951,12 +964,12 @@ jobs:
           stage="${reason#pr_merged_}"
           stage="${stage%_triggered_label_flip}"
           echo "merged_stage=$stage" >> "$GITHUB_OUTPUT"
-      # Mint a GitHub App token so the label flip below (spec-merged → needs-plan,
-      # plan-merged → needs-impl) actually triggers the next stage's workflow run.
+      # Mint a GitHub App token so the label flip below (spec-merged to needs-plan,
+      # plan-merged to needs-impl) actually triggers the next stage's workflow run.
       # secrets.GITHUB_TOKEN cannot trigger downstream workflows.
       - name: Mint GitHub App token
         id: app_token
-        if: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
           app-id: ${{ secrets.shopfloor_github_app_id }}
