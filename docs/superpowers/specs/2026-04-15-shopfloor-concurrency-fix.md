@@ -1,6 +1,6 @@
 # Shopfloor concurrency and staleness fix
 
-**Status:** Draft, pending review
+**Status:** Accepted
 **Date:** 2026-04-15
 **Author:** Drafted collaboratively with Claude (Opus 4.6)
 **Supersedes:** N/A (targeted fix on top of the v0.1 design)
@@ -462,4 +462,14 @@ Conventional commits, in the order they should land. Each commit is independentl
 
 ## 15. Approval
 
-This spec supersedes nothing and is additive to `2026-04-14-shopfloor-design.md`. It does not require re-approval of the original design. Merge after review; the implementation plan is tracked in `docs/superpowers/plans/2026-04-15-shopfloor-concurrency-fix-implementation.md` (to be written after this spec is approved).
+This spec supersedes nothing and is additive to `2026-04-14-shopfloor-design.md`. It does not require re-approval of the original design. Implementation is tracked in `docs/superpowers/plans/2026-04-15-shopfloor-concurrency-fix-implementation.md`.
+
+### Landed commits
+
+1. `4cbe02a` fix(state): populate issueNumber on PR merge events
+2. `a9d467e` feat(state): support live-label override in StateContext
+3. `5943c97` feat(router): route helper fetches live labels from the API
+4. `ea4bf9a` feat(labels): add transient stage-running marker labels
+5. `e4498bc` feat(router): add precheck-stage helper
+6. `ad1112a` feat(helpers): add in-helper precondition assertions
+7. `aaef95f` feat(workflow): per-stage concurrency groups and precheck wiring
