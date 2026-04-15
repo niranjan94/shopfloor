@@ -491,6 +491,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ needs.route.outputs.branch_name }}"
+          # An empty commit is required so the draft PR opened below has at least
+          # one commit difference from the base branch (GitHub rejects zero-commit
+          # PRs with "No commits between main and <branch>"). The agent's real
+          # commits will stack on top and this placeholder can be squashed away
+          # at merge time.
+          git commit --allow-empty -m "chore(shopfloor): init impl branch for #${{ needs.route.outputs.issue_number }}"
           git push -u origin "${{ needs.route.outputs.branch_name }}"
       # github-actions[bot] is forbidden from creating pull requests by default.
       # Mint a pre-agent GitHub App token for the draft PR + initial progress
