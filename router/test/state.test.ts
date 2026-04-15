@@ -76,6 +76,27 @@ describe("resolveStage", () => {
     );
     expect(decision.stage).toBe("implement");
     expect(decision.revisionMode).toBe(true);
+    expect(decision.issueNumber).toBe(42);
+    expect(decision.implPrNumber).toBe(45);
+    expect(decision.branchName).toBe("shopfloor/impl/42-github-oauth-login");
+    expect(decision.specFilePath).toBe(
+      "docs/shopfloor/specs/42-github-oauth-login.md",
+    );
+    expect(decision.planFilePath).toBe(
+      "docs/shopfloor/plans/42-github-oauth-login.md",
+    );
+    expect(decision.reason).toBe("human_requested_changes");
+  });
+
+  test("changes_requested review on impl PR with unparseable head ref -> none (fail closed)", () => {
+    const decision = resolveStage(
+      ctx(
+        "pull_request_review",
+        "pr-review-submitted-changes-requested-unparseable-ref",
+      ),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("impl_revision_unparseable_branch_ref");
   });
 
   test("closed issue -> none, reason aborted", () => {

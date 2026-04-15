@@ -108,6 +108,24 @@ export function branchSlug(title: string): string {
   return slug.length > 0 ? slug : "issue";
 }
 
+export interface ParsedImplBranchRef {
+  issueNumber: number;
+  slug: string;
+}
+
+// The canonical impl branch shape is `shopfloor/impl/<issueNumber>-<slug>`.
+// The slug is whatever branchSlug() produced at triage time. Returns null if
+// the ref doesn't match the canonical shape, so revision-mode callers can
+// fail closed instead of dispatching a broken impl job.
+export function parseImplBranchRef(ref: string): ParsedImplBranchRef | null {
+  const match = ref.match(/^shopfloor\/impl\/(\d+)-(.+)$/);
+  if (!match) return null;
+  const issueNumber = Number(match[1]);
+  const slug = match[2];
+  if (!Number.isFinite(issueNumber) || slug.length === 0) return null;
+  return { issueNumber, slug };
+}
+
 export interface IssueMetadata {
   slug?: string;
 }
@@ -407,11 +425,23 @@ function resolvePullRequestReviewEvent(
     payload.review.user.login === shopfloorBotLogin;
 
   if (meta.stage === "implement") {
+    const parsed = parseImplBranchRef(pr.head.ref);
+    if (!parsed) {
+      return {
+        stage: "none",
+        issueNumber: meta.issueNumber,
+        reason: "impl_revision_unparseable_branch_ref",
+      };
+    }
     return {
       stage: "implement",
       issueNumber: meta.issueNumber,
       revisionMode: true,
       reviewIteration: meta.reviewIteration,
+      branchName: pr.head.ref,
+      implPrNumber: pr.number,
+      specFilePath: `docs/shopfloor/specs/${parsed.issueNumber}-${parsed.slug}.md`,
+      planFilePath: `docs/shopfloor/plans/${parsed.issueNumber}-${parsed.slug}.md`,
       reason: isShopfloorReview
         ? "agent_requested_changes"
         : "human_requested_changes",
