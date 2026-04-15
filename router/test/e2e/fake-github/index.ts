@@ -78,13 +78,26 @@ export class FakeGitHub {
     this.state.branches.set(name, sha);
   }
 
-  /** For test setups that need a deterministic head SHA progression. */
+  /**
+   * Advance the SHA of a branch and propagate the new value to the head
+   * of every open, unmerged PR currently rooted on that branch. This
+   * models a `git push` that adds a new commit to the branch tip. The
+   * sha-on-the-PR is what aggregate-review and build-revision-context
+   * read via getPr; without the propagation, the older review's commit_id
+   * and the new review's commit_id collide and the iteration counter
+   * cannot tell them apart.
+   */
   advanceSha(branch: string): string {
     const current = this.state.branches.get(branch);
     if (!current) throw new Error(`advanceSha: unknown branch ${branch}`);
     const m = current.match(/^(.+)-(\d+)$/);
     const next = m ? `${m[1]}-${Number(m[2]) + 1}` : `${current}-1`;
     this.state.branches.set(branch, next);
+    for (const pr of this.state.pulls.values()) {
+      if (pr.head.ref === branch && pr.state === "open" && !pr.merged) {
+        pr.head.sha = next;
+      }
+    }
     return next;
   }
 

@@ -603,6 +603,13 @@ jobGraph["implement-revision"] = [
     mutate: (ctx) => {
       // Same git-push stand-in as the first-run branch above. For a
       // revision, the PR number comes from route output, not open_pr.
+      // Unlike the first-run path, we also advance the branch head sha:
+      // an actual `git push` here produces a new commit, and downstream
+      // aggregate-review uses that new sha as the commit_id on its
+      // REQUEST_CHANGES / APPROVE record. Without the advance, the new
+      // review collides with the previous iteration's review on the
+      // same commit, and build-revision-context can no longer tell
+      // which review is "current".
       const raw = ctx.previous.agent?.changed_files ?? "";
       const prNumberStr = ctx.routeOutputs.impl_pr_number;
       if (!prNumberStr) return;
@@ -617,6 +624,8 @@ jobGraph["implement-revision"] = [
         }
       }
       ctx.fake.setPrFiles(prNumber, files);
+      const branch = ctx.routeOutputs.branch_name;
+      if (branch) ctx.fake.advanceSha(branch);
     },
   },
   {
