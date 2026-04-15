@@ -17581,12 +17581,12 @@ var require_lib = __commonJS({
             throw new Error("Client has already been disposed.");
           }
           const parsedUrl = new URL(requestUrl);
-          let info4 = this._prepareRequest(verb, parsedUrl, headers);
+          let info5 = this._prepareRequest(verb, parsedUrl, headers);
           const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb) ? this._maxRetries + 1 : 1;
           let numTries = 0;
           let response;
           do {
-            response = yield this.requestRaw(info4, data);
+            response = yield this.requestRaw(info5, data);
             if (response && response.message && response.message.statusCode === HttpCodes.Unauthorized) {
               let authenticationHandler;
               for (const handler of this.handlers) {
@@ -17596,7 +17596,7 @@ var require_lib = __commonJS({
                 }
               }
               if (authenticationHandler) {
-                return authenticationHandler.handleAuthentication(this, info4, data);
+                return authenticationHandler.handleAuthentication(this, info5, data);
               } else {
                 return response;
               }
@@ -17619,8 +17619,8 @@ var require_lib = __commonJS({
                   }
                 }
               }
-              info4 = this._prepareRequest(verb, parsedRedirectUrl, headers);
-              response = yield this.requestRaw(info4, data);
+              info5 = this._prepareRequest(verb, parsedRedirectUrl, headers);
+              response = yield this.requestRaw(info5, data);
               redirectsRemaining--;
             }
             if (!response.message.statusCode || !HttpResponseRetryCodes.includes(response.message.statusCode)) {
@@ -17649,7 +17649,7 @@ var require_lib = __commonJS({
        * @param info
        * @param data
        */
-      requestRaw(info4, data) {
+      requestRaw(info5, data) {
         return __awaiter(this, void 0, void 0, function* () {
           return new Promise((resolve, reject) => {
             function callbackForResult(err, res) {
@@ -17661,7 +17661,7 @@ var require_lib = __commonJS({
                 resolve(res);
               }
             }
-            this.requestRawWithCallback(info4, data, callbackForResult);
+            this.requestRawWithCallback(info5, data, callbackForResult);
           });
         });
       }
@@ -17671,12 +17671,12 @@ var require_lib = __commonJS({
        * @param data
        * @param onResult
        */
-      requestRawWithCallback(info4, data, onResult) {
+      requestRawWithCallback(info5, data, onResult) {
         if (typeof data === "string") {
-          if (!info4.options.headers) {
-            info4.options.headers = {};
+          if (!info5.options.headers) {
+            info5.options.headers = {};
           }
-          info4.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
+          info5.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
         }
         let callbackCalled = false;
         function handleResult(err, res) {
@@ -17685,7 +17685,7 @@ var require_lib = __commonJS({
             onResult(err, res);
           }
         }
-        const req = info4.httpModule.request(info4.options, (msg) => {
+        const req = info5.httpModule.request(info5.options, (msg) => {
           const res = new HttpClientResponse(msg);
           handleResult(void 0, res);
         });
@@ -17697,7 +17697,7 @@ var require_lib = __commonJS({
           if (socket) {
             socket.end();
           }
-          handleResult(new Error(`Request timeout: ${info4.options.path}`));
+          handleResult(new Error(`Request timeout: ${info5.options.path}`));
         });
         req.on("error", function(err) {
           handleResult(err);
@@ -17733,27 +17733,27 @@ var require_lib = __commonJS({
         return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
       }
       _prepareRequest(method, requestUrl, headers) {
-        const info4 = {};
-        info4.parsedUrl = requestUrl;
-        const usingSsl = info4.parsedUrl.protocol === "https:";
-        info4.httpModule = usingSsl ? https : http;
+        const info5 = {};
+        info5.parsedUrl = requestUrl;
+        const usingSsl = info5.parsedUrl.protocol === "https:";
+        info5.httpModule = usingSsl ? https : http;
         const defaultPort = usingSsl ? 443 : 80;
-        info4.options = {};
-        info4.options.host = info4.parsedUrl.hostname;
-        info4.options.port = info4.parsedUrl.port ? parseInt(info4.parsedUrl.port) : defaultPort;
-        info4.options.path = (info4.parsedUrl.pathname || "") + (info4.parsedUrl.search || "");
-        info4.options.method = method;
-        info4.options.headers = this._mergeHeaders(headers);
+        info5.options = {};
+        info5.options.host = info5.parsedUrl.hostname;
+        info5.options.port = info5.parsedUrl.port ? parseInt(info5.parsedUrl.port) : defaultPort;
+        info5.options.path = (info5.parsedUrl.pathname || "") + (info5.parsedUrl.search || "");
+        info5.options.method = method;
+        info5.options.headers = this._mergeHeaders(headers);
         if (this.userAgent != null) {
-          info4.options.headers["user-agent"] = this.userAgent;
+          info5.options.headers["user-agent"] = this.userAgent;
         }
-        info4.options.agent = this._getAgent(info4.parsedUrl);
+        info5.options.agent = this._getAgent(info5.parsedUrl);
         if (this.handlers) {
           for (const handler of this.handlers) {
-            handler.prepareRequest(info4.options);
+            handler.prepareRequest(info5.options);
           }
         }
-        return info4;
+        return info5;
       }
       _mergeHeaders(headers) {
         if (this.requestOptions && this.requestOptions.headers) {
@@ -19674,7 +19674,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path.delimiter}${process.env["PATH"]}`;
     }
     exports2.addPath = addPath;
-    function getInput14(name, options) {
+    function getInput15(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -19684,9 +19684,9 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports2.getInput = getInput14;
+    exports2.getInput = getInput15;
     function getMultilineInput(name, options) {
-      const inputs = getInput14(name, options).split("\n").filter((x) => x !== "");
+      const inputs = getInput15(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
@@ -19696,7 +19696,7 @@ var require_core = __commonJS({
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput14(name, options);
+      const val = getInput15(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -19705,7 +19705,7 @@ var require_core = __commonJS({
 Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports2.getBooleanInput = getBooleanInput;
-    function setOutput8(name, value) {
+    function setOutput9(name, value) {
       const filePath = process.env["GITHUB_OUTPUT"] || "";
       if (filePath) {
         return (0, file_command_1.issueFileCommand)("OUTPUT", (0, file_command_1.prepareKeyValueMessage)(name, value));
@@ -19713,7 +19713,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       process.stdout.write(os.EOL);
       (0, command_1.issueCommand)("set-output", { name }, (0, utils_1.toCommandValue)(value));
     }
-    exports2.setOutput = setOutput8;
+    exports2.setOutput = setOutput9;
     function setCommandEcho(enabled) {
       (0, command_1.issue)("echo", enabled ? "on" : "off");
     }
@@ -19735,18 +19735,18 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("error", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.error = error;
-    function warning4(message, properties = {}) {
+    function warning5(message, properties = {}) {
       (0, command_1.issueCommand)("warning", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.warning = warning4;
-    function notice(message, properties = {}) {
+    exports2.warning = warning5;
+    function notice2(message, properties = {}) {
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.notice = notice;
-    function info4(message) {
+    exports2.notice = notice2;
+    function info5(message) {
       process.stdout.write(message + os.EOL);
     }
-    exports2.info = info4;
+    exports2.info = info5;
     function startGroup(name) {
       (0, command_1.issue)("group", name);
     }
@@ -23878,7 +23878,7 @@ var require_github = __commonJS({
 });
 
 // src/index.ts
-var core14 = __toESM(require_core(), 1);
+var core15 = __toESM(require_core(), 1);
 var import_github2 = __toESM(require_github(), 1);
 
 // src/github.ts
@@ -24848,8 +24848,171 @@ async function runApplyImplPostwork(adapter) {
   if (result.skipReason) core12.setOutput("skip_reason", result.skipReason);
 }
 
-// src/helpers/route.ts
+// src/helpers/precheck-stage.ts
 var core13 = __toESM(require_core(), 1);
+var TRIAGE_BLOCKING_STATE_LABELS = /* @__PURE__ */ new Set([
+  "shopfloor:needs-spec",
+  "shopfloor:needs-plan",
+  "shopfloor:needs-impl",
+  "shopfloor:impl-in-review",
+  "shopfloor:needs-review",
+  "shopfloor:review-requested-changes",
+  "shopfloor:review-approved",
+  "shopfloor:review-stuck",
+  "shopfloor:done",
+  "shopfloor:quick",
+  "shopfloor:medium",
+  "shopfloor:large"
+]);
+async function precheckStage(adapter, params) {
+  let labels;
+  try {
+    const issue = await adapter.getIssue(params.issueNumber);
+    labels = new Set(issue.labels.map((l) => l.name));
+  } catch (err) {
+    core13.warning(
+      `precheck-stage: issue read failed for ${params.issueNumber}, falling back to skip=false: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return { skip: false, reason: "precheck_read_error_fail_open" };
+  }
+  switch (params.stage) {
+    case "triage": {
+      for (const l of TRIAGE_BLOCKING_STATE_LABELS) {
+        if (labels.has(l)) {
+          return {
+            skip: true,
+            reason: `triage_already_completed_state_label_${l}_present`
+          };
+        }
+      }
+      return { skip: false, reason: "triage_preconditions_hold" };
+    }
+    case "spec": {
+      if (!labels.has("shopfloor:needs-spec")) {
+        return { skip: true, reason: "spec_needs_spec_label_absent" };
+      }
+      if (labels.has("shopfloor:spec-running")) {
+        return { skip: true, reason: "spec_already_in_progress" };
+      }
+      return { skip: false, reason: "spec_preconditions_hold" };
+    }
+    case "plan": {
+      if (!labels.has("shopfloor:needs-plan")) {
+        return { skip: true, reason: "plan_needs_plan_label_absent" };
+      }
+      if (labels.has("shopfloor:plan-running")) {
+        return { skip: true, reason: "plan_already_in_progress" };
+      }
+      return { skip: false, reason: "plan_preconditions_hold" };
+    }
+    case "implement": {
+      const needsImpl = labels.has("shopfloor:needs-impl");
+      const revisionMode = labels.has("shopfloor:review-requested-changes");
+      if (!needsImpl && !revisionMode) {
+        return {
+          skip: true,
+          reason: "implement_neither_needs_impl_nor_revision_label_present"
+        };
+      }
+      if (labels.has("shopfloor:implementing")) {
+        return { skip: true, reason: "implement_already_in_progress" };
+      }
+      return { skip: false, reason: "implement_preconditions_hold" };
+    }
+    case "review-aggregator": {
+      if (!labels.has("shopfloor:needs-review")) {
+        return { skip: true, reason: "review_needs_review_label_absent" };
+      }
+      if (params.analysedSha && params.prNumber !== void 0) {
+        try {
+          const pr = await adapter.getPr(params.prNumber);
+          if (pr.head.sha !== params.analysedSha) {
+            return {
+              skip: true,
+              reason: `review_head_sha_drift_expected_${params.analysedSha.slice(0, 7)}_got_${pr.head.sha.slice(0, 7)}`
+            };
+          }
+        } catch (err) {
+          core13.warning(
+            `precheck-stage: review PR fetch failed, falling open: ${err instanceof Error ? err.message : String(err)}`
+          );
+          return { skip: false, reason: "precheck_pr_read_error_fail_open" };
+        }
+      }
+      return { skip: false, reason: "review_preconditions_hold" };
+    }
+    case "handle-merge": {
+      switch (params.mergedStage) {
+        case "spec":
+          if (labels.has("shopfloor:needs-plan")) {
+            return {
+              skip: true,
+              reason: "handle_merge_spec_transition_already_applied"
+            };
+          }
+          return {
+            skip: false,
+            reason: "handle_merge_spec_preconditions_hold"
+          };
+        case "plan":
+          if (labels.has("shopfloor:needs-impl")) {
+            return {
+              skip: true,
+              reason: "handle_merge_plan_transition_already_applied"
+            };
+          }
+          return {
+            skip: false,
+            reason: "handle_merge_plan_preconditions_hold"
+          };
+        case "implement":
+          if (labels.has("shopfloor:done")) {
+            return {
+              skip: true,
+              reason: "handle_merge_impl_transition_already_applied"
+            };
+          }
+          return {
+            skip: false,
+            reason: "handle_merge_impl_preconditions_hold"
+          };
+        default:
+          return {
+            skip: true,
+            reason: `handle_merge_unknown_merged_stage_${params.mergedStage}`
+          };
+      }
+    }
+  }
+}
+async function runPrecheckStage(adapter) {
+  const stage = core13.getInput("stage", { required: true });
+  const issueNumber = Number(
+    core13.getInput("issue_number", { required: true })
+  );
+  const analysedSha = core13.getInput("analysed_sha") || void 0;
+  const prNumberInput = core13.getInput("pr_number");
+  const prNumber = prNumberInput ? Number(prNumberInput) : void 0;
+  const mergedStageInput = core13.getInput("merged_stage");
+  const mergedStage = mergedStageInput ? mergedStageInput : void 0;
+  const result = await precheckStage(adapter, {
+    stage,
+    issueNumber,
+    analysedSha,
+    prNumber,
+    mergedStage
+  });
+  core13.setOutput("skip", result.skip ? "true" : "false");
+  core13.setOutput("reason", result.reason);
+  if (result.skip) {
+    core13.notice(`precheck-stage: skipping ${stage} - ${result.reason}`);
+  } else {
+    core13.info(`precheck-stage: ${stage} preconditions hold - ${result.reason}`);
+  }
+}
+
+// src/helpers/route.ts
+var core14 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
 
 // src/state.ts
@@ -25111,7 +25274,7 @@ function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
 
 // src/helpers/route.ts
 async function runRoute(adapter) {
-  const triggerLabel = core13.getInput("trigger_label") || void 0;
+  const triggerLabel = core14.getInput("trigger_label") || void 0;
   let liveLabels;
   if (import_github.context.eventName === "issues") {
     const payload = import_github.context.payload;
@@ -25120,7 +25283,7 @@ async function runRoute(adapter) {
         const issue = await adapter.getIssue(payload.issue.number);
         liveLabels = issue.labels.map((l) => l.name);
       } catch (err) {
-        core13.warning(
+        core14.warning(
           `route: live label fetch failed, falling back to payload snapshot: ${err instanceof Error ? err.message : String(err)}`
         );
       }
@@ -25132,34 +25295,34 @@ async function runRoute(adapter) {
     triggerLabel,
     liveLabels
   });
-  core13.setOutput("stage", decision.stage);
+  core14.setOutput("stage", decision.stage);
   if (decision.issueNumber !== void 0) {
-    core13.setOutput("issue_number", String(decision.issueNumber));
+    core14.setOutput("issue_number", String(decision.issueNumber));
   }
-  if (decision.complexity) core13.setOutput("complexity", decision.complexity);
-  if (decision.branchName) core13.setOutput("branch_name", decision.branchName);
+  if (decision.complexity) core14.setOutput("complexity", decision.complexity);
+  if (decision.branchName) core14.setOutput("branch_name", decision.branchName);
   if (decision.specFilePath) {
-    core13.setOutput("spec_file_path", decision.specFilePath);
+    core14.setOutput("spec_file_path", decision.specFilePath);
   }
   if (decision.planFilePath) {
-    core13.setOutput("plan_file_path", decision.planFilePath);
+    core14.setOutput("plan_file_path", decision.planFilePath);
   }
   if (decision.revisionMode !== void 0) {
-    core13.setOutput("revision_mode", String(decision.revisionMode));
+    core14.setOutput("revision_mode", String(decision.revisionMode));
   }
   if (decision.reviewIteration !== void 0) {
-    core13.setOutput("review_iteration", String(decision.reviewIteration));
+    core14.setOutput("review_iteration", String(decision.reviewIteration));
   }
   if (decision.implPrNumber !== void 0) {
-    core13.setOutput("impl_pr_number", String(decision.implPrNumber));
+    core14.setOutput("impl_pr_number", String(decision.implPrNumber));
   }
-  if (decision.reason) core13.setOutput("reason", decision.reason);
+  if (decision.reason) core14.setOutput("reason", decision.reason);
 }
 
 // src/index.ts
 async function main() {
-  const helper = core14.getInput("helper", { required: false }) || "route";
-  const token = core14.getInput("github_token", { required: true });
+  const helper = core15.getInput("helper", { required: false }) || "route";
+  const token = core15.getInput("github_token", { required: true });
   const octokit = (0, import_github2.getOctokit)(token);
   const adapter = new GitHubAdapter(octokit, {
     owner: import_github2.context.repo.owner,
@@ -25185,7 +25348,7 @@ async function main() {
     case "check-review-skip":
       return runCheckReviewSkip(adapter);
     case "aggregate-review": {
-      const reviewToken = core14.getInput("review_github_token") || "";
+      const reviewToken = core15.getInput("review_github_token") || "";
       const reviewAdapter = reviewToken ? new GitHubAdapter((0, import_github2.getOctokit)(reviewToken), {
         owner: import_github2.context.repo.owner,
         repo: import_github2.context.repo.repo
@@ -25198,12 +25361,14 @@ async function main() {
       return runApplyTriageDecision(adapter);
     case "apply-impl-postwork":
       return runApplyImplPostwork(adapter);
+    case "precheck-stage":
+      return runPrecheckStage(adapter);
     default:
-      core14.setFailed(`Unknown helper: ${helper}`);
+      core15.setFailed(`Unknown helper: ${helper}`);
   }
 }
 main().catch((err) => {
-  core14.setFailed(err instanceof Error ? err.message : String(err));
+  core15.setFailed(err instanceof Error ? err.message : String(err));
 });
 /*! Bundled license information:
 

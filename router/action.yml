@@ -2,7 +2,7 @@ name: Shopfloor Router
 description: Core dispatcher for the Shopfloor reusable workflow. Resolves the stage or invokes a helper.
 inputs:
   helper:
-    description: "Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review, render-prompt, apply-triage-decision, apply-impl-postwork"
+    description: "Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review, render-prompt, apply-triage-decision, apply-impl-postwork, precheck-stage"
     required: false
     default: route
   github_token:
@@ -55,6 +55,13 @@ inputs:
   comment_id: { description: "Progress comment id", required: false }
   terminal_state: { description: "success or failure", required: false }
   final_body: { description: "Final progress body", required: false }
+
+  # precheck-stage inputs
+  analysed_sha:
+    {
+      description: "For precheck-stage review-aggregator: the HEAD SHA the matrix analysed",
+      required: false,
+    }
 
   # aggregate-review inputs
   confidence_threshold:
