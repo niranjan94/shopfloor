@@ -73,12 +73,9 @@ export async function applyTriageDecision(
     const fromLabels = current.has("shopfloor:triaging")
       ? ["shopfloor:triaging"]
       : [];
-    await advanceState(
-      adapter,
-      issueNumber,
-      fromLabels,
-      ["shopfloor:awaiting-info"],
-    );
+    await advanceState(adapter, issueNumber, fromLabels, [
+      "shopfloor:awaiting-info",
+    ]);
     return;
   }
 
@@ -95,12 +92,10 @@ export async function applyTriageDecision(
   const fromLabels = ["shopfloor:triaging", "shopfloor:awaiting-info"].filter(
     (l) => current.has(l),
   );
-  await advanceState(
-    adapter,
-    issueNumber,
-    fromLabels,
-    [`shopfloor:${decision.complexity}`, nextStageLabel],
-  );
+  await advanceState(adapter, issueNumber, fromLabels, [
+    `shopfloor:${decision.complexity}`,
+    nextStageLabel,
+  ]);
 }
 
 export async function runApplyTriageDecision(

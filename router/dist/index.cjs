@@ -24837,12 +24837,9 @@ async function applyTriageDecision(adapter, params) {
     ].join("\n");
     await adapter.postIssueComment(issueNumber, body2);
     const fromLabels2 = current.has("shopfloor:triaging") ? ["shopfloor:triaging"] : [];
-    await advanceState(
-      adapter,
-      issueNumber,
-      fromLabels2,
-      ["shopfloor:awaiting-info"]
-    );
+    await advanceState(adapter, issueNumber, fromLabels2, [
+      "shopfloor:awaiting-info"
+    ]);
     return;
   }
   const nextStageLabel = NEXT_STAGE_LABEL[decision.complexity];
@@ -24855,12 +24852,10 @@ async function applyTriageDecision(adapter, params) {
   const fromLabels = ["shopfloor:triaging", "shopfloor:awaiting-info"].filter(
     (l) => current.has(l)
   );
-  await advanceState(
-    adapter,
-    issueNumber,
-    fromLabels,
-    [`shopfloor:${decision.complexity}`, nextStageLabel]
-  );
+  await advanceState(adapter, issueNumber, fromLabels, [
+    `shopfloor:${decision.complexity}`,
+    nextStageLabel
+  ]);
 }
 async function runApplyTriageDecision(adapter) {
   const issueNumber = Number(core11.getInput("issue_number", { required: true }));
