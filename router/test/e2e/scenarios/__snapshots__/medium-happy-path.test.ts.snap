@@ -1,0 +1,137 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`medium happy path > triage(medium) -> plan -> human merge -> implement -> review approved -> merge -> done 1`] = `
+{
+  "comments": [
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor triage: classified as \`medium\`.**
+
+needs a plan",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "Plan merged in #43. Moving to implementation stage.",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor implementation complete.**
+
+Done.",
+      "issue": 44,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "Implementation merged in #44. Pipeline complete.",
+      "issue": 42,
+    },
+  ],
+  "issues": [
+    {
+      "body": "Need foo with multi-step plan.
+
+<!-- shopfloor:metadata
+Shopfloor-Slug: add-foo
+-->",
+      "labels": [
+        "shopfloor:enabled",
+        "shopfloor:medium",
+        "shopfloor:done",
+      ],
+      "number": 42,
+      "state": "closed",
+      "title": "Add foo",
+    },
+  ],
+  "labels": [
+    "shopfloor:awaiting-info",
+    "shopfloor:done",
+    "shopfloor:failed:implement",
+    "shopfloor:failed:plan",
+    "shopfloor:failed:review",
+    "shopfloor:failed:spec",
+    "shopfloor:failed:triage",
+    "shopfloor:impl-in-review",
+    "shopfloor:implementing",
+    "shopfloor:large",
+    "shopfloor:medium",
+    "shopfloor:needs-impl",
+    "shopfloor:needs-plan",
+    "shopfloor:needs-review",
+    "shopfloor:needs-spec",
+    "shopfloor:plan-in-review",
+    "shopfloor:plan-running",
+    "shopfloor:quick",
+    "shopfloor:review-approved",
+    "shopfloor:review-requested-changes",
+    "shopfloor:review-stuck",
+    "shopfloor:revise",
+    "shopfloor:skip-review",
+    "shopfloor:spec-in-review",
+    "shopfloor:spec-running",
+    "shopfloor:triaging",
+  ],
+  "pulls": [
+    {
+      "base": "main",
+      "body": "Plan for adding foo.
+
+---
+Shopfloor-Issue: #42
+Shopfloor-Stage: plan
+",
+      "draft": false,
+      "head": "shopfloor/plan/42-fix-can-t-log-in",
+      "merged": true,
+      "number": 43,
+      "state": "closed",
+      "title": "plan: add foo",
+    },
+    {
+      "base": "main",
+      "body": "Implements foo per plan.
+
+---
+Shopfloor-Issue: #42
+Shopfloor-Stage: implement
+Shopfloor-Review-Iteration: 0
+",
+      "draft": false,
+      "head": "shopfloor/impl/42-add-foo",
+      "merged": true,
+      "number": 44,
+      "state": "closed",
+      "title": "feat: add foo",
+    },
+  ],
+  "reviews": [
+    {
+      "body": "<!-- shopfloor-review -->
+**Shopfloor agent review: clean** across 4/4 reviewers.
+
+- ok
+- ok
+- ok
+- ok",
+      "commit": "sha-impl-0",
+      "pr": 44,
+      "state": "approved",
+      "user": "shopfloor-review[bot]",
+    },
+  ],
+  "statuses": [
+    {
+      "contexts": [
+        {
+          "context": "shopfloor/review",
+          "description": "Shopfloor review passed",
+          "state": "success",
+        },
+      ],
+      "sha": "sha-impl-0",
+    },
+  ],
+}
+`;
