@@ -13,6 +13,16 @@ function requireIssue(state: FakeState, n: number) {
   return issue;
 }
 
+/**
+ * GitHub treats every PR as also an Issue for the /issues/:n/comments
+ * endpoint and related surfaces. The fake keeps issues and pulls in
+ * separate maps, so comment-side handlers must accept either. This
+ * returns true if the number resolves to a known PR.
+ */
+function isKnownPr(state: FakeState, n: number): boolean {
+  return state.pulls.has(n);
+}
+
 export function addLabels(
   state: FakeState,
   params: { issue_number: number; labels: string[] },
@@ -57,7 +67,15 @@ export function createComment(
   state: FakeState,
   params: { issue_number: number; body: string },
 ): { id: number } {
-  requireIssue(state, params.issue_number);
+  // Accept either a real Issue or a PR (which GitHub treats as an Issue
+  // for the comments endpoint). Apply-impl-postwork creates progress
+  // comments addressed to the impl PR number, and those must resolve.
+  if (!state.issues.has(params.issue_number) && !isKnownPr(state, params.issue_number)) {
+    throw new FakeRequestError(
+      404,
+      `Issue #${params.issue_number} not found`,
+    );
+  }
   const id = state.nextCommentId++;
   state.comments.set(id, {
     id,
