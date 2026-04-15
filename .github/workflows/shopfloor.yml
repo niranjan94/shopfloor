@@ -378,21 +378,37 @@ jobs:
           BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
           PLAN_FILE_PATH: ${{ needs.route.outputs.plan_file_path }}
           SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
+          COMPLEXITY: ${{ needs.route.outputs.complexity }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
+            echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
+            ISSUE_COMMENTS=""
+          fi
+          # Compose the spec_source slot that plan.md renders verbatim. Large
+          # flow: wrap the real spec file in <spec_file_contents>. Medium flow:
+          # emit a concrete "no spec for this issue" statement so the agent
+          # derives the design directly from the issue body and comments.
+          if [ -f "$SPEC_FILE_PATH" ]; then
+            SPEC_SOURCE=$(printf '<spec_file_contents>\n%s\n</spec_file_contents>' "$(cat "$SPEC_FILE_PATH")")
+          else
+            SPEC_SOURCE=$'<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. Derive the design directly from the <issue_body> and <issue_comments> above, then write the plan as usual.\n</spec_source>'
+          fi
           jq -n \
             --arg issue_number "$ISSUE_NUMBER" \
             --arg issue_title "$ISSUE_TITLE" \
             --arg issue_body "${ISSUE_BODY:-}" \
+            --arg issue_comments "$ISSUE_COMMENTS" \
             --arg branch_name "$BRANCH_NAME" \
             --arg plan_file_path "$PLAN_FILE_PATH" \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
-            --arg spec_file_contents "$(test -f "$SPEC_FILE_PATH" && cat "$SPEC_FILE_PATH" || echo '')" \
+            --arg spec_source "$SPEC_SOURCE" \
             --arg previous_plan_contents "" \
             --arg review_comments_json "[]" \
-            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, branch_name: $branch_name, plan_file_path: $plan_file_path, repo_owner: $repo_owner, repo_name: $repo_name, spec_file_contents: $spec_file_contents, previous_plan_contents: $previous_plan_contents, review_comments_json: $review_comments_json}' \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, branch_name: $branch_name, plan_file_path: $plan_file_path, repo_owner: $repo_owner, repo_name: $repo_name, spec_source: $spec_source, previous_plan_contents: $previous_plan_contents, review_comments_json: $review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render plan prompt
@@ -578,16 +594,34 @@ jobs:
           BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
           SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
           PLAN_FILE_PATH: ${{ needs.route.outputs.plan_file_path }}
+          COMPLEXITY: ${{ needs.route.outputs.complexity }}
           PROGRESS_COMMENT_ID: ${{ steps.progress.outputs.comment_id }}
           BASH_ALLOWLIST: ${{ inputs.impl_bash_allowlist }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
+            echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
+            ISSUE_COMMENTS=""
+          fi
+          # Compose the spec_source slot that implement.md renders verbatim.
+          # Large flow: wrap the real spec file in <spec_file_contents>. Medium
+          # flow: emit a concrete "no spec in this flow" statement so the agent
+          # treats the plan as the sole source of truth. Quick flow never
+          # references spec_source because implement-quick.md has no such slot,
+          # so the value we set here is harmless for quick.
+          if [ -f "$SPEC_FILE_PATH" ]; then
+            SPEC_SOURCE=$(printf '<spec_file_contents>\n%s\n</spec_file_contents>' "$(cat "$SPEC_FILE_PATH")")
+          else
+            SPEC_SOURCE=$'<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.\n</spec_source>'
+          fi
           jq -n \
             --arg issue_number "$ISSUE_NUMBER" \
             --arg issue_title "$ISSUE_TITLE" \
             --arg issue_body "${ISSUE_BODY:-}" \
-            --arg spec_file_contents "$(test -f "$SPEC_FILE_PATH" && cat "$SPEC_FILE_PATH" || echo '')" \
+            --arg issue_comments "$ISSUE_COMMENTS" \
+            --arg spec_source "$SPEC_SOURCE" \
             --arg plan_file_contents "$(test -f "$PLAN_FILE_PATH" && cat "$PLAN_FILE_PATH" || echo '')" \
             --arg branch_name "$BRANCH_NAME" \
             --arg progress_comment_id "$PROGRESS_COMMENT_ID" \
@@ -596,16 +630,37 @@ jobs:
             --arg bash_allowlist "$BASH_ALLOWLIST" \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
-            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, branch_name: $branch_name, progress_comment_id: $progress_comment_id, review_comments_json: $review_comments_json, iteration_count: $iteration_count, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, spec_source: $spec_source, plan_file_contents: $plan_file_contents, branch_name: $branch_name, progress_comment_id: $progress_comment_id, review_comments_json: $review_comments_json, iteration_count: $iteration_count, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      # Quick issues have no plan to follow and should not invoke
+      # superpowers:subagent-driven-development. They get a dedicated
+      # one-shot prompt and skip the superpowers plugin load entirely.
+      # Medium and large both invoke the plan-driven implement prompt,
+      # which in turn invokes subagent-driven-development.
+      - name: Choose implement prompt and plugins
+        id: impl_choice
+        env:
+          COMPLEXITY: ${{ needs.route.outputs.complexity }}
+        run: |
+          if [ "$COMPLEXITY" = "quick" ]; then
+            echo "prompt_file=prompts/implement-quick.md" >> "$GITHUB_OUTPUT"
+            # Empty plugins input. Captured via step output (not a ${{ ... && '' || ... }}
+            # ternary) because GitHub Actions expression short-circuiting treats
+            # the empty string as falsy and would fall through to the non-empty
+            # branch, which is the opposite of what we want.
+            echo "plugins=" >> "$GITHUB_OUTPUT"
+          else
+            echo "prompt_file=prompts/implement.md" >> "$GITHUB_OUTPUT"
+            echo "plugins=superpowers@claude-plugins-official" >> "$GITHUB_OUTPUT"
+          fi
       - name: Render implement prompt
         id: prompt
         uses: ./router
         with:
           helper: render-prompt
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt_file: prompts/implement.md
+          prompt_file: ${{ steps.impl_choice.outputs.prompt_file }}
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
@@ -617,8 +672,7 @@ jobs:
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
-          plugins: |-
-            superpowers@claude-plugins-official
+          plugins: ${{ steps.impl_choice.outputs.plugins }}
           claude_args: |
             --model ${{ inputs.impl_model }}
             --effort ${{ inputs.impl_effort }}
@@ -729,12 +783,11 @@ jobs:
             --arg pr_body "${PR_BODY:-}" \
             --arg diff "$DIFF" \
             --arg changed_files "$CHANGED" \
-            --arg spec_file_contents "" \
             --arg plan_file_contents "" \
             --arg issue_body "${ISSUE_BODY:-}" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render compliance prompt
@@ -796,12 +849,11 @@ jobs:
             --arg pr_body "${PR_BODY:-}" \
             --arg diff "$DIFF" \
             --arg changed_files "$CHANGED" \
-            --arg spec_file_contents "" \
             --arg plan_file_contents "" \
             --arg issue_body "${ISSUE_BODY:-}" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render bugs prompt
@@ -863,12 +915,11 @@ jobs:
             --arg pr_body "${PR_BODY:-}" \
             --arg diff "$DIFF" \
             --arg changed_files "$CHANGED" \
-            --arg spec_file_contents "" \
             --arg plan_file_contents "" \
             --arg issue_body "${ISSUE_BODY:-}" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render security prompt
@@ -930,12 +981,11 @@ jobs:
             --arg pr_body "${PR_BODY:-}" \
             --arg diff "$DIFF" \
             --arg changed_files "$CHANGED" \
-            --arg spec_file_contents "" \
             --arg plan_file_contents "" \
             --arg issue_body "${ISSUE_BODY:-}" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, spec_file_contents: $spec_file_contents, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render smells prompt

@@ -51,9 +51,7 @@ Review iteration: {{iteration_count}}
 {{issue_body}}
 </issue_body>
 
-<spec_file_contents>
-{{spec_file_contents}}
-</spec_file_contents>
+{{spec_source}}
 
 <plan_file_contents>
 {{plan_file_contents}}

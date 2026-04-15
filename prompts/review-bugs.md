@@ -34,10 +34,6 @@ Review iteration: {{iteration_count}}
 {{changed_files}}
 </changed_files>
 
-<spec_file_contents>
-{{spec_file_contents}}
-</spec_file_contents>
-
 <plan_file_contents>
 {{plan_file_contents}}
 </plan_file_contents>

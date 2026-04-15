@@ -14,7 +14,6 @@ const commonReviewContext: Record<string, string> = {
   pr_body: "PR body",
   diff: "diff --git a/src/auth.ts b/src/auth.ts\n@@ +const X = 1;",
   changed_files: "src/auth.ts",
-  spec_file_contents: "spec",
   plan_file_contents: "plan",
   issue_body: "issue body",
   iteration_count: "0",
@@ -52,16 +51,37 @@ test("spec prompt renders with fixture context", () => {
   expect(rendered).not.toContain("{{MISSING");
 });
 
-test("plan prompt renders with fixture context", () => {
+test("plan prompt renders with fixture context (large flow: spec present)", () => {
   const rendered = renderPrompt(join(repoRoot, "prompts/plan.md"), {
     issue_number: "42",
     issue_title: "Add GitHub OAuth",
     issue_body: "Users want to log in with GitHub.",
+    issue_comments: "",
     branch_name: "shopfloor/plan/42-add-github-oauth",
     plan_file_path: "docs/shopfloor/plans/42-add-github-oauth.md",
     repo_owner: "niranjan94",
     repo_name: "shopfloor",
-    spec_file_contents: "# Spec\nDetails here.",
+    spec_source:
+      "<spec_file_contents>\n# Spec\nDetails here.\n</spec_file_contents>",
+    previous_plan_contents: "",
+    review_comments_json: "[]",
+  });
+  expect(rendered).toMatchSnapshot();
+  expect(rendered).not.toContain("{{MISSING");
+});
+
+test("plan prompt renders with fixture context (medium flow: no spec)", () => {
+  const rendered = renderPrompt(join(repoRoot, "prompts/plan.md"), {
+    issue_number: "42",
+    issue_title: "Add a /health endpoint",
+    issue_body: "Expose /health returning 200 OK.",
+    issue_comments: "",
+    branch_name: "shopfloor/plan/42-add-health-endpoint",
+    plan_file_path: "docs/shopfloor/plans/42-add-health-endpoint.md",
+    repo_owner: "niranjan94",
+    repo_name: "shopfloor",
+    spec_source:
+      "<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. Derive the design directly from the <issue_body> and <issue_comments> above, then write the plan as usual.\n</spec_source>",
     previous_plan_contents: "",
     review_comments_json: "[]",
   });
@@ -74,9 +94,28 @@ test("implement prompt renders with fixture context", () => {
     issue_number: "42",
     issue_title: "Add GitHub OAuth",
     issue_body: "Users want to log in with GitHub.",
-    spec_file_contents: "# Spec",
+    issue_comments: "",
+    spec_source: "<spec_file_contents>\n# Spec\n</spec_file_contents>",
     plan_file_contents: "# Plan",
     branch_name: "shopfloor/impl/42-add-github-oauth",
+    progress_comment_id: "999",
+    review_comments_json: "[]",
+    iteration_count: "0",
+    bash_allowlist: "pnpm install,pnpm test:*",
+    repo_owner: "niranjan94",
+    repo_name: "shopfloor",
+  });
+  expect(rendered).toMatchSnapshot();
+  expect(rendered).not.toContain("{{MISSING");
+});
+
+test("implement-quick prompt renders with fixture context", () => {
+  const rendered = renderPrompt(join(repoRoot, "prompts/implement-quick.md"), {
+    issue_number: "42",
+    issue_title: "Fix typo in README",
+    issue_body: "There is a typo on line 3 of README.md.",
+    issue_comments: "",
+    branch_name: "shopfloor/impl/42-fix-typo-in-readme",
     progress_comment_id: "999",
     review_comments_json: "[]",
     iteration_count: "0",

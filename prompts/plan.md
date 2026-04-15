@@ -41,9 +41,11 @@ Target plan file path: {{plan_file_path}}
 {{issue_body}}
 </issue_body>
 
-<spec_file_contents>
-{{spec_file_contents}}
-</spec_file_contents>
+<issue_comments>
+{{issue_comments}}
+</issue_comments>
+
+{{spec_source}}
 
 <previous_plan>
 {{previous_plan_contents}}
