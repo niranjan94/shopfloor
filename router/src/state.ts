@@ -218,6 +218,19 @@ function resolveIssueEvent(
     if (failedStage === "triage") {
       return { stage: "triage", issueNumber, reason: retryReason };
     }
+    // Review is driven by impl-PR events (synchronize / ready_for_review),
+    // not issue events. Removing shopfloor:failed:review clears the
+    // failed-label gate so the next push to the impl PR can retrigger
+    // review naturally; there is no issue-side action to take here. The
+    // descriptive reason makes this visible in router logs and matches the
+    // retry instructions surfaced by report-failure for stage=review.
+    if (failedStage === "review" && labels.has("shopfloor:needs-review")) {
+      return {
+        stage: "none",
+        issueNumber,
+        reason: "retry_review_cleared_awaiting_next_push",
+      };
+    }
     return {
       stage: "none",
       issueNumber,

@@ -7,6 +7,13 @@ export interface ApplyImplPostworkParams {
   prNumber: number;
   prTitle: string;
   prBody: string;
+  /**
+   * Whether the caller has a secondary review GitHub App configured. When
+   * false, every review-stage job is gated off in the workflow, so routing an
+   * impl PR to shopfloor:needs-review would strand the issue in permanent
+   * review purgatory. Short-circuit to shopfloor:impl-in-review instead.
+   */
+  hasReviewApp: boolean;
 }
 
 function parseIterationFromBody(body: string | null): number {
@@ -54,7 +61,9 @@ export async function applyImplPostwork(
     body: bodyWithFooter,
   });
 
-  const skip = await checkReviewSkip(adapter, params.prNumber);
+  const skip = params.hasReviewApp
+    ? await checkReviewSkip(adapter, params.prNumber)
+    : { skip: true, reason: "no_review_app_configured" };
   const nextLabel = skip.skip
     ? "shopfloor:impl-in-review"
     : "shopfloor:needs-review";
@@ -73,12 +82,19 @@ export async function applyImplPostwork(
 export async function runApplyImplPostwork(
   adapter: GitHubAdapter,
 ): Promise<void> {
+  const hasReviewApp = core.getInput("has_review_app") === "true";
   const result = await applyImplPostwork(adapter, {
     issueNumber: Number(core.getInput("issue_number", { required: true })),
     prNumber: Number(core.getInput("pr_number", { required: true })),
     prTitle: core.getInput("pr_title", { required: true }),
     prBody: core.getInput("pr_body", { required: true }),
+    hasReviewApp,
   });
+  if (!hasReviewApp) {
+    core.warning(
+      "apply-impl-postwork: no secondary review GitHub App configured (SHOPFLOOR_GITHUB_APP_REVIEW_*). Skipping agent review and marking PR impl-in-review for direct human review. See docs/troubleshooting for how to enable agent review.",
+    );
+  }
   core.setOutput("next_label", result.nextLabel);
   if (result.skipReason) core.setOutput("skip_reason", result.skipReason);
 }

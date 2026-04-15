@@ -69,9 +69,11 @@ export async function applyTriageDecision(
       "Remove the `shopfloor:awaiting-info` label once you have updated the issue body or added answers in comments.",
     ].join("\n");
     await adapter.postIssueComment(issueNumber, body);
-    // Pass only from_labels actually present so advance-state's strict
-    // presence assertion does not throw when shopfloor:triaging was never
-    // set (it is not wired up in the workflow; see spec 8.2).
+    // Every triage run (first-time, failed-triage retry, and re-triage from
+    // awaiting-info) is preceded by the workflow's "Mark triage as running"
+    // advance-state step, so shopfloor:triaging is normally present here.
+    // The .has() guard is kept so this helper stays safe if that step is
+    // ever re-ordered or removed.
     const fromLabels = current.has("shopfloor:triaging")
       ? ["shopfloor:triaging"]
       : [];

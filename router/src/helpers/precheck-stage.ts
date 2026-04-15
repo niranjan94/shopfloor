@@ -26,6 +26,11 @@ export interface PrecheckResult {
 }
 
 const TRIAGE_BLOCKING_STATE_LABELS = new Set<string>([
+  // shopfloor:triaging is a transient mutex marker set by the triage job's
+  // pre-agent advance-state step. If it is already present when a second
+  // triage run tries to enter, either a concurrent run is live or a prior
+  // run crashed without running report-failure; either way, skip.
+  "shopfloor:triaging",
   "shopfloor:needs-spec",
   "shopfloor:needs-plan",
   "shopfloor:needs-impl",

@@ -213,6 +213,20 @@ jobs:
       - name: Log precheck skip
         if: steps.precheck.outputs.skip == 'true'
         run: echo "::notice title=Shopfloor triage skipped::${{ steps.precheck.outputs.reason }}"
+      # Claim the triage mutex before the agent runs. precheck-stage has
+      # already verified shopfloor:triaging is absent; this step adds it so
+      # that any queued second triage run for the same issue skips at its
+      # own precheck. Cleared on success by apply-triage-decision, on
+      # failure by report-failure (stage=triage).
+      - name: Mark triage as running
+        if: steps.precheck.outputs.skip != 'true'
+        uses: ./router
+        with:
+          helper: advance-state
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          from_labels: ""
+          to_labels: shopfloor:triaging
       - name: Build triage context
         if: steps.precheck.outputs.skip != 'true'
         id: ctx
@@ -933,6 +947,12 @@ jobs:
           pr_number: ${{ steps.open_pr.outputs.pr_number }}
           pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
           pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
+          # Every review-stage job is gated on this flag (set by the route
+          # job from the SHOPFLOOR_GITHUB_APP_REVIEW_* secrets). Without it,
+          # routing to shopfloor:needs-review would strand the issue in
+          # permanent review purgatory because no review job would ever
+          # fire. The helper short-circuits to impl-in-review in that case.
+          has_review_app: ${{ needs.route.outputs.has_review_app }}
       - name: Report failure
         if: failure() && steps.precheck.outputs.skip != 'true'
         uses: ./router
@@ -1435,7 +1455,9 @@ jobs:
       - name: Log precheck skip
         if: steps.precheck.outputs.skip == 'true'
         run: echo "::notice title=Shopfloor review skipped::${{ steps.precheck.outputs.reason }}"
-      - uses: ./router
+      - name: Aggregate review
+        id: aggregate
+        uses: ./router
         if: steps.precheck.outputs.skip != 'true'
         with:
           helper: aggregate-review
@@ -1451,6 +1473,20 @@ jobs:
           smells_output: ${{ needs.review-smells.outputs.structured_output }}
           workflow_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           analysed_sha: ${{ github.event.pull_request.head.sha }}
+      - name: Report failure
+        # Only the aggregate-review step itself failing counts as a "review
+        # failed" condition worth labelling the issue for. Matrix job
+        # crashes propagate via aggregate-review's missing-output handling
+        # and surface as a "review-stuck" decision, not a failure.
+        if: failure() && steps.aggregate.outcome == 'failure'
+        uses: ./router
+        with:
+          helper: report-failure
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ needs.route.outputs.issue_number }}
+          stage: review
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          target_pr_number: ${{ needs.route.outputs.impl_pr_number }}
 
   handle-merge:
     needs: route

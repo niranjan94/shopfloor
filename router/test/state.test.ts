@@ -223,6 +223,20 @@ describe("resolveStage", () => {
     );
   });
 
+  test("unlabeled(shopfloor:failed:review) with needs-review present -> none (retry requires next PR push)", () => {
+    // Review is driven by pull_request events, so there is no issue-side
+    // stage to transition to. Clearing the failed label unblocks the
+    // failed-label gate; the next push to the impl PR will retrigger
+    // review via synchronize. The reason surfaces this in router logs so
+    // it does not look like the action got lost.
+    const decision = resolveStage(
+      ctx("issues", "issue-unlabeled-failed-review-with-needs-review"),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("retry_review_cleared_awaiting_next_push");
+    expect(decision.issueNumber).toBe(42);
+  });
+
   test("labeled with unrelated label while needs-spec present -> none", () => {
     // Regression guard: previously the state-label rules used `labels.has(...)` with
     // no action guard, so an incidental labeled event (priority tag, random label,
@@ -338,7 +352,9 @@ describe("parseIssueMetadata", () => {
   });
 
   test("returns null when body has no metadata block", () => {
-    expect(parseIssueMetadata("Just a plain issue body, nothing inside.")).toBeNull();
+    expect(
+      parseIssueMetadata("Just a plain issue body, nothing inside."),
+    ).toBeNull();
   });
 
   test("parses Shopfloor-Slug out of the metadata block", () => {

@@ -51,6 +51,7 @@ describe("applyImplPostwork", () => {
       prNumber: 45,
       prTitle: "feat: add GitHub OAuth login (#42)",
       prBody: "Full implementation body",
+      hasReviewApp: true,
     });
     expect(result.nextLabel).toBe("shopfloor:needs-review");
     expect(bundle.mocks.updatePr).toHaveBeenCalledWith(
@@ -116,6 +117,7 @@ describe("applyImplPostwork", () => {
       prNumber: 45,
       prTitle: "title",
       prBody: "body",
+      hasReviewApp: true,
     });
     expect(result.nextLabel).toBe("shopfloor:impl-in-review");
   });
@@ -141,6 +143,7 @@ describe("applyImplPostwork", () => {
         prNumber: 45,
         prTitle: "t",
         prBody: "b",
+        hasReviewApp: true,
       }),
     ).rejects.toThrow(/implementing/);
   });
@@ -191,6 +194,7 @@ describe("applyImplPostwork", () => {
       prNumber: 45,
       prTitle: "t",
       prBody: "b",
+      hasReviewApp: true,
     });
     expect(bundle.mocks.removeLabel).toHaveBeenCalledWith(
       expect.objectContaining({ name: "shopfloor:implementing" }),
@@ -244,6 +248,7 @@ describe("applyImplPostwork", () => {
       prNumber: 45,
       prTitle: "feat: x",
       prBody: "New agent narrative from this run.",
+      hasReviewApp: true,
     });
 
     const updatePrCalls = bundle.mocks.updatePr.mock.calls;
@@ -254,5 +259,46 @@ describe("applyImplPostwork", () => {
     expect(writtenBody).toContain("Shopfloor-Issue: #42");
     expect(writtenBody).toContain("Shopfloor-Stage: implement");
     expect(writtenBody).toContain("Shopfloor-Review-Iteration: 2");
+  });
+
+  test("hasReviewApp=false short-circuits to impl-in-review without touching review-skip inputs", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [
+          { name: "shopfloor:needs-impl" },
+          { name: "shopfloor:implementing" },
+        ],
+        state: "open",
+      },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "abc" },
+        body: "Body\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0\n",
+      },
+    });
+
+    const result = await applyImplPostwork(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      prTitle: "feat: x",
+      prBody: "body",
+      hasReviewApp: false,
+    });
+
+    expect(result.nextLabel).toBe("shopfloor:impl-in-review");
+    expect(result.skipReason).toBe("no_review_app_configured");
+    // checkReviewSkip must be bypassed entirely: neither the changed-files
+    // listing nor the existing-review lookup should have been consulted.
+    expect(bundle.mocks.listFiles).not.toHaveBeenCalled();
+    expect(bundle.mocks.listReviews).not.toHaveBeenCalled();
+    expect(bundle.mocks.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["shopfloor:impl-in-review"] }),
+    );
   });
 });

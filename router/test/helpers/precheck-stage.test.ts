@@ -26,14 +26,20 @@ describe("precheckStage", () => {
       expect(r.skip).toBe(false);
     });
 
-    test("triaging label present -> skip=false", async () => {
+    test("triaging mutex marker already present -> skip=true", async () => {
+      // A queued second triage run must not race the first: the triaging
+      // marker is set by the triage job's pre-agent advance-state step and
+      // cleared either by apply-triage-decision (success) or report-failure
+      // (failure). Its presence means either a concurrent run is live or a
+      // prior run crashed without cleanup.
       const bundle = makeMockAdapter();
       withLabels(bundle, ["shopfloor:triaging"]);
       const r = await precheckStage(bundle.adapter, {
         stage: "triage",
         issueNumber: 42,
       });
-      expect(r.skip).toBe(false);
+      expect(r.skip).toBe(true);
+      expect(r.reason).toMatch(/triaging/);
     });
 
     test("awaiting-info present -> skip=false", async () => {
