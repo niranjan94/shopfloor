@@ -299,4 +299,110 @@ export class GitHubAdapter {
         body: r.body ?? "",
       }));
   }
+
+  async listPrReviews(prNumber: number): Promise<
+    Array<{
+      id: number;
+      user: { login: string } | null;
+      body: string;
+      commit_id: string;
+      state: string;
+      submitted_at: string | null;
+    }>
+  > {
+    const res = await this.octokit.rest.pulls.listReviews({
+      ...this.repo,
+      pull_number: prNumber,
+      per_page: 100,
+    });
+    return res.data.map((r) => ({
+      id: r.id,
+      user: r.user as { login: string } | null,
+      body: r.body ?? "",
+      commit_id: r.commit_id,
+      state: r.state,
+      submitted_at: r.submitted_at,
+    }));
+  }
+
+  async listPrReviewComments(prNumber: number): Promise<
+    Array<{
+      id: number;
+      pull_request_review_id: number | null;
+      path: string;
+      line: number | null;
+      side: "LEFT" | "RIGHT" | null;
+      start_line: number | null;
+      start_side: "LEFT" | "RIGHT" | null;
+      body: string;
+    }>
+  > {
+    const all: Array<{
+      id: number;
+      pull_request_review_id: number | null;
+      path: string;
+      line: number | null;
+      side: "LEFT" | "RIGHT" | null;
+      start_line: number | null;
+      start_side: "LEFT" | "RIGHT" | null;
+      body: string;
+    }> = [];
+    let page = 1;
+    for (;;) {
+      const res = await this.octokit.rest.pulls.listReviewComments({
+        ...this.repo,
+        pull_number: prNumber,
+        per_page: 100,
+        page,
+      });
+      all.push(
+        ...res.data.map((c) => ({
+          id: c.id,
+          pull_request_review_id: c.pull_request_review_id,
+          path: c.path,
+          line: c.line,
+          side: c.side,
+          start_line: c.start_line,
+          start_side: c.start_side,
+          body: c.body,
+        })),
+      );
+      if (res.data.length < 100) break;
+      page++;
+    }
+    return all;
+  }
+
+  async listIssueComments(issueNumber: number): Promise<
+    Array<{
+      user: { login: string } | null;
+      created_at: string;
+      body: string | null;
+    }>
+  > {
+    const all: Array<{
+      user: { login: string } | null;
+      created_at: string;
+      body: string | null;
+    }> = [];
+    let page = 1;
+    for (;;) {
+      const res = await this.octokit.rest.issues.listComments({
+        ...this.repo,
+        issue_number: issueNumber,
+        per_page: 100,
+        page,
+      });
+      all.push(
+        ...res.data.map((c) => ({
+          user: c.user as { login: string } | null,
+          created_at: c.created_at,
+          body: c.body,
+        })),
+      );
+      if (res.data.length < 100) break;
+      page++;
+    }
+    return all;
+  }
 }

@@ -26,6 +26,8 @@ function makeMockOctokit(): {
     listFiles: vi.fn().mockResolvedValue({ data: [] }),
     createReview: vi.fn().mockResolvedValue({ data: { id: 1 } }),
     listReviews: vi.fn().mockResolvedValue({ data: [] }),
+    listReviewComments: vi.fn().mockResolvedValue({ data: [] }),
+    listIssueComments: vi.fn().mockResolvedValue({ data: [] }),
     createCommitStatus: vi.fn().mockResolvedValue({ data: {} }),
   };
   const octokit: OctokitLike = {
@@ -39,6 +41,7 @@ function makeMockOctokit(): {
         listLabelsForRepo: mocks.listLabelsForRepo,
         update: mocks.updateIssue,
         get: mocks.getIssue,
+        listComments: mocks.listIssueComments,
       },
       pulls: {
         create: mocks.createPr,
@@ -48,6 +51,7 @@ function makeMockOctokit(): {
         listFiles: mocks.listFiles,
         createReview: mocks.createReview,
         listReviews: mocks.listReviews,
+        listReviewComments: mocks.listReviewComments,
       },
       repos: {
         createCommitStatus: mocks.createCommitStatus,
@@ -157,6 +161,134 @@ describe("GitHubAdapter", () => {
     expect(result.number).toBe(88);
     expect(mocks.createPr).not.toHaveBeenCalled();
     expect(mocks.updatePr).not.toHaveBeenCalled();
+  });
+
+  test("listPrReviews returns reviews with state and submitted_at", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 10,
+          user: { login: "reviewer" },
+          body: "please fix",
+          commit_id: "abc",
+          state: "CHANGES_REQUESTED",
+          submitted_at: "2026-04-14T12:00:00Z",
+        },
+        {
+          id: 11,
+          user: null,
+          body: null,
+          commit_id: "abc",
+          state: "COMMENTED",
+          submitted_at: null,
+        },
+      ],
+    });
+    const adapter = new GitHubAdapter(octokit, repo);
+    const reviews = await adapter.listPrReviews(45);
+    expect(mocks.listReviews).toHaveBeenCalledWith({
+      owner: "niranjan94",
+      repo: "shopfloor",
+      pull_number: 45,
+      per_page: 100,
+    });
+    expect(reviews).toEqual([
+      {
+        id: 10,
+        user: { login: "reviewer" },
+        body: "please fix",
+        commit_id: "abc",
+        state: "CHANGES_REQUESTED",
+        submitted_at: "2026-04-14T12:00:00Z",
+      },
+      {
+        id: 11,
+        user: null,
+        body: "",
+        commit_id: "abc",
+        state: "COMMENTED",
+        submitted_at: null,
+      },
+    ]);
+  });
+
+  test("listPrReviewComments returns inline comments with review id", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    mocks.listReviewComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 501,
+          pull_request_review_id: 10,
+          path: "src/auth.ts",
+          line: 42,
+          side: "RIGHT",
+          start_line: null,
+          start_side: null,
+          body: "rename this",
+        },
+      ],
+    });
+    const adapter = new GitHubAdapter(octokit, repo);
+    const comments = await adapter.listPrReviewComments(45);
+    expect(mocks.listReviewComments).toHaveBeenCalledWith({
+      owner: "niranjan94",
+      repo: "shopfloor",
+      pull_number: 45,
+      per_page: 100,
+      page: 1,
+    });
+    expect(comments).toEqual([
+      {
+        id: 501,
+        pull_request_review_id: 10,
+        path: "src/auth.ts",
+        line: 42,
+        side: "RIGHT",
+        start_line: null,
+        start_side: null,
+        body: "rename this",
+      },
+    ]);
+  });
+
+  test("listIssueComments returns issue comments with user and created_at", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    mocks.listIssueComments.mockResolvedValueOnce({
+      data: [
+        {
+          user: { login: "alice" },
+          created_at: "2026-04-14T09:00:00Z",
+          body: "please also cover the edge case",
+        },
+        {
+          user: null,
+          created_at: "2026-04-14T10:00:00Z",
+          body: null,
+        },
+      ],
+    });
+    const adapter = new GitHubAdapter(octokit, repo);
+    const comments = await adapter.listIssueComments(42);
+    expect(mocks.listIssueComments).toHaveBeenCalledWith({
+      owner: "niranjan94",
+      repo: "shopfloor",
+      issue_number: 42,
+      per_page: 100,
+      page: 1,
+    });
+    expect(comments).toEqual([
+      {
+        user: { login: "alice" },
+        created_at: "2026-04-14T09:00:00Z",
+        body: "please also cover the edge case",
+      },
+      {
+        user: null,
+        created_at: "2026-04-14T10:00:00Z",
+        body: null,
+      },
+    ]);
   });
 
   test("setReviewStatus calls createCommitStatus with context shopfloor/review", async () => {

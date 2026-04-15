@@ -178,6 +178,19 @@ export interface OctokitLike {
           body?: string | null;
         };
       }>;
+      listComments(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        per_page?: number;
+        page?: number;
+      }): Promise<{
+        data: Array<{
+          user: unknown;
+          created_at: string;
+          body: string | null;
+        }>;
+      }>;
     };
     pulls: {
       create(params: {
@@ -237,6 +250,26 @@ export interface OctokitLike {
           user: unknown;
           body: string | null;
           commit_id: string;
+          state: string;
+          submitted_at: string | null;
+        }>;
+      }>;
+      listReviewComments(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        per_page?: number;
+        page?: number;
+      }): Promise<{
+        data: Array<{
+          id: number;
+          pull_request_review_id: number | null;
+          path: string;
+          line: number | null;
+          side: "LEFT" | "RIGHT" | null;
+          start_line: number | null;
+          start_side: "LEFT" | "RIGHT" | null;
+          body: string;
         }>;
       }>;
     };
