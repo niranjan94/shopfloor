@@ -2,6 +2,8 @@ import { expect, test } from "vitest";
 import { renderPrompt } from "../src/prompt-render";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "../..");
@@ -125,6 +127,19 @@ test("implement-quick prompt renders with fixture context", () => {
   });
   expect(rendered).toMatchSnapshot();
   expect(rendered).not.toContain("{{MISSING");
+});
+
+test("renderPrompt throws on unresolved placeholders", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "prompt-render-"));
+  const file = join(tmp, "test.md");
+  writeFileSync(file, "Hello {{ name }}, your role is {{ role }}.");
+  try {
+    expect(() => renderPrompt(file, { name: "Alice" })).toThrowError(
+      /unresolved placeholders.*role/,
+    );
+  } finally {
+    rmSync(tmp, { recursive: true });
+  }
 });
 
 for (const name of [
