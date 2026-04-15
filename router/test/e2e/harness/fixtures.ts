@@ -11,6 +11,14 @@ export interface LoadEventOverrides {
   issueNumber?: number;
   prNumber?: number;
   sha?: string;
+  /**
+   * Override `pull_request.head.ref` on PR / PR-review events. Needed by
+   * scenarios that re-run a stage from a synthetic PR whose branch name
+   * is derived from the live fake state (e.g. the spec rework scenario
+   * reads the spec branch from the first route call and wants the
+   * changes_requested event to carry the same ref).
+   */
+  headRef?: string;
 }
 
 // Use import.meta.url-based resolution to avoid the __dirname-undefined-in-ESM
@@ -42,6 +50,14 @@ function patchOverrides(payload: any, ov: LoadEventOverrides | undefined): any {
   if (ov.sha !== undefined) {
     if (next.pull_request) {
       next.pull_request.head = { ...(next.pull_request.head ?? {}), sha: ov.sha };
+    }
+  }
+  if (ov.headRef !== undefined) {
+    if (next.pull_request) {
+      next.pull_request.head = {
+        ...(next.pull_request.head ?? {}),
+        ref: ov.headRef,
+      };
     }
   }
   return next;
