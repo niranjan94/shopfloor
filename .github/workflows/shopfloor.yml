@@ -236,6 +236,8 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create spec branch
@@ -307,13 +309,23 @@ jobs:
           git add "${{ needs.route.outputs.spec_file_path }}"
           git commit -m "docs(spec): add ${{ needs.route.outputs.spec_file_path }}"
           git push -u origin "${{ needs.route.outputs.branch_name }}"
+      # github-actions[bot] is forbidden from creating pull requests by default
+      # (Settings > Actions > General > Workflow permissions). Mint a GitHub App
+      # token which is not subject to that restriction.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Open spec PR
         if: success()
         id: open_pr
         uses: ./router
         with:
           helper: open-stage-pr
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: spec
           branch_name: ${{ needs.route.outputs.branch_name }}
@@ -348,6 +360,8 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create plan branch
@@ -414,13 +428,22 @@ jobs:
           git add "${{ needs.route.outputs.plan_file_path }}"
           git commit -m "docs(plan): add ${{ needs.route.outputs.plan_file_path }}"
           git push -u origin "${{ needs.route.outputs.branch_name }}"
+      # github-actions[bot] is forbidden from creating pull requests by default.
+      # Mint a GitHub App token which is not subject to that restriction.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Open plan PR
         if: success()
         id: open_pr
         uses: ./router
         with:
           helper: open-stage-pr
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: plan
           branch_name: ${{ needs.route.outputs.branch_name }}
@@ -469,11 +492,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${{ needs.route.outputs.branch_name }}"
           git push -u origin "${{ needs.route.outputs.branch_name }}"
+      # github-actions[bot] is forbidden from creating pull requests by default.
+      # Mint a pre-agent GitHub App token for the draft PR + initial progress
+      # comment so both surface under the same bot identity. A SECOND mint
+      # (app_token_push) happens later, after the agent, for the post-agent push.
+      - name: Mint pre-agent GitHub App token
+        id: app_token_pr
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: open_pr
         uses: ./router
         with:
           helper: open-stage-pr
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_pr.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: implement
           branch_name: ${{ needs.route.outputs.branch_name }}
@@ -484,7 +518,7 @@ jobs:
         uses: ./router
         with:
           helper: create-progress-comment
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_pr.outputs.token || secrets.GITHUB_TOKEN }}
           pr_number: ${{ steps.open_pr.outputs.pr_number }}
       - name: Write Shopfloor MCP config
         run: |
