@@ -193,8 +193,8 @@ secrets:
   cloud_ml_region:
   google_application_credentials:
   anthropic_foundry_resource:
-  github_app_id:
-  github_app_private_key:
+  shopfloor_github_app_id:
+  shopfloor_github_app_private_key:
   ssh_signing_key:
 ```
 

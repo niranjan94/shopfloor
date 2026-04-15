@@ -61,7 +61,7 @@ Go to **Settings → Secrets and variables → Actions → New repository secret
 | `AWS_BEARER_TOKEN_BEDROCK`                                                         | Bedrock with a bearer token                                                                      |
 | `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex                                                                                           |
 | `ANTHROPIC_FOUNDRY_RESOURCE`                                                       | Foundry                                                                                          |
-| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`                                          | **Required** for the router to trigger downstream stages (see "GitHub App for the router" below) |
+| `SHOPFLOOR_GITHUB_APP_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY`                      | **Required** for the router to trigger downstream stages (see "GitHub App for the router" below) |
 | `SSH_SIGNING_KEY`                                                                  | Signed commits (optional)                                                                        |
 
 You only need to set the secrets for the provider you actually use. `GITHUB_TOKEN` is provided by GitHub automatically — do not add it yourself.
@@ -180,7 +180,7 @@ A GitHub App installation token does not have this restriction. Shopfloor mints 
 3. **Subscribe to events**: none. The App is a write client only; webhook delivery is irrelevant.
 4. Generate a private key and download the `.pem` file. Treat it like any other secret: do not commit it.
 5. Install the app on your target repository (or org-wide).
-6. Add two secrets to the repository (or org): `GITHUB_APP_ID` (the numeric app id) and `GITHUB_APP_PRIVATE_KEY` (the full multi-line contents of the `.pem` file, including the `-----BEGIN/END-----` lines).
+6. Add two secrets to the repository (or org): `SHOPFLOOR_GITHUB_APP_ID` (the numeric app id) and `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY` (the full multi-line contents of the `.pem` file, including the `-----BEGIN/END-----` lines).
 
 Verify by opening any issue carrying your trigger label. The router job's first step will log a green "GitHub App credentials present" line; if you instead see the loud `::warning::` about falling back to `GITHUB_TOKEN`, the secrets are not visible to the workflow (most common cause: the secrets are set on a personal account but the workflow runs under an org).
 

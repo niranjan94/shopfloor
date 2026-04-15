@@ -71,8 +71,8 @@ on:
       cloud_ml_region: { required: false }
       google_application_credentials: { required: false }
       anthropic_foundry_resource: { required: false }
-      github_app_id: { required: false }
-      github_app_private_key: { required: false }
+      shopfloor_github_app_id: { required: false }
+      shopfloor_github_app_private_key: { required: false }
       ssh_signing_key: { required: false }
 
 concurrency:
@@ -118,9 +118,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Warn if no GitHub App configured
-        if: ${{ secrets.github_app_id == '' || secrets.github_app_private_key == '' }}
+        if: ${{ secrets.shopfloor_github_app_id == '' || secrets.shopfloor_github_app_private_key == '' }}
         run: |
-          echo "::warning title=Shopfloor::No GitHub App credentials configured (github_app_id / github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
+          echo "::warning title=Shopfloor::No GitHub App credentials configured (shopfloor_github_app_id / shopfloor_github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
       - id: bootstrap
         uses: ./router
         with:
@@ -197,11 +197,11 @@ jobs:
       # warning comment from the route job.
       - name: Mint GitHub App token
         id: app_token
-        if: ${{ success() && secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        if: ${{ success() && secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
-          app-id: ${{ secrets.github_app_id }}
-          private-key: ${{ secrets.github_app_private_key }}
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Apply triage decision
         if: success()
         uses: ./router
@@ -563,11 +563,11 @@ jobs:
       # matrix would never fire without this.
       - name: Mint post-agent GitHub App token
         id: app_token_push
-        if: ${{ success() && secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        if: ${{ success() && secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
-          app-id: ${{ secrets.github_app_id }}
-          private-key: ${{ secrets.github_app_private_key }}
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Reconfigure git remote with App token for push
         if: ${{ success() && steps.app_token_push.outputs.token != '' }}
         env:
@@ -916,11 +916,11 @@ jobs:
       # never fire pull_request_review events, so the revision loop would never start.
       - name: Mint GitHub App token
         id: app_token
-        if: ${{ secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        if: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
-          app-id: ${{ secrets.github_app_id }}
-          private-key: ${{ secrets.github_app_private_key }}
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - uses: ./router
         with:
           helper: aggregate-review
@@ -956,11 +956,11 @@ jobs:
       # secrets.GITHUB_TOKEN cannot trigger downstream workflows.
       - name: Mint GitHub App token
         id: app_token
-        if: ${{ secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        if: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
         uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
         with:
-          app-id: ${{ secrets.github_app_id }}
-          private-key: ${{ secrets.github_app_private_key }}
+          app-id: ${{ secrets.shopfloor_github_app_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - uses: ./router
         with:
           helper: handle-merge
