@@ -643,12 +643,13 @@ jobs:
         env:
           COMPLEXITY: ${{ needs.route.outputs.complexity }}
         run: |
+          # Empty plugins value for quick is captured via a step output here
+          # rather than an inline template ternary, because GitHub Actions
+          # expression short-circuiting treats the empty string as falsy, so
+          # the naive ternary would silently fall through to the non-empty
+          # branch and the plugin would load anyway.
           if [ "$COMPLEXITY" = "quick" ]; then
             echo "prompt_file=prompts/implement-quick.md" >> "$GITHUB_OUTPUT"
-            # Empty plugins input. Captured via step output (not a ${{ ... && '' || ... }}
-            # ternary) because GitHub Actions expression short-circuiting treats
-            # the empty string as falsy and would fall through to the non-empty
-            # branch, which is the opposite of what we want.
             echo "plugins=" >> "$GITHUB_OUTPUT"
           else
             echo "prompt_file=prompts/implement.md" >> "$GITHUB_OUTPUT"
