@@ -131,6 +131,12 @@ export class ScenarioHarness {
       previous[step.id] = { path: file };
       return;
     }
+    if (step.kind === "fake") {
+      const ctx = this.makeStageContext(previous);
+      step.mutate(ctx);
+      if (step.id) previous[step.id] = {};
+      return;
+    }
     if (step.kind === "agent") {
       if (step.stage === "review") {
         const bundle = this.stub.consumeReview();
@@ -289,7 +295,9 @@ class ScenarioStepError extends Error {
           ? `context:${step.id}`
           : step.kind === "agent"
             ? `agent:${step.stage}`
-            : "if";
+            : step.kind === "fake"
+              ? `fake:${step.id ?? "anon"}`
+              : "if";
     const msg = inner instanceof Error ? inner.message : String(inner);
     super(
       `ScenarioStepError: stage=${stage} step=${stepIndex} kind=${step.kind} ref=${helperName}\n  Helper threw: ${msg}\n\n  GitHub state at time of failure:\n${fake.eventLogSummary()}\n`,

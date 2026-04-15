@@ -81,6 +81,14 @@ export type GraphStep =
       id: string;
       build: (ctx: StageContext) => ContextArtifact;
     }
+  /**
+   * Mutate fake-side state between helper invocations. Used to model
+   * real-world side effects the harness otherwise cannot observe, e.g.
+   * the git push that populates PR.files after the implement agent
+   * runs. Cheaper and more honest than extending FakeGitHub with
+   * production-shaped stub APIs nobody actually calls.
+   */
+  | { kind: "fake"; id?: string; mutate: (ctx: StageContext) => void }
   | { kind: "if"; when: (ctx: StageContext) => boolean; then: GraphStep[] };
 
 export type StageKey =
@@ -460,6 +468,47 @@ jobGraph["implement-first-run"] = [
   },
   { kind: "agent", stage: "implement" },
   {
+    kind: "fake",
+    id: "push_files",
+    mutate: (ctx) => {
+      // Models the git push between the agent finishing and the
+      // workflow re-querying the PR for changed files. The implement
+      // agent stub exposes `changed_files` as a JSON string array;
+      // older scenarios that don't set it get an empty list and
+      // check-review-skip will correctly short-circuit.
+      const raw = ctx.previous.agent?.changed_files ?? "";
+      const prNumberStr = ctx.previous.open_pr?.pr_number;
+      if (!prNumberStr) return;
+      const prNumber = Number(prNumberStr);
+      let files: string[] = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) files = parsed.map((f) => String(f));
+        } catch {
+          files = [];
+        }
+      }
+      ctx.fake.setPrFiles(prNumber, files);
+    },
+  },
+  {
+    kind: "fake",
+    id: "mark_ready",
+    mutate: (ctx) => {
+      // Mirror the `gh pr ready` step in shopfloor.yml: the workflow
+      // opens the impl PR as a draft so nothing reviews it mid-run,
+      // then un-drafts it after the agent pushes. Without this,
+      // check-review-skip inside apply-impl-postwork would short-
+      // circuit on pr.draft and strand the issue in impl-in-review.
+      const prNumberStr = ctx.previous.open_pr?.pr_number;
+      if (!prNumberStr) return;
+      const prNumber = Number(prNumberStr);
+      const pr = ctx.fake.pr(prNumber);
+      pr.draft = false;
+    },
+  },
+  {
     kind: "helper",
     helper: "finalize-progress-comment",
     from: {
@@ -548,6 +597,28 @@ jobGraph["implement-revision"] = [
     },
   },
   { kind: "agent", stage: "implement" },
+  {
+    kind: "fake",
+    id: "push_files_revision",
+    mutate: (ctx) => {
+      // Same git-push stand-in as the first-run branch above. For a
+      // revision, the PR number comes from route output, not open_pr.
+      const raw = ctx.previous.agent?.changed_files ?? "";
+      const prNumberStr = ctx.routeOutputs.impl_pr_number;
+      if (!prNumberStr) return;
+      const prNumber = Number(prNumberStr);
+      let files: string[] = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) files = parsed.map((f) => String(f));
+        } catch {
+          files = [];
+        }
+      }
+      ctx.fake.setPrFiles(prNumber, files);
+    },
+  },
   {
     kind: "helper",
     helper: "finalize-progress-comment",
