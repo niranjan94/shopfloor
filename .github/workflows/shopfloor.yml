@@ -181,7 +181,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -286,7 +286,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -406,7 +406,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -598,7 +598,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -737,7 +737,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -804,7 +804,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -871,7 +871,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
@@ -938,7 +938,7 @@ jobs:
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
       - id: agent
-        uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
