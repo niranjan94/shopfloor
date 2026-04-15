@@ -1,0 +1,92 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`spec PR changes requested rework > spec PR REQUEST_CHANGES -> rework -> same PR reused -> merge -> needs-plan 1`] = `
+{
+  "comments": [
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor triage: classified as \`large\`.**
+
+needs a full spec",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "Spec merged in #43. Moving to planning stage.",
+      "issue": 42,
+    },
+  ],
+  "issues": [
+    {
+      "body": "We need OAuth login via GitHub App with a full design doc.
+
+<!-- shopfloor:metadata
+Shopfloor-Slug: add-github-oauth-login
+-->",
+      "labels": [
+        "shopfloor:enabled",
+        "shopfloor:large",
+        "shopfloor:needs-plan",
+      ],
+      "number": 42,
+      "state": "open",
+      "title": "Add GitHub OAuth login",
+    },
+  ],
+  "labels": [
+    "shopfloor:awaiting-info",
+    "shopfloor:done",
+    "shopfloor:failed:implement",
+    "shopfloor:failed:plan",
+    "shopfloor:failed:review",
+    "shopfloor:failed:spec",
+    "shopfloor:failed:triage",
+    "shopfloor:impl-in-review",
+    "shopfloor:implementing",
+    "shopfloor:large",
+    "shopfloor:medium",
+    "shopfloor:needs-impl",
+    "shopfloor:needs-plan",
+    "shopfloor:needs-review",
+    "shopfloor:needs-spec",
+    "shopfloor:plan-in-review",
+    "shopfloor:plan-running",
+    "shopfloor:quick",
+    "shopfloor:review-approved",
+    "shopfloor:review-requested-changes",
+    "shopfloor:review-stuck",
+    "shopfloor:revise",
+    "shopfloor:skip-review",
+    "shopfloor:spec-in-review",
+    "shopfloor:spec-running",
+    "shopfloor:triaging",
+  ],
+  "pulls": [
+    {
+      "base": "main",
+      "body": "Revised spec with more detail on the auth flow.
+
+---
+Shopfloor-Issue: #42
+Shopfloor-Stage: spec
+",
+      "draft": false,
+      "head": "shopfloor/spec/42-add-github-oauth-login",
+      "merged": true,
+      "number": 43,
+      "state": "closed",
+      "title": "spec: add github oauth login (v2)",
+    },
+  ],
+  "reviews": [
+    {
+      "body": "Needs more detail on the auth flow.",
+      "commit": "sha-spec-0",
+      "pr": 43,
+      "state": "changes_requested",
+      "user": "reviewer-human",
+    },
+  ],
+  "statuses": [],
+}
+`;
