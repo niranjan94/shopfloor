@@ -48,7 +48,6 @@ Repository: niranjan94/shopfloor
 Issue: #42 — Add GitHub OAuth
 Branch checked out for you: shopfloor/impl/42-add-github-oauth
 Progress comment id (informational; the MCP tool reads it from env): 999
-Review iteration: 0
 
 <issue_body>
 Users want to log in with GitHub.
@@ -62,14 +61,8 @@ Users want to log in with GitHub.
 # Plan
 </plan_file_contents>
 
-<review_feedback>
-[]
-</review_feedback>
-</context>
 
-<revision_handling>
-If \`<review_feedback>\` is non-empty, this is a revision run. Address every review comment by name, commit each fix as its own Conventional Commits commit, and note in the progress comment which comment each commit resolves. Do NOT squash or amend earlier commits. Create new commits on top.
-</revision_handling>
+</context>
 
 <progress_tracking>
 Immediately after reading the plan, call \`mcp__shopfloor__update_progress\` with a markdown checklist derived from the plan's tasks:

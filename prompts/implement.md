@@ -45,7 +45,6 @@ Repository: {{repo_owner}}/{{repo_name}}
 Issue: #{{issue_number}} — {{issue_title}}
 Branch checked out for you: {{branch_name}}
 Progress comment id (informational; the MCP tool reads it from env): {{progress_comment_id}}
-Review iteration: {{iteration_count}}
 
 <issue_body>
 {{issue_body}}
@@ -57,14 +56,8 @@ Review iteration: {{iteration_count}}
 {{plan_file_contents}}
 </plan_file_contents>
 
-<review_feedback>
-{{review_comments_json}}
-</review_feedback>
+{{revision_block}}
 </context>
-
-<revision_handling>
-If `<review_feedback>` is non-empty, this is a revision run. Address every review comment by name, commit each fix as its own Conventional Commits commit, and note in the progress comment which comment each commit resolves. Do NOT squash or amend earlier commits. Create new commits on top.
-</revision_handling>
 
 <progress_tracking>
 Immediately after reading the plan, call `mcp__shopfloor__update_progress` with a markdown checklist derived from the plan's tasks:
