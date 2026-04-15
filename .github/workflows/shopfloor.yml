@@ -72,6 +72,16 @@ on:
       anthropic_foundry_resource: { required: false }
       shopfloor_github_app_client_id: { required: false }
       shopfloor_github_app_private_key: { required: false }
+      # Optional SECOND GitHub App used exclusively by the review matrix to
+      # post PR reviews. The primary App is the PR author for every Shopfloor
+      # PR, and GitHub forbids REQUEST_CHANGES / APPROVE on your own PR. So a
+      # distinct App identity is required to leave actionable reviews. When
+      # unset, the entire review pipeline (skip-check, matrix, aggregator) is
+      # gated off and impl PRs exit draft and wait for a human reviewer.
+      # Minimal perms for this App: contents:read, pull_requests:write,
+      # metadata:read.
+      shopfloor_github_app_review_client_id: { required: false }
+      shopfloor_github_app_review_private_key: { required: false }
       ssh_signing_key: { required: false }
 
 concurrency:
@@ -834,7 +844,14 @@ jobs:
 
   review-skip-check:
     needs: route
-    if: needs.route.outputs.stage == 'review'
+    # The entire review chain is gated on the secondary review App because
+    # every review body is posted via its installation token. Without that
+    # second App, REQUEST_CHANGES / APPROVE on Shopfloor's own PRs would 403
+    # (GitHub forbids self-reviews). Callers opt in to agent reviews by
+    # configuring shopfloor_github_app_review_client_id +
+    # shopfloor_github_app_review_private_key; otherwise impl PRs un-draft
+    # and wait for a human reviewer.
+    if: needs.route.outputs.stage == 'review' && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -865,7 +882,7 @@ jobs:
 
   review-compliance:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -954,7 +971,7 @@ jobs:
 
   review-bugs:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1043,7 +1060,7 @@ jobs:
 
   review-security:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1132,7 +1149,7 @@ jobs:
 
   review-smells:
     needs: [route, review-skip-check]
-    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
@@ -1229,7 +1246,7 @@ jobs:
         review-security,
         review-smells,
       ]
-    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
+    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1241,9 +1258,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      # Mint a GitHub App token so the posted PR review (event = pull_request_review.submitted)
-      # actually triggers the implement job to revise. Reviews posted with secrets.GITHUB_TOKEN
-      # never fire pull_request_review events, so the revision loop would never start.
+      # Primary Shopfloor App token. Covers everything except postReview:
+      # labels, issue comments, commit statuses, PR body edits all run under
+      # the main App's identity (the PR author).
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
@@ -1251,10 +1268,23 @@ jobs:
         with:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      # SECOND App token, used ONLY for the createReview call inside
+      # aggregate-review. The review App is a distinct identity from the PR
+      # author, so REQUEST_CHANGES / APPROVE succeed without tripping
+      # GitHub's self-review block. Because the reviewer is an App (not
+      # GITHUB_TOKEN), the resulting pull_request_review.submitted event
+      # still fires the router and drives the revision loop.
+      - name: Mint GitHub App token (review app)
+        id: app_token_review
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_review_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_review_private_key }}
       - uses: ./router
         with:
           helper: aggregate-review
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          review_github_token: ${{ steps.app_token_review.outputs.token }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           pr_number: ${{ needs.route.outputs.impl_pr_number }}
           confidence_threshold: ${{ inputs.review_confidence_threshold }}

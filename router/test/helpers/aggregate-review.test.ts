@@ -131,6 +131,45 @@ describe("aggregateReview", () => {
     expect(lastStatus.description).toMatch(/cap/);
   });
 
+  test("separate review adapter receives postReview call (two-App setup)", async () => {
+    // When the caller configures a secondary GitHub App for reviews, the
+    // createReview call must go through that second adapter's octokit so the
+    // reviewer identity differs from the PR author. Every other mutation
+    // (labels, comments, statuses, PR body edits) must still land on the
+    // primary adapter that owns write access to the issue tracker.
+    const primary = makeMockAdapter();
+    const review = makeMockAdapter();
+    primeImplPr(primary);
+    await aggregateReview(
+      primary.adapter,
+      {
+        issueNumber: 42,
+        prNumber: 45,
+        confidenceThreshold: 80,
+        maxIterations: 3,
+        reviewerOutputs: {
+          compliance: fixture("compliance-issues"),
+          bugs: fixture("bugs-clean"),
+          security: fixture("security-clean"),
+          smells: fixture("smells-clean"),
+        },
+      },
+      review.adapter,
+    );
+    expect(review.mocks.createReview).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "REQUEST_CHANGES" }),
+    );
+    expect(primary.mocks.createReview).not.toHaveBeenCalled();
+    expect(primary.mocks.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labels: ["shopfloor:review-requested-changes"],
+      }),
+    );
+    expect(primary.mocks.createCommitStatus).toHaveBeenCalled();
+    expect(review.mocks.addLabels).not.toHaveBeenCalled();
+    expect(review.mocks.createCommitStatus).not.toHaveBeenCalled();
+  });
+
   test('matrix cell failed (empty output) -> treated as "no findings"', async () => {
     const bundle = makeMockAdapter();
     primeImplPr(bundle);

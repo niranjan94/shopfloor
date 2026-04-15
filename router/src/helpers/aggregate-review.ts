@@ -100,6 +100,7 @@ function writeIterationToBody(body: string | null, iteration: number): string {
 export async function aggregateReview(
   adapter: GitHubAdapter,
   params: AggregateReviewParams,
+  reviewAdapter: GitHubAdapter = adapter,
 ): Promise<void> {
   const outputs = {
     compliance: parseReviewer(params.reviewerOutputs.compliance),
@@ -153,7 +154,7 @@ export async function aggregateReview(
     const body = `${SHOPFLOOR_REVIEW_MARKER}\n**Shopfloor agent review: clean** across ${successfulCells}/4 reviewers.\n\n${parsed
       .map((r) => `- ${r.summary}`)
       .join("\n")}`;
-    await adapter.postReview({
+    await reviewAdapter.postReview({
       prNumber: params.prNumber,
       commitSha: headSha,
       event: "APPROVE",
@@ -212,7 +213,7 @@ export async function aggregateReview(
     body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`,
   }));
 
-  await adapter.postReview({
+  await reviewAdapter.postReview({
     prNumber: params.prNumber,
     commitSha: headSha,
     event: "REQUEST_CHANGES",
@@ -237,6 +238,7 @@ export async function aggregateReview(
 
 export async function runAggregateReview(
   adapter: GitHubAdapter,
+  reviewAdapter: GitHubAdapter = adapter,
 ): Promise<void> {
   const params: AggregateReviewParams = {
     issueNumber: Number(core.getInput("issue_number", { required: true })),
@@ -251,5 +253,5 @@ export async function runAggregateReview(
     },
     workflowRunUrl: core.getInput("workflow_run_url") || undefined,
   };
-  await aggregateReview(adapter, params);
+  await aggregateReview(adapter, params, reviewAdapter);
 }

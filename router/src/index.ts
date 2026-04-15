@@ -74,8 +74,22 @@ async function main(): Promise<void> {
       return runFinalizeProgressComment(adapter);
     case "check-review-skip":
       return runCheckReviewSkip(adapter);
-    case "aggregate-review":
-      return runAggregateReview(adapter);
+    case "aggregate-review": {
+      // Reviews are posted by a *second* GitHub App whose installation token
+      // authenticates as a distinct identity from the primary Shopfloor App
+      // that created the PR. Self-reviews (REQUEST_CHANGES / APPROVE on your
+      // own PR) are forbidden by the GitHub API, so we route only the
+      // createReview call through this secondary adapter. Labels, comments,
+      // statuses, and PR body edits continue on the primary adapter.
+      const reviewToken = core.getInput("review_github_token") || "";
+      const reviewAdapter = reviewToken
+        ? new GitHubAdapter(getOctokit(reviewToken) as unknown as OctokitLike, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          })
+        : adapter;
+      return runAggregateReview(adapter, reviewAdapter);
+    }
     case "render-prompt":
       return runRenderPrompt(adapter);
     case "apply-triage-decision":

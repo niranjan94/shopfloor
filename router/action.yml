@@ -8,6 +8,9 @@ inputs:
   github_token:
     description: GitHub token
     required: true
+  review_github_token:
+    description: "Optional token used by aggregate-review for the createReview call. When the primary github_token identity is the PR author (always true when Shopfloor mints from a single App), this must be a token from a DIFFERENT identity (typically a second GitHub App installation token) or GitHub will 422 REQUEST_CHANGES / APPROVE. Falls back to github_token when unset."
+    required: false
   trigger_label:
     description: "Optional label that an issue must carry before Shopfloor will enter the pipeline. Leave empty to run on every new issue."
     required: false

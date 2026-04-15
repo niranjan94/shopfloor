@@ -24731,7 +24731,7 @@ function writeIterationToBody(body, iteration) {
 Shopfloor-Review-Iteration: ${iteration}
 `;
 }
-async function aggregateReview(adapter, params) {
+async function aggregateReview(adapter, params, reviewAdapter = adapter) {
   const outputs = {
     compliance: parseReviewer(params.reviewerOutputs.compliance),
     bugs: parseReviewer(params.reviewerOutputs.bugs),
@@ -24778,7 +24778,7 @@ async function aggregateReview(adapter, params) {
 **Shopfloor agent review: clean** across ${successfulCells}/4 reviewers.
 
 ${parsed.map((r) => `- ${r.summary}`).join("\n")}`;
-    await adapter.postReview({
+    await reviewAdapter.postReview({
       prNumber: params.prNumber,
       commitSha: headSha,
       event: "APPROVE",
@@ -24835,7 +24835,7 @@ ${parsed.map((r) => `- ${r.summary}`).join("\n")}`;
 
 ${c.body}`
   }));
-  await adapter.postReview({
+  await reviewAdapter.postReview({
     prNumber: params.prNumber,
     commitSha: headSha,
     event: "REQUEST_CHANGES",
@@ -24856,7 +24856,7 @@ ${c.body}`
   const newBody = writeIterationToBody(pr.body ?? null, nextIteration);
   await adapter.updatePrBody(params.prNumber, newBody);
 }
-async function runAggregateReview(adapter) {
+async function runAggregateReview(adapter, reviewAdapter = adapter) {
   const params = {
     issueNumber: Number(core9.getInput("issue_number", { required: true })),
     prNumber: Number(core9.getInput("pr_number", { required: true })),
@@ -24870,7 +24870,7 @@ async function runAggregateReview(adapter) {
     },
     workflowRunUrl: core9.getInput("workflow_run_url") || void 0
   };
-  await aggregateReview(adapter, params);
+  await aggregateReview(adapter, params, reviewAdapter);
 }
 
 // src/helpers/render-prompt.ts
@@ -25138,8 +25138,14 @@ async function main() {
       return runFinalizeProgressComment(adapter);
     case "check-review-skip":
       return runCheckReviewSkip(adapter);
-    case "aggregate-review":
-      return runAggregateReview(adapter);
+    case "aggregate-review": {
+      const reviewToken = core13.getInput("review_github_token") || "";
+      const reviewAdapter = reviewToken ? new GitHubAdapter((0, import_github.getOctokit)(reviewToken), {
+        owner: import_github.context.repo.owner,
+        repo: import_github.context.repo.repo
+      }) : adapter;
+      return runAggregateReview(adapter, reviewAdapter);
+    }
     case "render-prompt":
       return runRenderPrompt(adapter);
     case "apply-triage-decision":

@@ -62,6 +62,7 @@ Go to **Settings → Secrets and variables → Actions → New repository secret
 | `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex                                                                                           |
 | `ANTHROPIC_FOUNDRY_RESOURCE`                                                       | Foundry                                                                                          |
 | `SHOPFLOOR_GITHUB_APP_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY`               | **Required** for the router to trigger downstream stages (see "GitHub App for the router" below) |
+| `SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY` | Optional second App that posts the agent review matrix (see "GitHub App for reviews" below)      |
 | `SSH_SIGNING_KEY`                                                                  | Signed commits (optional)                                                                        |
 
 You only need to set the secrets for the provider you actually use. `GITHUB_TOKEN` is provided by GitHub automatically — do not add it yourself.
@@ -187,6 +188,32 @@ Verify by opening any issue carrying your trigger label. The router job's first 
 ### Visual identity
 
 Commits, comments, PRs, and reviews from Shopfloor will appear under the App's bot identity (`<your-app-name>[bot]`). If you want Shopfloor's PRs to look like they came from a human, use a fork-based workflow instead and have a human cherry-pick. Bot-authored PRs are the trade-off for full automation.
+
+## GitHub App for reviews (optional)
+
+> **Optional.** Without this second App the review matrix is skipped entirely. Impl PRs still exit draft on completion; a human reviewer can then take over.
+
+### Why a second App
+
+The agent review matrix (`review-compliance`, `review-bugs`, `review-security`, `review-smells`, `review-aggregator`) ends by calling the GitHub `POST /repos/{owner}/{repo}/pulls/{number}/reviews` endpoint with `event: REQUEST_CHANGES` or `event: APPROVE`. GitHub forbids `REQUEST_CHANGES` / `APPROVE` on your own PR, and every Shopfloor PR is authored by the primary router App. If the same App also tries to post the review, the API responds with `422 Review Can not request changes on your own pull request`.
+
+Shopfloor's fix is clean: the review aggregator uses a **second GitHub App installation token** only for the `createReview` call. Labels, comments, commit statuses, and PR body edits continue to flow through the primary App (unchanged). The second App is a distinct identity from the PR author, so self-review restrictions do not apply.
+
+Because the reviewer is still an App (not `GITHUB_TOKEN`), the resulting `pull_request_review.submitted` event fires the router, which drives the implement revision loop exactly as a human-posted review would.
+
+### Setup
+
+1. Create another GitHub App under **Settings → Developer settings → GitHub Apps → New GitHub App**. Name it something like "Shopfloor Reviewer" so it is easy to tell apart from the primary router App on PR timelines.
+2. Grant these **minimal repository permissions** (the review App needs much less than the primary):
+   - **Contents**: Read (the helper reads PR data)
+   - **Pull requests**: Read & write (the createReview call)
+   - **Metadata**: Read (mandatory baseline)
+3. **Subscribe to events**: none.
+4. Generate a private key and download the `.pem` file.
+5. Install the App on the same repositories where Shopfloor runs.
+6. Add two secrets: `SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID` and `SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY`.
+
+When both secrets are present, Shopfloor gates the entire review pipeline (skip-check + 4 matrix reviewers + aggregator) on their presence. Leave them unset and the review pipeline is silently skipped; impl PRs un-draft and wait for a human.
 
 ## Troubleshooting
 
