@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { branchSlug, resolveStage } from "../src/state";
+import { branchSlug, parseIssueMetadata, resolveStage } from "../src/state";
 import type { StateContext } from "../src/types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -258,6 +258,32 @@ describe("resolveStage", () => {
     });
     expect(decision.stage).not.toBe("triage");
   });
+
+  test("persisted slug in issue body survives a title rename", () => {
+    // Regression for the rename-after-triage bug: the title was edited to
+    // something unrelated, but the slug was persisted to the issue body
+    // during triage. The branch name must come from the persisted slug, not
+    // from re-running branchSlug on the current (renamed) title.
+    const decision = resolveStage(
+      ctx("issues", "issue-labeled-needs-spec-renamed-with-slug"),
+    );
+    expect(decision.stage).toBe("spec");
+    expect(decision.branchName).toBe(
+      "shopfloor/spec/42-add-github-oauth-login",
+    );
+  });
+
+  test("legacy issue without persisted slug falls back to branchSlug(title)", () => {
+    // Existing fixture has no shopfloor:metadata block in body; this
+    // guarantees in-flight issues from before the persistence change keep
+    // advancing normally.
+    const decision = resolveStage(
+      ctx("issues", "issue-unlabeled-failed-spec-with-needs-spec"),
+    );
+    expect(decision.branchName).toBe(
+      "shopfloor/spec/42-add-github-oauth-login",
+    );
+  });
 });
 
 describe("branchSlug", () => {
@@ -303,5 +329,58 @@ describe("branchSlug", () => {
     const slug = branchSlug("alpha beta gamma delta epsilon zeta eta theta");
     expect(slug.length).toBeLessThanOrEqual(40);
     expect(slug).not.toMatch(/-$/);
+  });
+});
+
+describe("parseIssueMetadata", () => {
+  test("returns null when body is null", () => {
+    expect(parseIssueMetadata(null)).toBeNull();
+  });
+
+  test("returns null when body has no metadata block", () => {
+    expect(parseIssueMetadata("Just a plain issue body, nothing inside.")).toBeNull();
+  });
+
+  test("parses Shopfloor-Slug out of the metadata block", () => {
+    const body = [
+      "Some human-written description.",
+      "",
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: add-github-oauth-login",
+      "-->",
+    ].join("\n");
+    expect(parseIssueMetadata(body)).toEqual({
+      slug: "add-github-oauth-login",
+    });
+  });
+
+  test("ignores unknown keys without throwing", () => {
+    const body = [
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: keep-me",
+      "Shopfloor-Unknown: whatever",
+      "-->",
+    ].join("\n");
+    expect(parseIssueMetadata(body)).toEqual({ slug: "keep-me" });
+  });
+
+  test("returns empty object when the block is present but has no known keys", () => {
+    const body = ["<!-- shopfloor:metadata", "Unknown-Key: x", "-->"].join(
+      "\n",
+    );
+    expect(parseIssueMetadata(body)).toEqual({});
+  });
+
+  test("tolerates surrounding whitespace and extra text after the block", () => {
+    const body = [
+      "Lead-in paragraph.",
+      "",
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: my-slug",
+      "-->",
+      "",
+      "Trailing text that should not confuse the parser.",
+    ].join("\n");
+    expect(parseIssueMetadata(body)?.slug).toBe("my-slug");
   });
 });

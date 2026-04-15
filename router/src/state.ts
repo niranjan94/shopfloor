@@ -108,6 +108,25 @@ export function branchSlug(title: string): string {
   return slug.length > 0 ? slug : "issue";
 }
 
+export interface IssueMetadata {
+  slug?: string;
+}
+
+// The metadata block is a single HTML comment appended by the triage helper.
+// HTML comments don't render in GitHub's web UI, so users see the block only
+// if they edit the issue. The block's schema is open: extra keys are ignored
+// so new metadata can be added later without breaking this parser.
+export function parseIssueMetadata(body: string | null): IssueMetadata | null {
+  if (!body) return null;
+  const blockMatch = body.match(/<!--\s*shopfloor:metadata\s*([\s\S]*?)-->/);
+  if (!blockMatch) return null;
+  const block = blockMatch[1];
+  const metadata: IssueMetadata = {};
+  const slugMatch = block.match(/^\s*Shopfloor-Slug:\s*(\S+)\s*$/m);
+  if (slugMatch) metadata.slug = slugMatch[1];
+  return metadata;
+}
+
 const ADVANCEMENT_STATE_LABELS = new Set<string>([
   "shopfloor:needs-spec",
   "shopfloor:needs-plan",
@@ -123,15 +142,20 @@ function failedLabel(labels: Set<string>): string | null {
 
 function computeStageFromLabels(
   labels: Set<string>,
-  issue: { number: number; title: string },
+  issue: { number: number; title: string; body: string | null },
 ): RouterDecision | null {
   const issueNumber = issue.number;
+  // Prefer the slug persisted in the issue body metadata block so title
+  // renames after triage don't strand later stages against file paths that
+  // no longer exist. Fall back to deriving from the title for legacy issues
+  // whose metadata block has not yet been written.
+  const slug = parseIssueMetadata(issue.body)?.slug ?? branchSlug(issue.title);
   if (labels.has("shopfloor:needs-spec")) {
     return {
       stage: "spec",
       issueNumber,
       complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(issue.title)}`,
+      branchName: `shopfloor/spec/${issueNumber}-${slug}`,
     };
   }
   if (labels.has("shopfloor:needs-plan")) {
@@ -139,8 +163,8 @@ function computeStageFromLabels(
       stage: "plan",
       issueNumber,
       complexity: complexityOf(labels),
-      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
+      branchName: `shopfloor/plan/${issueNumber}-${slug}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
     };
   }
   if (labels.has("shopfloor:needs-impl")) {
@@ -148,9 +172,9 @@ function computeStageFromLabels(
       stage: "implement",
       issueNumber,
       complexity: complexityOf(labels),
-      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(issue.title)}.md`,
+      branchName: `shopfloor/impl/${issueNumber}-${slug}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
+      planFilePath: `docs/shopfloor/plans/${issueNumber}-${slug}.md`,
     };
   }
   return null;
