@@ -12,6 +12,16 @@ import {
   getIssue,
   listComments,
 } from "./handlers/issues";
+import {
+  createPr,
+  listPrs,
+  updatePr,
+  getPr,
+  listFiles,
+  createReview,
+  listReviews,
+  listReviewComments,
+} from "./handlers/pulls";
 
 describe("issues.addLabels", () => {
   test("rejects unknown label with 422", () => {
@@ -177,5 +187,204 @@ describe("issues.listComments", () => {
     expect(out).toHaveLength(1);
     expect(out[0].body).toBe("hi");
     expect(out[0].user).toEqual({ login: "alice" });
+  });
+});
+
+describe("pulls.create", () => {
+  test("rejects when the head branch does not exist", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    state.branches.set("main", "sha-main-0");
+    expect(() =>
+      createPr(state, {
+        base: "main",
+        head: "shopfloor/42-foo",
+        title: "T",
+        body: "B",
+        draft: false,
+      }),
+    ).toThrow(FakeRequestError);
+  });
+
+  test("open-PR-per-head uniqueness: second open PR for same head is rejected", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("shopfloor/42-foo", "sha-foo-0");
+    createPr(state, { base: "main", head: "shopfloor/42-foo", title: "T", body: "B" });
+    expect(() =>
+      createPr(state, { base: "main", head: "shopfloor/42-foo", title: "T2", body: "B2" }),
+    ).toThrow(/already exists/);
+  });
+});
+
+describe("pulls.list", () => {
+  test("filters by head with owner:branch format", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("shopfloor/42-foo", "sha-foo-0");
+    state.branches.set("shopfloor/43-bar", "sha-bar-0");
+    createPr(state, { base: "main", head: "shopfloor/42-foo", title: "A", body: "" });
+    createPr(state, { base: "main", head: "shopfloor/43-bar", title: "B", body: "" });
+    const result = listPrs(state, { head: "o:shopfloor/42-foo", state: "open" });
+    expect(result).toHaveLength(1);
+    expect(result[0].number).toBe(1);
+  });
+});
+
+describe("pulls.update", () => {
+  test("patches title and body", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "old", body: "old" });
+    updatePr(state, { pull_number: 1, title: "new-t", body: "new-b" });
+    expect(state.pulls.get(1)!.title).toBe("new-t");
+    expect(state.pulls.get(1)!.body).toBe("new-b");
+  });
+});
+
+describe("pulls.get", () => {
+  test("returns full PR shape", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    const data = getPr(state, { pull_number: 1 });
+    expect(data.head).toEqual(expect.objectContaining({ ref: "h", sha: "sha-h-0" }));
+    expect(data.state).toBe("open");
+    expect(data.draft).toBe(false);
+    expect(data.merged).toBe(false);
+  });
+});
+
+describe("pulls.listFiles", () => {
+  test("returns the seeded file list", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    state.pulls.get(1)!.files = ["src/a.ts", "src/b.ts"];
+    const data = listFiles(state, { pull_number: 1 });
+    expect(data.map((d) => d.filename)).toEqual(["src/a.ts", "src/b.ts"]);
+  });
+});
+
+describe("pulls.createReview", () => {
+  test("rejects REQUEST_CHANGES when reviewer matches PR author", () => {
+    const state = newFakeState({
+      owner: "o", repo: "r",
+      authIdentity: "shopfloor[bot]",
+    });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    expect(() =>
+      createReview(state, {
+        pull_number: 1,
+        commit_id: "sha-h-0",
+        event: "REQUEST_CHANGES",
+        body: "no",
+        comments: [],
+        actor: "shopfloor[bot]",
+      }),
+    ).toThrow(/Can not approve your own pull request/);
+  });
+
+  test("allows REQUEST_CHANGES from a distinct identity", () => {
+    const state = newFakeState({
+      owner: "o", repo: "r",
+      authIdentity: "shopfloor[bot]",
+      reviewAuthIdentity: "shopfloor-review[bot]",
+    });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    createReview(state, {
+      pull_number: 1,
+      commit_id: "sha-h-0",
+      event: "REQUEST_CHANGES",
+      body: "fix this",
+      comments: [{ path: "src/a.ts", line: 1, side: "RIGHT", body: "rename" }],
+      actor: "shopfloor-review[bot]",
+    });
+    expect(state.reviews.size).toBe(1);
+    expect(state.reviewComments.size).toBe(1);
+    const review = Array.from(state.reviews.values())[0];
+    expect(review.state).toBe("changes_requested");
+    expect(review.user.login).toBe("shopfloor-review[bot]");
+  });
+
+  test("allows COMMENT review even from PR author", () => {
+    const state = newFakeState({ owner: "o", repo: "r", authIdentity: "shopfloor[bot]" });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    createReview(state, {
+      pull_number: 1,
+      commit_id: "sha-h-0",
+      event: "COMMENT",
+      body: "fyi",
+      comments: [],
+      actor: "shopfloor[bot]",
+    });
+    expect(state.reviews.size).toBe(1);
+  });
+});
+
+describe("pulls.listReviews", () => {
+  test("returns rows with commit_id, state, and submitted_at", () => {
+    const state = newFakeState({
+      owner: "o", repo: "r",
+      authIdentity: "shopfloor[bot]",
+      reviewAuthIdentity: "shopfloor-review[bot]",
+    });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    createReview(state, {
+      pull_number: 1, commit_id: "sha-1", event: "REQUEST_CHANGES",
+      body: "fix", comments: [], actor: "shopfloor-review[bot]",
+    });
+    const rows = listReviews(state, { pull_number: 1 });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        commit_id: "sha-1",
+        state: "changes_requested",
+        submitted_at: expect.any(String),
+        user: { login: "shopfloor-review[bot]" },
+        body: "fix",
+      }),
+    );
+  });
+});
+
+describe("pulls.listReviewComments", () => {
+  test("returns inline comments with pull_request_review_id and path/line/side/body", () => {
+    const state = newFakeState({
+      owner: "o", repo: "r",
+      authIdentity: "shopfloor[bot]",
+      reviewAuthIdentity: "shopfloor-review[bot]",
+    });
+    state.branches.set("main", "sha-main-0");
+    state.branches.set("h", "sha-h-0");
+    createPr(state, { base: "main", head: "h", title: "T", body: "B" });
+    createReview(state, {
+      pull_number: 1, commit_id: "sha-1", event: "REQUEST_CHANGES",
+      body: "fix", comments: [
+        { path: "src/a.ts", line: 5, side: "RIGHT", body: "rename" },
+      ],
+      actor: "shopfloor-review[bot]",
+    });
+    const out = listReviewComments(state, { pull_number: 1, per_page: 100, page: 1 });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toEqual(
+      expect.objectContaining({
+        path: "src/a.ts",
+        line: 5,
+        side: "RIGHT",
+        body: "rename",
+        pull_request_review_id: 1,
+      }),
+    );
   });
 });
