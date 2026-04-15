@@ -119,8 +119,8 @@ export async function runRenderPrompt(_adapter: GitHubAdapter): Promise<void> {
     const missing = Array.from(
       rendered.matchAll(/\{\{MISSING:([a-zA-Z0-9_]+)\}\}/g),
     ).map((m) => m[1]);
-    core.warning(
-      `render-prompt: missing context keys: ${Array.from(new Set(missing)).join(", ")}`,
+    throw new Error(
+      `render-prompt: unresolved placeholders: ${Array.from(new Set(missing)).join(", ")}`,
     );
   }
   core.setOutput("rendered", rendered);

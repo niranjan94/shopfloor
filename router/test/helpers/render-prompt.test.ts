@@ -1,9 +1,13 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest";
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as core from "@actions/core";
 import { renderPrompt } from "../../src/prompt-render";
-import { mergeAllowedTools } from "../../src/helpers/render-prompt";
+import {
+  mergeAllowedTools,
+  runRenderPrompt,
+} from "../../src/helpers/render-prompt";
 
 describe("renderPrompt", () => {
   let tmpDir: string;
@@ -133,5 +137,42 @@ describe("mergeAllowedTools", () => {
       settingsFile,
     });
     expect(result).toBe("WebFetch");
+  });
+});
+
+describe("runRenderPrompt", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "shopfloor-run-render-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  test("throws on unresolved placeholders", async () => {
+    const promptPath = join(tmpDir, "prompt.md");
+    writeFileSync(promptPath, "Hello {{name}} and {{unknown_var}}.");
+    const contextPath = join(tmpDir, "context.json");
+    writeFileSync(contextPath, JSON.stringify({ name: "Alice" }));
+
+    vi.spyOn(core, "getInput").mockImplementation((name: string) => {
+      const inputs: Record<string, string> = {
+        prompt_file: promptPath,
+        context_file: contextPath,
+        context_json: "",
+        base_allowed_tools: "",
+        settings_file: join(tmpDir, "nonexistent-settings.json"),
+      };
+      return inputs[name] ?? "";
+    });
+    vi.spyOn(core, "setOutput").mockImplementation(() => {});
+
+    const adapter = {} as Parameters<typeof runRenderPrompt>[0];
+    await expect(runRenderPrompt(adapter)).rejects.toThrow(
+      /unresolved placeholders.*unknown_var/,
+    );
   });
 });
