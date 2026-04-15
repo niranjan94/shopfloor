@@ -24062,8 +24062,17 @@ ${metadataLines.join("\n")}
     });
     return {
       labels: res.data.labels,
-      state: res.data.state
+      state: res.data.state,
+      title: res.data.title ?? "",
+      body: res.data.body ?? null
     };
+  }
+  async updateIssueBody(issueNumber, body) {
+    await this.octokit.rest.issues.update({
+      ...this.repo,
+      issue_number: issueNumber,
+      body
+    });
   }
   async getPrReviewsAtSha(prNumber, sha) {
     const res = await this.octokit.rest.pulls.listReviews({
@@ -24792,6 +24801,301 @@ async function runRenderPrompt(_adapter) {
 
 // src/helpers/apply-triage-decision.ts
 var core11 = __toESM(require_core(), 1);
+
+// src/state.ts
+var STATE_LABELS = /* @__PURE__ */ new Set([
+  "shopfloor:triaging",
+  "shopfloor:awaiting-info",
+  "shopfloor:needs-spec",
+  "shopfloor:spec-in-review",
+  "shopfloor:needs-plan",
+  "shopfloor:plan-in-review",
+  "shopfloor:needs-impl",
+  "shopfloor:impl-in-review",
+  "shopfloor:needs-review",
+  "shopfloor:review-requested-changes",
+  "shopfloor:review-approved",
+  "shopfloor:review-stuck",
+  "shopfloor:done",
+  // transient mutex markers (spec 5.4)
+  "shopfloor:spec-running",
+  "shopfloor:plan-running",
+  "shopfloor:implementing"
+]);
+var COMPLEXITY_LABELS = {
+  "shopfloor:quick": "quick",
+  "shopfloor:medium": "medium",
+  "shopfloor:large": "large"
+};
+function resolveStage(ctx) {
+  switch (ctx.eventName) {
+    case "issues":
+      return resolveIssueEvent(
+        ctx.payload,
+        ctx.triggerLabel,
+        ctx.liveLabels
+      );
+    case "issue_comment":
+      return { stage: "none", reason: "issue_comment_no_action_v0_1" };
+    case "pull_request":
+      return resolvePullRequestEvent(ctx.payload);
+    case "pull_request_review":
+      return resolvePullRequestReviewEvent(
+        ctx.payload,
+        ctx.shopfloorBotLogin
+      );
+    case "pull_request_review_comment":
+      return { stage: "none", reason: "review_comment_not_a_trigger_v0_1" };
+    default:
+      return { stage: "none", reason: `unhandled_event:${ctx.eventName}` };
+  }
+}
+function issueLabelSet(issue) {
+  return new Set(issue.labels.map((l) => l.name));
+}
+function prLabelSet(pr) {
+  return new Set(pr.labels.map((l) => l.name));
+}
+function stateLabel(labels) {
+  for (const l of labels) if (STATE_LABELS.has(l)) return l;
+  return null;
+}
+function complexityOf(labels) {
+  for (const [l, c] of Object.entries(COMPLEXITY_LABELS))
+    if (labels.has(l)) return c;
+  return void 0;
+}
+function parsePrMetadata(body) {
+  if (!body) return null;
+  const issueMatch = body.match(/Shopfloor-Issue:\s*#(\d+)/);
+  const stageMatch = body.match(
+    /Shopfloor-Stage:\s*(spec|plan|implement|review)/
+  );
+  const iterMatch = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  if (!issueMatch || !stageMatch) return null;
+  return {
+    issueNumber: Number(issueMatch[1]),
+    stage: stageMatch[1],
+    reviewIteration: iterMatch ? Number(iterMatch[1]) : 0
+  };
+}
+function branchSlug(title) {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter((w) => w.length > 0).slice(0, 5).join("-").slice(0, 40).replace(/^-+|-+$/g, "");
+  return slug.length > 0 ? slug : "issue";
+}
+function parseIssueMetadata(body) {
+  if (!body) return null;
+  const blockMatch = body.match(/<!--\s*shopfloor:metadata\s*([\s\S]*?)-->/);
+  if (!blockMatch) return null;
+  const block = blockMatch[1];
+  const metadata = {};
+  const slugMatch = block.match(/^\s*Shopfloor-Slug:\s*(\S+)\s*$/m);
+  if (slugMatch) metadata.slug = slugMatch[1];
+  return metadata;
+}
+var ADVANCEMENT_STATE_LABELS = /* @__PURE__ */ new Set([
+  "shopfloor:needs-spec",
+  "shopfloor:needs-plan",
+  "shopfloor:needs-impl"
+]);
+var FAILED_LABEL_PREFIX = "shopfloor:failed:";
+function failedLabel(labels) {
+  for (const l of labels) if (l.startsWith(FAILED_LABEL_PREFIX)) return l;
+  return null;
+}
+function computeStageFromLabels(labels, issue) {
+  const issueNumber = issue.number;
+  const slug = parseIssueMetadata(issue.body)?.slug ?? branchSlug(issue.title);
+  if (labels.has("shopfloor:needs-spec")) {
+    return {
+      stage: "spec",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/spec/${issueNumber}-${slug}`
+    };
+  }
+  if (labels.has("shopfloor:needs-plan")) {
+    return {
+      stage: "plan",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/plan/${issueNumber}-${slug}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`
+    };
+  }
+  if (labels.has("shopfloor:needs-impl")) {
+    return {
+      stage: "implement",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/impl/${issueNumber}-${slug}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
+      planFilePath: `docs/shopfloor/plans/${issueNumber}-${slug}.md`
+    };
+  }
+  return null;
+}
+function resolveIssueEvent(payload, triggerLabel, liveLabels) {
+  const labels = liveLabels ? new Set(liveLabels) : issueLabelSet(payload.issue);
+  const issueNumber = payload.issue.number;
+  const hasStateLabel = stateLabel(labels) !== null;
+  if (payload.issue.state === "closed") {
+    return { stage: "none", issueNumber, reason: "issue_closed_aborted" };
+  }
+  if (payload.issue.pull_request) {
+    return { stage: "none", reason: "issue_event_is_actually_a_pr" };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name?.startsWith(FAILED_LABEL_PREFIX)) {
+    const failedStage = payload.label.name.slice(FAILED_LABEL_PREFIX.length);
+    const retryReason = `retry_after_${payload.label.name}_removed`;
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) {
+      return { ...derived, reason: retryReason };
+    }
+    if (failedStage === "triage") {
+      return { stage: "triage", issueNumber, reason: retryReason };
+    }
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `retry_${failedStage}_no_state_label_present`
+    };
+  }
+  const blockingFailed = failedLabel(labels);
+  if (blockingFailed) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `blocked_by_${blockingFailed}`
+    };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:review-stuck") {
+    return {
+      stage: "review",
+      issueNumber,
+      reason: "review_stuck_removed_force_review"
+    };
+  }
+  if (triggerLabel && triggerLabel.length > 0 && !labels.has(triggerLabel) && !hasStateLabel) {
+    return { stage: "none", issueNumber, reason: "trigger_label_absent" };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:awaiting-info") {
+    return {
+      stage: "triage",
+      issueNumber,
+      reason: "re_triage_after_clarification"
+    };
+  }
+  if (payload.action === "opened" && triggerLabel && triggerLabel.length > 0) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: "opened_deferred_to_labeled_event"
+    };
+  }
+  if (payload.action === "opened" && !hasStateLabel) {
+    return { stage: "triage", issueNumber };
+  }
+  if (triggerLabel && triggerLabel.length > 0 && payload.action === "labeled" && payload.label?.name === triggerLabel && !hasStateLabel) {
+    return { stage: "triage", issueNumber, reason: "trigger_label_added" };
+  }
+  if (payload.action === "labeled" && payload.label?.name && ADVANCEMENT_STATE_LABELS.has(payload.label.name)) {
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) return derived;
+  }
+  if (labels.has("shopfloor:awaiting-info")) {
+    return { stage: "none", issueNumber, reason: "awaiting_info_paused" };
+  }
+  return { stage: "none", issueNumber, reason: "no_matching_label_rule" };
+}
+function resolvePullRequestEvent(payload) {
+  const pr = payload.pull_request;
+  const meta = parsePrMetadata(pr.body);
+  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
+  if (payload.action === "closed" && pr.merged) {
+    return {
+      stage: "none",
+      issueNumber: meta.issueNumber,
+      reason: `pr_merged_${meta.stage}_triggered_label_flip`
+    };
+  }
+  if (payload.action === "closed") {
+    return { stage: "none", reason: "pr_closed_not_merged_ignored" };
+  }
+  if ((payload.action === "synchronize" || payload.action === "ready_for_review") && meta.stage === "implement") {
+    const labels = prLabelSet(pr);
+    if (labels.has("shopfloor:skip-review")) {
+      return { stage: "none", reason: "skip_review_label_present" };
+    }
+    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
+    return {
+      stage: "review",
+      issueNumber: meta.issueNumber,
+      implPrNumber: pr.number,
+      reviewIteration: meta.reviewIteration
+    };
+  }
+  return {
+    stage: "none",
+    reason: `pr_action_${payload.action}_on_${meta.stage}_no_action`
+  };
+}
+function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
+  const pr = payload.pull_request;
+  const meta = parsePrMetadata(pr.body);
+  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
+  if (payload.action !== "submitted") {
+    return { stage: "none", reason: `review_action_${payload.action}_ignored` };
+  }
+  if (payload.review.state !== "changes_requested") {
+    return {
+      stage: "none",
+      reason: `review_state_${payload.review.state}_no_action`
+    };
+  }
+  const isShopfloorReview = shopfloorBotLogin !== void 0 && payload.review.user.login === shopfloorBotLogin;
+  if (meta.stage === "implement") {
+    return {
+      stage: "implement",
+      issueNumber: meta.issueNumber,
+      revisionMode: true,
+      reviewIteration: meta.reviewIteration,
+      reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
+    };
+  }
+  return {
+    stage: meta.stage,
+    issueNumber: meta.issueNumber,
+    revisionMode: true
+  };
+}
+
+// src/helpers/upsert-issue-metadata.ts
+var OPENER = "<!-- shopfloor:metadata";
+var CLOSER = "-->";
+var WELL_FORMED_BLOCK = /<!--\s*shopfloor:metadata[\s\S]*?-->/;
+var MALFORMED_TAIL = /<!--\s*shopfloor:metadata[\s\S]*$/;
+function renderBlock(fields) {
+  const lines = [OPENER];
+  if (fields.slug !== void 0) lines.push(`Shopfloor-Slug: ${fields.slug}`);
+  lines.push(CLOSER);
+  return lines.join("\n");
+}
+function upsertIssueMetadata(body, fields) {
+  const block = renderBlock(fields);
+  if (body === null || body.length === 0) return block;
+  if (WELL_FORMED_BLOCK.test(body)) {
+    return body.replace(WELL_FORMED_BLOCK, block);
+  }
+  if (MALFORMED_TAIL.test(body)) {
+    return body.replace(MALFORMED_TAIL, block);
+  }
+  const sep = body.endsWith("\n") ? "\n" : "\n\n";
+  return `${body}${sep}${block}`;
+}
+
+// src/helpers/apply-triage-decision.ts
 var NEXT_STAGE_LABEL = {
   quick: "shopfloor:needs-impl",
   medium: "shopfloor:needs-plan",
@@ -24841,6 +25145,11 @@ async function applyTriageDecision(adapter, params) {
       "shopfloor:awaiting-info"
     ]);
     return;
+  }
+  const slug = branchSlug(issue.title);
+  const newBody = upsertIssueMetadata(issue.body, { slug });
+  if (newBody !== issue.body) {
+    await adapter.updateIssueBody(issueNumber, newBody);
   }
   const nextStageLabel = NEXT_STAGE_LABEL[decision.complexity];
   const body = [
@@ -25099,265 +25408,6 @@ async function runPrecheckStage(adapter) {
 // src/helpers/route.ts
 var core14 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
-
-// src/state.ts
-var STATE_LABELS = /* @__PURE__ */ new Set([
-  "shopfloor:triaging",
-  "shopfloor:awaiting-info",
-  "shopfloor:needs-spec",
-  "shopfloor:spec-in-review",
-  "shopfloor:needs-plan",
-  "shopfloor:plan-in-review",
-  "shopfloor:needs-impl",
-  "shopfloor:impl-in-review",
-  "shopfloor:needs-review",
-  "shopfloor:review-requested-changes",
-  "shopfloor:review-approved",
-  "shopfloor:review-stuck",
-  "shopfloor:done",
-  // transient mutex markers (spec 5.4)
-  "shopfloor:spec-running",
-  "shopfloor:plan-running",
-  "shopfloor:implementing"
-]);
-var COMPLEXITY_LABELS = {
-  "shopfloor:quick": "quick",
-  "shopfloor:medium": "medium",
-  "shopfloor:large": "large"
-};
-function resolveStage(ctx) {
-  switch (ctx.eventName) {
-    case "issues":
-      return resolveIssueEvent(
-        ctx.payload,
-        ctx.triggerLabel,
-        ctx.liveLabels
-      );
-    case "issue_comment":
-      return { stage: "none", reason: "issue_comment_no_action_v0_1" };
-    case "pull_request":
-      return resolvePullRequestEvent(ctx.payload);
-    case "pull_request_review":
-      return resolvePullRequestReviewEvent(
-        ctx.payload,
-        ctx.shopfloorBotLogin
-      );
-    case "pull_request_review_comment":
-      return { stage: "none", reason: "review_comment_not_a_trigger_v0_1" };
-    default:
-      return { stage: "none", reason: `unhandled_event:${ctx.eventName}` };
-  }
-}
-function issueLabelSet(issue) {
-  return new Set(issue.labels.map((l) => l.name));
-}
-function prLabelSet(pr) {
-  return new Set(pr.labels.map((l) => l.name));
-}
-function stateLabel(labels) {
-  for (const l of labels) if (STATE_LABELS.has(l)) return l;
-  return null;
-}
-function complexityOf(labels) {
-  for (const [l, c] of Object.entries(COMPLEXITY_LABELS))
-    if (labels.has(l)) return c;
-  return void 0;
-}
-function parsePrMetadata(body) {
-  if (!body) return null;
-  const issueMatch = body.match(/Shopfloor-Issue:\s*#(\d+)/);
-  const stageMatch = body.match(
-    /Shopfloor-Stage:\s*(spec|plan|implement|review)/
-  );
-  const iterMatch = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
-  if (!issueMatch || !stageMatch) return null;
-  return {
-    issueNumber: Number(issueMatch[1]),
-    stage: stageMatch[1],
-    reviewIteration: iterMatch ? Number(iterMatch[1]) : 0
-  };
-}
-function branchSlug(title) {
-  return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().split(/\s+/).slice(0, 5).join("-").slice(0, 40);
-}
-var ADVANCEMENT_STATE_LABELS = /* @__PURE__ */ new Set([
-  "shopfloor:needs-spec",
-  "shopfloor:needs-plan",
-  "shopfloor:needs-impl"
-]);
-var FAILED_LABEL_PREFIX = "shopfloor:failed:";
-function failedLabel(labels) {
-  for (const l of labels) if (l.startsWith(FAILED_LABEL_PREFIX)) return l;
-  return null;
-}
-function computeStageFromLabels(labels, issue) {
-  const issueNumber = issue.number;
-  if (labels.has("shopfloor:needs-spec")) {
-    return {
-      stage: "spec",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(issue.title)}`
-    };
-  }
-  if (labels.has("shopfloor:needs-plan")) {
-    return {
-      stage: "plan",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`
-    };
-  }
-  if (labels.has("shopfloor:needs-impl")) {
-    return {
-      stage: "implement",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(issue.title)}.md`
-    };
-  }
-  return null;
-}
-function resolveIssueEvent(payload, triggerLabel, liveLabels) {
-  const labels = liveLabels ? new Set(liveLabels) : issueLabelSet(payload.issue);
-  const issueNumber = payload.issue.number;
-  const hasStateLabel = stateLabel(labels) !== null;
-  if (payload.issue.state === "closed") {
-    return { stage: "none", issueNumber, reason: "issue_closed_aborted" };
-  }
-  if (payload.issue.pull_request) {
-    return { stage: "none", reason: "issue_event_is_actually_a_pr" };
-  }
-  if (payload.action === "unlabeled" && payload.label?.name?.startsWith(FAILED_LABEL_PREFIX)) {
-    const failedStage = payload.label.name.slice(FAILED_LABEL_PREFIX.length);
-    const retryReason = `retry_after_${payload.label.name}_removed`;
-    const derived = computeStageFromLabels(labels, payload.issue);
-    if (derived) {
-      return { ...derived, reason: retryReason };
-    }
-    if (failedStage === "triage") {
-      return { stage: "triage", issueNumber, reason: retryReason };
-    }
-    return {
-      stage: "none",
-      issueNumber,
-      reason: `retry_${failedStage}_no_state_label_present`
-    };
-  }
-  const blockingFailed = failedLabel(labels);
-  if (blockingFailed) {
-    return {
-      stage: "none",
-      issueNumber,
-      reason: `blocked_by_${blockingFailed}`
-    };
-  }
-  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:review-stuck") {
-    return {
-      stage: "review",
-      issueNumber,
-      reason: "review_stuck_removed_force_review"
-    };
-  }
-  if (triggerLabel && triggerLabel.length > 0 && !labels.has(triggerLabel) && !hasStateLabel) {
-    return { stage: "none", issueNumber, reason: "trigger_label_absent" };
-  }
-  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:awaiting-info") {
-    return {
-      stage: "triage",
-      issueNumber,
-      reason: "re_triage_after_clarification"
-    };
-  }
-  if (payload.action === "opened" && triggerLabel && triggerLabel.length > 0) {
-    return {
-      stage: "none",
-      issueNumber,
-      reason: "opened_deferred_to_labeled_event"
-    };
-  }
-  if (payload.action === "opened" && !hasStateLabel) {
-    return { stage: "triage", issueNumber };
-  }
-  if (triggerLabel && triggerLabel.length > 0 && payload.action === "labeled" && payload.label?.name === triggerLabel && !hasStateLabel) {
-    return { stage: "triage", issueNumber, reason: "trigger_label_added" };
-  }
-  if (payload.action === "labeled" && payload.label?.name && ADVANCEMENT_STATE_LABELS.has(payload.label.name)) {
-    const derived = computeStageFromLabels(labels, payload.issue);
-    if (derived) return derived;
-  }
-  if (labels.has("shopfloor:awaiting-info")) {
-    return { stage: "none", issueNumber, reason: "awaiting_info_paused" };
-  }
-  return { stage: "none", issueNumber, reason: "no_matching_label_rule" };
-}
-function resolvePullRequestEvent(payload) {
-  const pr = payload.pull_request;
-  const meta = parsePrMetadata(pr.body);
-  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
-  if (payload.action === "closed" && pr.merged) {
-    return {
-      stage: "none",
-      issueNumber: meta.issueNumber,
-      reason: `pr_merged_${meta.stage}_triggered_label_flip`
-    };
-  }
-  if (payload.action === "closed") {
-    return { stage: "none", reason: "pr_closed_not_merged_ignored" };
-  }
-  if ((payload.action === "synchronize" || payload.action === "ready_for_review") && meta.stage === "implement") {
-    const labels = prLabelSet(pr);
-    if (labels.has("shopfloor:skip-review")) {
-      return { stage: "none", reason: "skip_review_label_present" };
-    }
-    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
-    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
-    return {
-      stage: "review",
-      issueNumber: meta.issueNumber,
-      implPrNumber: pr.number,
-      reviewIteration: meta.reviewIteration
-    };
-  }
-  return {
-    stage: "none",
-    reason: `pr_action_${payload.action}_on_${meta.stage}_no_action`
-  };
-}
-function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
-  const pr = payload.pull_request;
-  const meta = parsePrMetadata(pr.body);
-  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
-  if (payload.action !== "submitted") {
-    return { stage: "none", reason: `review_action_${payload.action}_ignored` };
-  }
-  if (payload.review.state !== "changes_requested") {
-    return {
-      stage: "none",
-      reason: `review_state_${payload.review.state}_no_action`
-    };
-  }
-  const isShopfloorReview = shopfloorBotLogin !== void 0 && payload.review.user.login === shopfloorBotLogin;
-  if (meta.stage === "implement") {
-    return {
-      stage: "implement",
-      issueNumber: meta.issueNumber,
-      revisionMode: true,
-      reviewIteration: meta.reviewIteration,
-      reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
-    };
-  }
-  return {
-    stage: meta.stage,
-    issueNumber: meta.issueNumber,
-    revisionMode: true
-  };
-}
-
-// src/helpers/route.ts
 async function runRoute(adapter) {
   const triggerLabel = core14.getInput("trigger_label") || void 0;
   let liveLabels;
