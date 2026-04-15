@@ -24836,10 +24836,11 @@ async function applyTriageDecision(adapter, params) {
       "Remove the `shopfloor:awaiting-info` label once you have updated the issue body or added answers in comments."
     ].join("\n");
     await adapter.postIssueComment(issueNumber, body2);
+    const fromLabels2 = current.has("shopfloor:triaging") ? ["shopfloor:triaging"] : [];
     await advanceState(
       adapter,
       issueNumber,
-      ["shopfloor:triaging"],
+      fromLabels2,
       ["shopfloor:awaiting-info"]
     );
     return;
@@ -24851,10 +24852,13 @@ async function applyTriageDecision(adapter, params) {
     decision.rationale
   ].join("\n");
   await adapter.postIssueComment(issueNumber, body);
+  const fromLabels = ["shopfloor:triaging", "shopfloor:awaiting-info"].filter(
+    (l) => current.has(l)
+  );
   await advanceState(
     adapter,
     issueNumber,
-    ["shopfloor:triaging", "shopfloor:awaiting-info"],
+    fromLabels,
     [`shopfloor:${decision.complexity}`, nextStageLabel]
   );
 }

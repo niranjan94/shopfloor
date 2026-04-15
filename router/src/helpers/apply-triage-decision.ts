@@ -67,10 +67,16 @@ export async function applyTriageDecision(
       "Remove the `shopfloor:awaiting-info` label once you have updated the issue body or added answers in comments.",
     ].join("\n");
     await adapter.postIssueComment(issueNumber, body);
+    // Pass only from_labels actually present so advance-state's strict
+    // presence assertion does not throw when shopfloor:triaging was never
+    // set (it is not wired up in the workflow; see spec 8.2).
+    const fromLabels = current.has("shopfloor:triaging")
+      ? ["shopfloor:triaging"]
+      : [];
     await advanceState(
       adapter,
       issueNumber,
-      ["shopfloor:triaging"],
+      fromLabels,
       ["shopfloor:awaiting-info"],
     );
     return;
@@ -83,10 +89,16 @@ export async function applyTriageDecision(
     decision.rationale,
   ].join("\n");
   await adapter.postIssueComment(issueNumber, body);
+  // Same filter: only remove the transient triage labels that are actually
+  // present. First-time triage has neither; a classified re-triage from the
+  // awaiting-info state has only awaiting-info.
+  const fromLabels = ["shopfloor:triaging", "shopfloor:awaiting-info"].filter(
+    (l) => current.has(l),
+  );
   await advanceState(
     adapter,
     issueNumber,
-    ["shopfloor:triaging", "shopfloor:awaiting-info"],
+    fromLabels,
     [`shopfloor:${decision.complexity}`, nextStageLabel],
   );
 }
