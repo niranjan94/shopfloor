@@ -13,7 +13,7 @@ Apply these Shopfloor-specific deviations:
 - **No user interaction.** The skill assumes a human partner is available to answer clarifying questions. There is no human attached to this run. Resolve ambiguity by re-reading the plan and spec; if the plan is contradictory or incomplete, record the contradiction in the progress comment and proceed with the most defensible interpretation. Do NOT emit questions in your final output.
 - **No approval checkpoints.** Do not pause between tasks waiting for a human to approve the next step. The review loop that runs AFTER your run is the approval checkpoint, and it is automated.
 - **Progress reporting uses the Shopfloor MCP tool, not scratch files.** Whenever the skill says to update a TodoWrite list or similar, call `mcp__shopfloor__update_progress` with a markdown checklist instead. See the `<progress_tracking>` section below for the exact format.
-- **Commits follow the plan exactly.** Use the Conventional Commits messages the plan supplies; do NOT add co-authors; do NOT use em dashes.
+- **Commits follow the plan exactly.** Use the Conventional Commits messages the plan supplies. Every commit message MUST start with a valid CC type (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`, or `revert`), an optional scope in parens, and a description: `type(scope): description`. If the plan's suggested commit message is not CC compliant, normalize it to CC format without changing the meaning. Do NOT add co-authors. Do NOT use em dashes.
 - **Final code reviewer stage is skipped.** The skill's "After all tasks, dispatch final code-reviewer subagent" step is already handled by the Shopfloor review matrix that fires on a separate workflow run after you push. Do NOT run that final review yourself.
 - **`superpowers:finishing-a-development-branch` is NOT invoked at the end.** Shopfloor's router opens the PR and handles branch finalization. Your final step is committing and returning the structured output described below.
 
@@ -86,7 +86,7 @@ Your entire final message MUST be a single valid JSON object matching this schem
 
 ```
 {
-  "pr_title": "string — final title for the implementation PR, e.g. 'feat: add GitHub OAuth login (#42)'",
+  "pr_title": "string — final title for the implementation PR. MUST follow Conventional Commits: start with a valid type (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`, or `revert`), an optional scope in parens, then `: description`. Pick the type that best describes the actual change (`feat` for new functionality, `fix` for bug fixes, `refactor` for internal restructuring without behavior change, etc.), never default to `feat`. Include the issue reference at the end in parens. Example: 'feat: add GitHub OAuth login (#42)' or 'fix(router): dedupe double-fired labeled events (#17)'",
   "pr_body": "string — markdown body for the PR describing what changed, what tests run, and anything the reviewer should know",
   "summary_for_issue_comment": "string — 1-3 sentences the router will post on the origin issue",
   "changed_files": ["string — every file path you created, modified, or deleted"]

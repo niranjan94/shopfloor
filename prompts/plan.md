@@ -12,6 +12,7 @@ Operate non-interactively:
 - Do NOT ask the user any questions. There is no user attached to this run. Resolve ambiguity by re-reading the spec, the issue, and the codebase, and pick the most defensible default. If a question is truly blocking, write it into an "Open questions" note at the top of the plan and proceed with your best guess for the remaining work.
 - Do NOT pause for approval. The human reviewer will see the plan in the pull request Shopfloor opens on your behalf.
 - Do NOT skip sections of `superpowers:writing-plans` that relate to quality (phase decomposition, atomic tasks, verification per task, commit messages). Those still apply.
+- Every suggested commit message in the plan MUST be a valid Conventional Commits string: start with one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`, or `revert`, an optional scope in parens, then `: description`. Pick the type that best describes the task (`feat` for new functionality, `fix` for bug fixes, `refactor` for internal restructuring, `test` for test-only changes, `docs` for doc-only changes, `chore` for build/tooling). The implementation agent will use these commit messages verbatim, so they must be accurate and CC-compliant up front.
 
 Move directly to writing the plan at `{{plan_file_path}}`.
 </primary_methodology>
