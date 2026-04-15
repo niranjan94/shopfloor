@@ -16,6 +16,7 @@ import { runRenderPrompt } from "./helpers/render-prompt";
 import { runApplyTriageDecision } from "./helpers/apply-triage-decision";
 import { runApplyImplPostwork } from "./helpers/apply-impl-postwork";
 import { runPrecheckStage } from "./helpers/precheck-stage";
+import { runBuildRevisionContext } from "./helpers/build-revision-context";
 import { runRoute } from "./helpers/route";
 
 async function main(): Promise<void> {
@@ -70,6 +71,8 @@ async function main(): Promise<void> {
       return runApplyImplPostwork(adapter);
     case "precheck-stage":
       return runPrecheckStage(adapter);
+    case "build-revision-context":
+      return runBuildRevisionContext(adapter);
     default:
       core.setFailed(`Unknown helper: ${helper}`);
   }

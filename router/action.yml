@@ -2,7 +2,7 @@ name: Shopfloor Router
 description: Core dispatcher for the Shopfloor reusable workflow. Resolves the stage or invokes a helper.
 inputs:
   helper:
-    description: "Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review, render-prompt, apply-triage-decision, apply-impl-postwork, precheck-stage"
+    description: "Which helper to run: route (default), bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review, render-prompt, apply-triage-decision, apply-impl-postwork, precheck-stage, build-revision-context"
     required: false
     default: route
   github_token:
@@ -106,6 +106,32 @@ inputs:
   # apply-triage-decision inputs
   decision_json:
     { description: "Structured triage output JSON", required: false }
+
+  # build-revision-context inputs
+  spec_file_path:
+    description: "For build-revision-context: spec file path to compose into spec_source"
+    required: false
+  plan_file_path:
+    description: "For build-revision-context: plan file path to read into plan_file_contents"
+    required: false
+  progress_comment_id:
+    description: "For build-revision-context: progress comment id to thread through to the agent"
+    required: false
+  bash_allowlist:
+    description: "For build-revision-context: bash allowlist to pass to the agent"
+    required: false
+  repo_owner:
+    description: "For build-revision-context: repository owner login"
+    required: false
+  repo_name:
+    description: "For build-revision-context: repository name"
+    required: false
+  output_path:
+    description: "For build-revision-context: absolute path to write the resulting context.json"
+    required: false
+  prompt_fragment_path:
+    description: "For build-revision-context: path to the prompt fragment template (defaults to prompts/implement-revision-fragment.md)"
+    required: false
 
 outputs:
   stage:
