@@ -227,17 +227,19 @@ test("shopfloor.yml parses and lists expected jobs", async () => {
 
 The route job's outputs correctly gate downstream jobs.
 
-Five sub-tests, one per webhook -> stage mapping (job names verified against `shopfloor.yml`):
+Sub-tests, one per webhook -> stage mapping (job names verified against `shopfloor.yml`):
 
 - `issue-labeled-trigger-label-added.json` -> route runs -> only `triage` job runs downstream
 - `issue-labeled-needs-spec.json` -> route runs -> only `spec` job runs
 - `issue-labeled-needs-plan-no-title.json` -> route runs -> only `plan` job runs
+- Implement first-run case (route output `revision_mode=false`) -> the implement job runs and the **`Create impl branch`** + **`open_pr`** + inline **`Build implement context`** (`id: ctx`) steps execute; the **`Checkout existing impl branch`**, **`Resolve existing impl PR number`**, and **`Build revision context`** (`id: ctx_revision`) steps are skipped.
+- Implement revision-run case (route output `revision_mode=true`, `impl_pr_number` populated) -> the implement job runs and the inverse holds: the revision-mode steps execute and the first-run steps are skipped.
 - `pr-ready-for-review-impl.json` -> route runs -> the six review jobs run (`review-skip-check`, `review-compliance`, `review-bugs`, `review-security`, `review-smells`, `review-aggregator`)
 - `pr-closed-merged-spec.json` -> route runs -> only the `handle-merge` job runs
 
-Each sub-test asserts on the returned `Step[]`: which jobs reported `status: 0` and which were `skipped`. **Catches:** broken `if:` expressions on jobs, output name typos, empty-string ternary bugs.
+Each sub-test asserts on the returned `Step[]`: which jobs reported `status: 0` and which were `skipped`, AND for the implement cases, which **steps within the implement job** ran vs. were skipped. **Catches:** broken `if:` expressions on jobs and on the revision-mode step gates (added in commit `9545585`), output name typos, empty-string ternary bugs, and any future regression of the revision-mode fork.
 
-Note on the review case: when the workflow gates on `review-skip-check`'s output, the four reviewer jobs and aggregator are correctly skipped by act when the skip flag is true. The test should verify both (a) the skip path leaves four reviewers as `skipped` and (b) the non-skip path runs all six. That's two of the five sub-tests, not one — reframe accordingly during implementation.
+Note on the review case: when the workflow gates on `review-skip-check`'s output, the four reviewer jobs and aggregator are correctly skipped by act when the skip flag is true. The test should verify both (a) the skip path leaves four reviewers as `skipped` and (b) the non-skip path runs all six. That makes seven sub-tests in total, not five — reframe accordingly during implementation.
 
 ### W3 — `has-review-app-gating.test.ts`
 

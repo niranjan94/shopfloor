@@ -56,9 +56,14 @@ This is "Layer 1" of a two-layer e2e strategy. Layer 1 covers the state machine 
 
 Verified by reading the helpers: `apply-triage-decision`, `aggregate-review`, `apply-impl-postwork`, and `open-stage-pr` all read agent output via `core.getInput()`, not from files. The workflow YAML wires `claude-code-action.outputs.foo -> router.with.foo`. This means the harness's "agent stub" does not need filesystem fakery — it just queues the next helper's input map.
 
-### Key insight: the router never touches git or the filesystem
+### Key insight: the router rarely touches git or the filesystem
 
-Verified by `Grep` over `router/src`. All `git checkout/add/commit/push` lives in `shopfloor.yml` step bodies. The router is a pure "events in -> Octokit calls out" state machine. Layer 1 therefore needs zero filesystem fakery beyond temp files for `GITHUB_EVENT_PATH` / `GITHUB_OUTPUT` / `RUNNER_TEMP`.
+Verified by `Grep` over `router/src`. All `git checkout/add/commit/push` lives in `shopfloor.yml` step bodies. The router is almost a pure "events in -> Octokit calls out" state machine, with two narrow filesystem exceptions:
+
+1. **`render-prompt`** reads a prompt template file and a context JSON file from disk and writes the rendered prompt back to disk. Long-standing.
+2. **`build-revision-context`** (added in commit `f33e261`) reads the on-disk `spec_file_path` and `plan_file_path` from the impl branch checkout and writes the assembled `context.json` to a configurable `output_path`. New since the original spec draft and material to the impl-review-retry-loop scenario.
+
+Layer 1 handles both by giving the harness a real workspace temp directory (`RUNNER_TEMP` plus a synthetic checkout root) and pre-seeding any files the helper expects to read. The harness exposes `harness.seedFile(relativePath, contents)` for this. No git operations are simulated — only the file artifacts the helpers read.
 
 ### Three components
 
@@ -569,11 +574,12 @@ export const jobGraph: Record<StageName, GraphStep[]> = {
 };
 ```
 
-Three things to note:
+Four things to note:
 
 1. **The graph is hand-maintained.** This is the source of drift if `shopfloor.yml` evolves. We accept this with two mitigations: (a) the graph file lives next to the YAML in the repo so PR reviewers can spot drift; (b) Layer 2 catches drift between graph and YAML once Layer 2 ships.
 2. **`InputSource` is typed.** Bad references fail loudly at scenario time, with an error pointing at the graph step. Not silently passing `undefined`.
 3. **Every stage uses the `context` step pattern, not just triage.** Verified: `shopfloor.yml` has eight `id: ctx` shell steps (one per stage that runs claude-code-action). Find them with `grep -n "id: ctx$" .github/workflows/shopfloor.yml`. Each writes a JSON context file and exposes its path as `steps.ctx.outputs.path`, which the next `render-prompt` step reads via `context_file:`. The job graph models all eight via the `kind: "context"` step type. The `build` callback for each stage assembles the JSON differently — triage pulls issue comments, the stage agents pull issue body + already-merged previous-stage artifacts, the four reviewers pull PR diff metadata, and so on. The implementation plan should enumerate each context shape by reading the corresponding YAML block.
+4. **The implement stage forks on `revision_mode`.** Verified: `shopfloor.yml` lines 711-903 add a revision-mode branch to the implement job (commit `9545585`). On first runs (`revision_mode != 'true'`), the workflow creates the impl branch, opens a draft PR via `open-stage-pr`, and builds the context inline via jq (`id: ctx`). On revision runs (`revision_mode == 'true'`), the workflow fetches the existing impl branch, reuses `route.outputs.impl_pr_number` instead of opening a new PR, and builds the context via the **`build-revision-context` router helper** (`id: ctx_revision`) instead of inline jq. Both paths converge on the same `context.json` shape and feed the same downstream agent step. The job graph models this with two `implement` entries (`implement-first-run` and `implement-revision`) keyed by the route helper's `revision_mode` output, dispatched by `runStage` based on the most recent route invocation. The harness picks the right branch automatically; scenario authors do not pass it explicitly.
 
 ### Event helpers
 
@@ -685,15 +691,20 @@ Tests stage PR review feedback for spec. Plan rework is structurally identical s
 
 ### 6. `impl-review-retry-loop.test.ts`
 
-The retry loop feature from commit `4fd8fe0`. The reason this whole project might be worth doing.
+The retry loop feature from commit `4fd8fe0`, plus the revision-context branching from commits `f33e261` and `9545585`. The reason this whole project might be worth doing.
 
-- **Path:** triage -> implement -> review iteration 0 requests changes -> implement re-runs (iteration 1) -> review iteration 1 approves -> merge
+- **Path:** triage -> implement (first run, `revision_mode=false`) -> review iteration 0 requests changes -> implement (revision run, `revision_mode=true`) -> review iteration 1 approves -> merge
 - **Critical assertions:**
   - The impl PR body's `Shopfloor-Review-Iteration` increments from 0 to 1 and is preserved across the re-run (this is what `preserveBodyIfExists` is for in `openStagePr`).
-  - The same impl PR is reused (same number).
+  - The same impl PR is reused (same number) and on the revision run it surfaces via `route.outputs.impl_pr_number`, not via re-opening through `open-stage-pr`.
+  - The route helper outputs `revision_mode=true` and `impl_pr_number=<existing>` on the second iteration, and the harness's job-graph dispatch picks the revision branch of the implement stage.
+  - The first run's context is built by the inline jq context step (`kind: "context"` in the job graph). The second run's context is built by the `build-revision-context` router helper (`kind: "helper"` in the job graph), reading the latest REQUEST_CHANGES review and its line comments via the fake's `pulls.listReviews` and `pulls.listReviewComments`.
+  - Both runs produce a `context.json` with the same shape; the second one has a populated `revision_block` field.
   - The triage mutex + retry flow doesn't deadlock.
   - Two review records exist on the PR, one per iteration, distinguished by `commit_id`.
   - Final state: `review-approved -> done`.
+
+Required fake state: pre-seed `spec_file_path` and `plan_file_path` on disk before the implement stage runs (because both context builders read them via `existsSync` / `readFileSync`). Use `harness.seedFile(...)` to write minimal placeholders.
 
 ### 7. `review-stuck-after-max-iterations.test.ts`
 
@@ -881,6 +892,10 @@ These need explicit handling in the implementation plan, not buried in code:
 5. **Helper signature drift.** The hand-scripted job graph uses helper input names as strings. A typo or rename surfaces as a runtime error, not a compile-time error. Mitigation: type the `InputMap` against a `HelperInputMap` literal type derived from each helper's actual `getInput` calls. ~50 LoC of typing work, big payoff.
 
 6. **Identity binding for the dual-token model.** Need to verify by reading the workflow YAML and `aggregate-review` that `aggregate-review` is the only helper that uses `review_github_token`. If others use it, the harness needs to expand its token map.
+
+7. **Helper inventory drift.** New helpers can land between spec and implementation. Already happened once during this design: `build-revision-context` was added in commit `f33e261` (after the first spec draft) and is exercised by the impl-review-retry-loop scenario. The `RouteOutputs` type the harness consumes also gained `revision_mode` and `impl_pr_number` fields in commit `9545585`. Before locking in the harness, the implementation plan should re-enumerate `router/src/helpers/*.ts` and `router/src/helpers/route.ts`'s `setOutput` calls to catch any further additions. The helpers currently present (verified at HEAD): `route, bootstrap-labels, open-stage-pr, advance-state, report-failure, handle-merge, create-progress-comment, finalize-progress-comment, check-review-skip, aggregate-review, render-prompt, apply-triage-decision, apply-impl-postwork, precheck-stage, build-revision-context`. Plus the internal `upsert-issue-metadata` module (not exposed via `INPUT_HELPER`).
+
+8. **Filesystem helpers.** Two helpers read/write disk: `render-prompt` (prompt template + context file) and `build-revision-context` (spec/plan files + output context.json). The harness must seed these files before invoking the corresponding stage. `harness.seedFile(relativePath, contents)` is the affordance; `harness.workspaceDir` is its root. The implementation plan should add file-seeding steps to scenarios 3 (large-happy, needs spec/plan files for implement) and 6 (impl-review-retry-loop, needs the same). Scenarios 1 and 2 don't read those files and don't need the seed step.
 
 ---
 
