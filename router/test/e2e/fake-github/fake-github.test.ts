@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { newFakeState } from "./state";
 import { FakeRequestError } from "./errors";
+import { createCommitStatus } from "./handlers/repos";
+import { FakeGitHub } from "./index";
 import {
   addLabels,
   removeLabel,
@@ -386,5 +388,55 @@ describe("pulls.listReviewComments", () => {
         pull_request_review_id: 1,
       }),
     );
+  });
+});
+
+describe("repos.createCommitStatus", () => {
+  test("truncates description to 140 chars", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    const long = "x".repeat(200);
+    createCommitStatus(state, {
+      sha: "abc",
+      state: "pending",
+      context: "shopfloor/review",
+      description: long,
+    });
+    const ctxMap = state.statuses.get("abc")!;
+    expect(ctxMap.get("shopfloor/review")!.description).toHaveLength(140);
+  });
+  test("latest-wins per (sha, context)", () => {
+    const state = newFakeState({ owner: "o", repo: "r" });
+    createCommitStatus(state, {
+      sha: "abc", state: "pending",
+      context: "shopfloor/review", description: "first",
+    });
+    createCommitStatus(state, {
+      sha: "abc", state: "success",
+      context: "shopfloor/review", description: "second",
+    });
+    expect(state.statuses.get("abc")!.get("shopfloor/review")!.state).toBe("success");
+    expect(state.statuses.get("abc")!.get("shopfloor/review")!.description).toBe("second");
+  });
+});
+
+describe("FakeGitHub.asOctokit", () => {
+  test("addLabels through the shim mutates the underlying state", async () => {
+    const fake = new FakeGitHub({ owner: "o", repo: "r" });
+    fake.seedLabels([{ name: "shopfloor:trigger", color: "ededed" }]);
+    fake.seedIssue({ number: 1, title: "x", body: null, author: "a" });
+    const oct = fake.asOctokit("shopfloor[bot]");
+    await oct.rest.issues.addLabels({
+      owner: "o", repo: "r", issue_number: 1, labels: ["shopfloor:trigger"],
+    });
+    expect(fake.labelsOn(1)).toEqual(["shopfloor:trigger"]);
+  });
+  test("snapshot omits internal counters and event log", () => {
+    const fake = new FakeGitHub({ owner: "o", repo: "r" });
+    fake.seedLabels([{ name: "shopfloor:trigger", color: "ededed" }]);
+    fake.seedIssue({ number: 1, title: "x", body: null, author: "a" });
+    const snap = fake.snapshot() as Record<string, unknown>;
+    expect(snap).toHaveProperty("issues");
+    expect(snap).not.toHaveProperty("nextNumber");
+    expect(snap).not.toHaveProperty("eventLog");
   });
 });
