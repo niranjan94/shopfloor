@@ -185,6 +185,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -290,6 +294,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -426,6 +434,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -670,6 +682,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -806,6 +822,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -872,6 +892,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -938,6 +962,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
@@ -1004,6 +1032,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          # The Shopfloor GitHub App is the actor that triggers downstream
+          # stages, so every claude-code-action invocation past triage sees a
+          # Bot actor. Allow all bots so the action does not refuse to run.
+          allowed_bots: "*"
           prompt: ${{ steps.prompt.outputs.rendered }}
           display_report: ${{ inputs.display_report }}
           plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
