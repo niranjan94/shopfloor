@@ -74,3 +74,53 @@ describe("resetCoreState", () => {
     }
   });
 });
+
+import { AgentStub } from "./agent-stub";
+
+describe("AgentStub", () => {
+  test("FIFO per non-review stage", () => {
+    const stub = new AgentStub();
+    stub.queue("triage", { decision_json: '{"a":1}' });
+    stub.queue("triage", { decision_json: '{"a":2}' });
+    expect(stub.consume("triage").decision_json).toBe('{"a":1}');
+    expect(stub.consume("triage").decision_json).toBe('{"a":2}');
+  });
+  test("review bundle returns a per-role record", () => {
+    const stub = new AgentStub();
+    stub.queueReview({
+      compliance: { output: "c" },
+      bugs: { output: "b" },
+      security: { output: "s" },
+      smells: { output: "sm" },
+    });
+    const bundle = stub.consumeReview();
+    expect(bundle.compliance).toEqual({ output: "c" });
+    expect(bundle.bugs).toEqual({ output: "b" });
+    expect(bundle.security).toEqual({ output: "s" });
+    expect(bundle.smells).toEqual({ output: "sm" });
+  });
+  test("consume throws with a clear message when queue empty", () => {
+    const stub = new AgentStub();
+    expect(() => stub.consume("triage")).toThrow(
+      /no queued agent response for stage 'triage'/,
+    );
+  });
+  test("consumeReview throws naming missing roles", () => {
+    const stub = new AgentStub();
+    expect(() => stub.consumeReview()).toThrow(/no queued review bundle/);
+  });
+});
+
+import { loadEvent } from "./fixtures";
+
+describe("loadEvent", () => {
+  test("loads issue-labeled-trigger and applies issueNumber override", () => {
+    const ev = loadEvent("issue-labeled-trigger-label-added.json", { issueNumber: 99 });
+    expect(ev.eventName).toBe("issues");
+    expect((ev.payload as { issue: { number: number } }).issue.number).toBe(99);
+  });
+  test("attaches event name based on payload shape", () => {
+    const ev = loadEvent("pr-review-approved.json");
+    expect(ev.eventName).toBe("pull_request_review");
+  });
+});
