@@ -1,6 +1,8 @@
 import * as core from "@actions/core";
 import type { GitHubAdapter } from "../github";
+import { branchSlug } from "../state";
 import { advanceState } from "./advance-state";
+import { upsertIssueMetadata } from "./upsert-issue-metadata";
 
 interface TriageOutput {
   status: "classified" | "needs_clarification";
@@ -77,6 +79,17 @@ export async function applyTriageDecision(
       "shopfloor:awaiting-info",
     ]);
     return;
+  }
+
+  // Persist the slug exactly once, on the classified decision, so later
+  // stages read it back instead of re-deriving it from the title (which the
+  // user can freely edit mid-pipeline). The needs_clarification branch
+  // above does NOT write: the title may still change before the eventual
+  // classified re-triage, and writing early would lock in a stale slug.
+  const slug = branchSlug(issue.title);
+  const newBody = upsertIssueMetadata(issue.body, { slug });
+  if (newBody !== issue.body) {
+    await adapter.updateIssueBody(issueNumber, newBody);
   }
 
   const nextStageLabel = NEXT_STAGE_LABEL[decision.complexity];

@@ -164,12 +164,20 @@ export interface OctokitLike {
         repo: string;
         issue_number: number;
         state?: "open" | "closed";
+        body?: string;
       }): Promise<unknown>;
       get(params: {
         owner: string;
         repo: string;
         issue_number: number;
-      }): Promise<{ data: { labels: unknown; state: string } }>;
+      }): Promise<{
+        data: {
+          labels: unknown;
+          state: string;
+          title?: string;
+          body?: string | null;
+        };
+      }>;
     };
     pulls: {
       create(params: {

@@ -156,6 +156,126 @@ describe("applyTriageDecision", () => {
     expect(bundle.mocks.removeLabel).not.toHaveBeenCalled();
   });
 
+  test("classified path persists the computed slug in the issue body", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add rate limiting to /api/users endpoint",
+        body: "Please rate-limit this.",
+      },
+    });
+    // advance-state second getIssue for the from-labels present check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add rate limiting to /api/users endpoint",
+        body: "Please rate-limit this.",
+      },
+    });
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "medium",
+        rationale: "Small cross-file feature.",
+        clarifying_questions: [],
+      },
+    });
+    expect(bundle.mocks.updateIssue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_number: 42,
+        body: expect.stringContaining(
+          "Shopfloor-Slug: add-rate-limiting-to-api",
+        ),
+      }),
+    );
+    // original body content is preserved, not clobbered
+    const call = bundle.mocks.updateIssue.mock.calls.find(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    expect(call).toBeDefined();
+    expect((call![0] as { body: string }).body).toContain(
+      "Please rate-limit this.",
+    );
+  });
+
+  test("classified path is idempotent: does not rewrite an already-correct block", async () => {
+    const bundle = makeMockAdapter();
+    const existingBody = [
+      "Please rate-limit this.",
+      "",
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: add-rate-limiting-to-api",
+      "-->",
+    ].join("\n");
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add rate limiting to /api/users endpoint",
+        body: existingBody,
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add rate limiting to /api/users endpoint",
+        body: existingBody,
+      },
+    });
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "medium",
+        rationale: "Small cross-file feature.",
+        clarifying_questions: [],
+      },
+    });
+    // The triage helper must not call update with a body when nothing changed.
+    const bodyWrites = bundle.mocks.updateIssue.mock.calls.filter(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    expect(bodyWrites).toHaveLength(0);
+  });
+
+  test("needs_clarification path does NOT persist a slug", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add rate limiting to /api/users endpoint",
+        body: "Please rate-limit this.",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add rate limiting to /api/users endpoint",
+        body: "Please rate-limit this.",
+      },
+    });
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "needs_clarification",
+        complexity: "medium",
+        rationale: "Need more info.",
+        clarifying_questions: ["Which route?"],
+      },
+    });
+    const bodyWrites = bundle.mocks.updateIssue.mock.calls.filter(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    expect(bodyWrites).toHaveLength(0);
+  });
+
   test("throws when a non-triaging state label is already present", async () => {
     const bundle = makeMockAdapter();
     bundle.mocks.getIssue.mockResolvedValueOnce({

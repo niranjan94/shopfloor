@@ -254,9 +254,12 @@ export class GitHubAdapter {
     return files;
   }
 
-  async getIssue(
-    issueNumber: number,
-  ): Promise<{ labels: Array<{ name: string }>; state: "open" | "closed" }> {
+  async getIssue(issueNumber: number): Promise<{
+    labels: Array<{ name: string }>;
+    state: "open" | "closed";
+    title: string;
+    body: string | null;
+  }> {
     const res = await this.octokit.rest.issues.get({
       ...this.repo,
       issue_number: issueNumber,
@@ -264,7 +267,17 @@ export class GitHubAdapter {
     return {
       labels: res.data.labels as Array<{ name: string }>,
       state: res.data.state as "open" | "closed",
+      title: (res.data.title as string | undefined) ?? "",
+      body: (res.data.body as string | null | undefined) ?? null,
     };
+  }
+
+  async updateIssueBody(issueNumber: number, body: string): Promise<void> {
+    await this.octokit.rest.issues.update({
+      ...this.repo,
+      issue_number: issueNumber,
+      body,
+    });
   }
 
   async getPrReviewsAtSha(
