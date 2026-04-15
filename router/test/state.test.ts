@@ -63,6 +63,13 @@ describe("resolveStage", () => {
     expect(decision.reason).toBe("pr_merged_spec_triggered_label_flip");
   });
 
+  test("pull_request.closed merged=true returns issueNumber from PR body metadata", () => {
+    const decision = resolveStage(ctx("pull_request", "pr-closed-merged-spec"));
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_merged_spec_triggered_label_flip");
+    expect(decision.issueNumber).toBe(42);
+  });
+
   test("changes_requested review on impl PR -> implement (revision mode)", () => {
     const decision = resolveStage(
       ctx("pull_request_review", "pr-review-submitted-changes-requested"),

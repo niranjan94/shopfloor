@@ -292,6 +292,7 @@ function resolvePullRequestEvent(payload: PullRequestPayload): RouterDecision {
   if (payload.action === "closed" && pr.merged) {
     return {
       stage: "none",
+      issueNumber: meta.issueNumber,
       reason: `pr_merged_${meta.stage}_triggered_label_flip`,
     };
   }
