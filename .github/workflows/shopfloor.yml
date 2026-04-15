@@ -9,7 +9,6 @@ on:
       triage_max_turns: { type: number, default: 10 }
       spec_max_turns: { type: number, default: 10 }
       plan_max_turns: { type: number, default: 15 }
-      impl_max_turns: { type: number, default: 70 }
       triage_timeout_minutes: { type: number, default: 10 }
       spec_timeout_minutes: { type: number, default: 20 }
       plan_timeout_minutes: { type: number, default: 30 }
@@ -71,7 +70,7 @@ on:
       cloud_ml_region: { required: false }
       google_application_credentials: { required: false }
       anthropic_foundry_resource: { required: false }
-      shopfloor_github_app_id: { required: false }
+      shopfloor_github_app_client_id: { required: false }
       shopfloor_github_app_private_key: { required: false }
       ssh_signing_key: { required: false }
 
@@ -108,7 +107,7 @@ jobs:
     # we capture App-credential presence into a job-level env var (which CAN read
     # secrets) and check that var from the warning step's `if:`.
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       stage: ${{ steps.router.outputs.stage }}
       issue_number: ${{ steps.router.outputs.issue_number }}
@@ -125,7 +124,7 @@ jobs:
       - name: Warn if no GitHub App configured
         if: ${{ env.SHOPFLOOR_HAS_APP != 'true' }}
         run: |
-          echo "::warning title=Shopfloor::No GitHub App credentials configured (shopfloor_github_app_id / shopfloor_github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
+          echo "::warning title=Shopfloor::No GitHub App credentials configured (shopfloor_github_app_client_id / shopfloor_github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
       - id: bootstrap
         uses: ./router
         with:
@@ -144,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Build triage context
@@ -207,7 +206,7 @@ jobs:
         if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Apply triage decision
         if: success()
@@ -237,7 +236,7 @@ jobs:
       pull-requests: write
       issues: write
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create spec branch
@@ -318,7 +317,7 @@ jobs:
         if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Open spec PR
         if: success()
@@ -362,7 +361,7 @@ jobs:
       pull-requests: write
       issues: write
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Create plan branch
@@ -437,7 +436,7 @@ jobs:
         if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Open plan PR
         if: success()
@@ -482,7 +481,7 @@ jobs:
       issues: write
       statuses: write
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       pr_number: ${{ steps.open_pr.outputs.pr_number }}
       comment_id: ${{ steps.progress.outputs.comment_id }}
@@ -513,7 +512,7 @@ jobs:
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: open_pr
         uses: ./router
@@ -623,7 +622,6 @@ jobs:
           claude_args: |
             --model ${{ inputs.impl_model }}
             --effort ${{ inputs.impl_effort }}
-            --max-turns ${{ inputs.impl_max_turns }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --mcp-config ${{ steps.mcp_config.outputs.path }}
@@ -640,7 +638,7 @@ jobs:
         if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Reconfigure git remote with App token for push
         if: ${{ success() && steps.app_token_push.outputs.token != '' }}
@@ -984,7 +982,7 @@ jobs:
       issues: write
       statuses: write
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       # Mint a GitHub App token so the posted PR review (event = pull_request_review.submitted)
@@ -995,7 +993,7 @@ jobs:
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - uses: ./router
         with:
@@ -1020,7 +1018,7 @@ jobs:
       pull-requests: write
       issues: write
     env:
-      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: parse_merged_stage
@@ -1037,7 +1035,7 @@ jobs:
         if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.shopfloor_github_app_id }}
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - uses: ./router
         with:

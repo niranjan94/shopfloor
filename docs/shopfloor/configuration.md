@@ -11,7 +11,6 @@ jobs:
     with:
       triage_model: haiku
       impl_model: opus
-      impl_max_turns: 100
       max_review_iterations: 2
       review_confidence_threshold: 85
       review_security_enabled: true
@@ -60,11 +59,12 @@ Turn budgets cap how many message rounds each agent can take before Shopfloor ab
 | `triage_max_turns`            | `10`    |
 | `spec_max_turns`              | `10`    |
 | `plan_max_turns`              | `15`    |
-| `impl_max_turns`              | `70`    |
 | `review_compliance_max_turns` | `15`    |
 | `review_bugs_max_turns`       | `15`    |
 | `review_security_max_turns`   | `15`    |
 | `review_smells_max_turns`     | `15`    |
+
+The implement stage runs without a turn budget on purpose. Long tasks routinely need more rounds than a static cap can predict, and an aborted implementation mid-flight is strictly worse than a slow one. The `impl_timeout_minutes` wall-clock (default `60`) is the only ceiling on impl runs.
 
 ## Timeouts
 
@@ -193,7 +193,7 @@ secrets:
   cloud_ml_region:
   google_application_credentials:
   anthropic_foundry_resource:
-  shopfloor_github_app_id:
+  shopfloor_github_app_client_id:
   shopfloor_github_app_private_key:
   ssh_signing_key:
 ```
