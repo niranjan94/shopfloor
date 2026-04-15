@@ -19674,7 +19674,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path.delimiter}${process.env["PATH"]}`;
     }
     exports2.addPath = addPath;
-    function getInput15(name, options) {
+    function getInput16(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -19684,9 +19684,9 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports2.getInput = getInput15;
+    exports2.getInput = getInput16;
     function getMultilineInput(name, options) {
-      const inputs = getInput15(name, options).split("\n").filter((x) => x !== "");
+      const inputs = getInput16(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
@@ -19696,7 +19696,7 @@ var require_core = __commonJS({
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput15(name, options);
+      const val = getInput16(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -19705,7 +19705,7 @@ var require_core = __commonJS({
 Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports2.getBooleanInput = getBooleanInput;
-    function setOutput9(name, value) {
+    function setOutput10(name, value) {
       const filePath = process.env["GITHUB_OUTPUT"] || "";
       if (filePath) {
         return (0, file_command_1.issueFileCommand)("OUTPUT", (0, file_command_1.prepareKeyValueMessage)(name, value));
@@ -19713,7 +19713,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       process.stdout.write(os.EOL);
       (0, command_1.issueCommand)("set-output", { name }, (0, utils_1.toCommandValue)(value));
     }
-    exports2.setOutput = setOutput9;
+    exports2.setOutput = setOutput10;
     function setCommandEcho(enabled) {
       (0, command_1.issue)("echo", enabled ? "on" : "off");
     }
@@ -19735,10 +19735,10 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("error", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.error = error;
-    function warning6(message, properties = {}) {
+    function warning9(message, properties = {}) {
       (0, command_1.issueCommand)("warning", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.warning = warning6;
+    exports2.warning = warning9;
     function notice3(message, properties = {}) {
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
@@ -23878,7 +23878,7 @@ var require_github = __commonJS({
 });
 
 // src/index.ts
-var core15 = __toESM(require_core(), 1);
+var core16 = __toESM(require_core(), 1);
 var import_github2 = __toESM(require_github(), 1);
 
 // src/github.ts
@@ -24085,6 +24085,70 @@ ${metadataLines.join("\n")}
       user: r.user,
       body: r.body ?? ""
     }));
+  }
+  async listPrReviews(prNumber) {
+    const res = await this.octokit.rest.pulls.listReviews({
+      ...this.repo,
+      pull_number: prNumber,
+      per_page: 100
+    });
+    return res.data.map((r) => ({
+      id: r.id,
+      user: r.user,
+      body: r.body ?? "",
+      commit_id: r.commit_id,
+      state: r.state,
+      submitted_at: r.submitted_at
+    }));
+  }
+  async listPrReviewComments(prNumber) {
+    const all = [];
+    let page = 1;
+    for (; ; ) {
+      const res = await this.octokit.rest.pulls.listReviewComments({
+        ...this.repo,
+        pull_number: prNumber,
+        per_page: 100,
+        page
+      });
+      all.push(
+        ...res.data.map((c) => ({
+          id: c.id,
+          pull_request_review_id: c.pull_request_review_id,
+          path: c.path,
+          line: c.line,
+          side: c.side,
+          start_line: c.start_line,
+          start_side: c.start_side,
+          body: c.body
+        }))
+      );
+      if (res.data.length < 100) break;
+      page++;
+    }
+    return all;
+  }
+  async listIssueComments(issueNumber) {
+    const all = [];
+    let page = 1;
+    for (; ; ) {
+      const res = await this.octokit.rest.issues.listComments({
+        ...this.repo,
+        issue_number: issueNumber,
+        per_page: 100,
+        page
+      });
+      all.push(
+        ...res.data.map((c) => ({
+          user: c.user,
+          created_at: c.created_at,
+          body: c.body
+        }))
+      );
+      if (res.data.length < 100) break;
+      page++;
+    }
+    return all;
   }
 };
 
@@ -24308,18 +24372,39 @@ async function runAdvanceState(adapter) {
 var core4 = __toESM(require_core(), 1);
 async function reportFailure(adapter, params) {
   const target = params.targetPrNumber ?? params.issueNumber;
+  const retryInstructions = params.stage === "review" ? (
+    // Review is driven by pull_request events, not issue events. Just
+    // removing the label does not re-run the review aggregator on its
+    // own; the user needs to either push a new commit (which re-fires
+    // review via synchronize) or re-run the failed jobs from the
+    // workflow run page.
+    [
+      `You can retry by removing the \`shopfloor:failed:${params.stage}\` label and then either:`,
+      `- pushing a new commit to the impl PR, or`,
+      `- re-running the failed jobs from the [workflow run](${params.runUrl}).`
+    ].join("\n")
+  ) : `You can retry by removing the \`shopfloor:failed:${params.stage}\` label.`;
   const body = [
     `**Shopfloor stage \`${params.stage}\` failed.**`,
     "",
     `See the [workflow run](${params.runUrl}) for details.`,
     "",
-    `You can retry by removing the \`shopfloor:failed:${params.stage}\` label.`
+    retryInstructions
   ].join("\n");
   await adapter.postIssueComment(target, body);
   await adapter.addLabel(
     params.issueNumber,
     `shopfloor:failed:${params.stage}`
   );
+  if (params.stage === "triage") {
+    try {
+      await adapter.removeLabel(params.issueNumber, "shopfloor:triaging");
+    } catch (err) {
+      core4.warning(
+        `report-failure: failed to clear shopfloor:triaging marker: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
 }
 async function runReportFailure(adapter) {
   await reportFailure(adapter, {
@@ -24883,6 +24968,14 @@ function branchSlug(title) {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter((w) => w.length > 0).slice(0, 5).join("-").slice(0, 40).replace(/^-+|-+$/g, "");
   return slug.length > 0 ? slug : "issue";
 }
+function parseImplBranchRef(ref) {
+  const match = ref.match(/^shopfloor\/impl\/(\d+)-(.+)$/);
+  if (!match) return null;
+  const issueNumber = Number(match[1]);
+  const slug = match[2];
+  if (!Number.isFinite(issueNumber) || slug.length === 0) return null;
+  return { issueNumber, slug };
+}
 function parseIssueMetadata(body) {
   if (!body) return null;
   const blockMatch = body.match(/<!--\s*shopfloor:metadata\s*([\s\S]*?)-->/);
@@ -24954,6 +25047,13 @@ function resolveIssueEvent(payload, triggerLabel, liveLabels) {
     }
     if (failedStage === "triage") {
       return { stage: "triage", issueNumber, reason: retryReason };
+    }
+    if (failedStage === "review" && labels.has("shopfloor:needs-review")) {
+      return {
+        stage: "none",
+        issueNumber,
+        reason: "retry_review_cleared_awaiting_next_push"
+      };
     }
     return {
       stage: "none",
@@ -25056,11 +25156,23 @@ function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
   }
   const isShopfloorReview = shopfloorBotLogin !== void 0 && payload.review.user.login === shopfloorBotLogin;
   if (meta.stage === "implement") {
+    const parsed = parseImplBranchRef(pr.head.ref);
+    if (!parsed) {
+      return {
+        stage: "none",
+        issueNumber: meta.issueNumber,
+        reason: "impl_revision_unparseable_branch_ref"
+      };
+    }
     return {
       stage: "implement",
       issueNumber: meta.issueNumber,
       revisionMode: true,
       reviewIteration: meta.reviewIteration,
+      branchName: pr.head.ref,
+      implPrNumber: pr.number,
+      specFilePath: `docs/shopfloor/specs/${parsed.issueNumber}-${parsed.slug}.md`,
+      planFilePath: `docs/shopfloor/plans/${parsed.issueNumber}-${parsed.slug}.md`,
       reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
     };
   }
@@ -25222,7 +25334,7 @@ async function applyImplPostwork(adapter, params) {
     title: params.prTitle,
     body: bodyWithFooter
   });
-  const skip = await checkReviewSkip(adapter, params.prNumber);
+  const skip = params.hasReviewApp ? await checkReviewSkip(adapter, params.prNumber) : { skip: true, reason: "no_review_app_configured" };
   const nextLabel = skip.skip ? "shopfloor:impl-in-review" : "shopfloor:needs-review";
   await adapter.addLabel(params.issueNumber, nextLabel);
   await adapter.removeLabel(params.issueNumber, "shopfloor:needs-impl");
@@ -25234,12 +25346,19 @@ async function applyImplPostwork(adapter, params) {
   return { nextLabel, skipReason: skip.reason };
 }
 async function runApplyImplPostwork(adapter) {
+  const hasReviewApp = core12.getInput("has_review_app") === "true";
   const result = await applyImplPostwork(adapter, {
     issueNumber: Number(core12.getInput("issue_number", { required: true })),
     prNumber: Number(core12.getInput("pr_number", { required: true })),
     prTitle: core12.getInput("pr_title", { required: true }),
-    prBody: core12.getInput("pr_body", { required: true })
+    prBody: core12.getInput("pr_body", { required: true }),
+    hasReviewApp
   });
+  if (!hasReviewApp) {
+    core12.warning(
+      "apply-impl-postwork: no secondary review GitHub App configured (SHOPFLOOR_GITHUB_APP_REVIEW_*). Skipping agent review and marking PR impl-in-review for direct human review. See docs/troubleshooting for how to enable agent review."
+    );
+  }
   core12.setOutput("next_label", result.nextLabel);
   if (result.skipReason) core12.setOutput("skip_reason", result.skipReason);
 }
@@ -25247,6 +25366,11 @@ async function runApplyImplPostwork(adapter) {
 // src/helpers/precheck-stage.ts
 var core13 = __toESM(require_core(), 1);
 var TRIAGE_BLOCKING_STATE_LABELS = /* @__PURE__ */ new Set([
+  // shopfloor:triaging is a transient mutex marker set by the triage job's
+  // pre-agent advance-state step. If it is already present when a second
+  // triage run tries to enter, either a concurrent run is live or a prior
+  // run crashed without running report-failure; either way, skip.
+  "shopfloor:triaging",
   "shopfloor:needs-spec",
   "shopfloor:needs-plan",
   "shopfloor:needs-impl",
@@ -25405,11 +25529,119 @@ async function runPrecheckStage(adapter) {
   }
 }
 
-// src/helpers/route.ts
+// src/helpers/build-revision-context.ts
+var import_node_fs3 = require("node:fs");
 var core14 = __toESM(require_core(), 1);
+function parseIterationFromBody3(body) {
+  if (!body) return 0;
+  const m = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  return m ? Number(m[1]) : 0;
+}
+function composeSpecSource(specFilePath) {
+  if ((0, import_node_fs3.existsSync)(specFilePath)) {
+    const contents = (0, import_node_fs3.readFileSync)(specFilePath, "utf-8");
+    return `<spec_file_contents>
+${contents}
+</spec_file_contents>`;
+  }
+  return `<spec_source>
+There is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.
+</spec_source>`;
+}
+function readPlanContents(planFilePath) {
+  if (!(0, import_node_fs3.existsSync)(planFilePath)) return "";
+  return (0, import_node_fs3.readFileSync)(planFilePath, "utf-8");
+}
+function formatIssueComments(comments) {
+  if (comments.length === 0) return "";
+  return comments.map(
+    (c) => `**@${c.user?.login ?? "unknown"}** (${c.created_at}):
+${c.body ?? ""}`
+  ).join("\n\n---\n\n");
+}
+async function buildRevisionContext(adapter, params) {
+  const issue = await adapter.getIssue(params.issueNumber);
+  const pr = await adapter.getPr(params.prNumber);
+  const reviews = await adapter.listPrReviews(params.prNumber);
+  const requestChangesReviews = reviews.filter((r) => r.state === "changes_requested").sort((a, b) => {
+    const aTime = a.submitted_at ?? "";
+    const bTime = b.submitted_at ?? "";
+    const cmp = bTime.localeCompare(aTime);
+    return cmp !== 0 ? cmp : b.id - a.id;
+  });
+  if (requestChangesReviews.length === 0) {
+    throw new Error(
+      `build-revision-context: PR #${params.prNumber} has no REQUEST_CHANGES review. The router decided this was a revision run but the review system has nothing for the agent to address. This indicates a wiring bug between aggregate-review and the impl job.`
+    );
+  }
+  const latest = requestChangesReviews[0];
+  const allReviewComments = await adapter.listPrReviewComments(params.prNumber);
+  const filtered = allReviewComments.filter((c) => c.pull_request_review_id === latest.id).map((c) => ({
+    path: c.path,
+    line: c.line,
+    side: c.side,
+    start_line: c.start_line,
+    start_side: c.start_side,
+    body: c.body
+  }));
+  let issueComments = "";
+  try {
+    const fetched = await adapter.listIssueComments(params.issueNumber);
+    issueComments = formatIssueComments(fetched);
+  } catch (err) {
+    core14.warning(
+      `build-revision-context: failed to fetch issue comments for #${params.issueNumber}, falling back to empty: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  const iterationCount = parseIterationFromBody3(pr.body);
+  const reviewCommentsJson = JSON.stringify(filtered);
+  const fragmentPath = resolvePromptFile(params.promptFragmentPath);
+  const revisionBlock = renderPrompt(fragmentPath, {
+    iteration_count: String(iterationCount),
+    review_comments_json: reviewCommentsJson
+  });
+  const specSource = composeSpecSource(params.specFilePath);
+  const planFileContents = readPlanContents(params.planFilePath);
+  const contextOut = {
+    issue_number: String(params.issueNumber),
+    issue_title: issue.title,
+    issue_body: issue.body ?? "",
+    issue_comments: issueComments,
+    spec_source: specSource,
+    plan_file_contents: planFileContents,
+    branch_name: params.branchName,
+    progress_comment_id: params.progressCommentId,
+    review_comments_json: reviewCommentsJson,
+    iteration_count: String(iterationCount),
+    bash_allowlist: params.bashAllowlist,
+    repo_owner: params.repoOwner,
+    repo_name: params.repoName,
+    revision_block: revisionBlock
+  };
+  (0, import_node_fs3.writeFileSync)(params.outputPath, JSON.stringify(contextOut));
+  core14.setOutput("path", params.outputPath);
+}
+async function runBuildRevisionContext(adapter) {
+  await buildRevisionContext(adapter, {
+    issueNumber: Number(core14.getInput("issue_number", { required: true })),
+    prNumber: Number(core14.getInput("pr_number", { required: true })),
+    branchName: core14.getInput("branch_name", { required: true }),
+    specFilePath: core14.getInput("spec_file_path", { required: true }),
+    planFilePath: core14.getInput("plan_file_path", { required: true }),
+    progressCommentId: core14.getInput("progress_comment_id", { required: true }),
+    bashAllowlist: core14.getInput("bash_allowlist", { required: true }),
+    repoOwner: core14.getInput("repo_owner", { required: true }),
+    repoName: core14.getInput("repo_name", { required: true }),
+    outputPath: core14.getInput("output_path", { required: true }),
+    promptFragmentPath: core14.getInput("prompt_fragment_path") || "prompts/implement-revision-fragment.md"
+  });
+}
+
+// src/helpers/route.ts
+var core15 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
 async function runRoute(adapter) {
-  const triggerLabel = core14.getInput("trigger_label") || void 0;
+  const triggerLabel = core15.getInput("trigger_label") || void 0;
   let liveLabels;
   if (import_github.context.eventName === "issues") {
     const payload = import_github.context.payload;
@@ -25418,7 +25650,7 @@ async function runRoute(adapter) {
         const issue = await adapter.getIssue(payload.issue.number);
         liveLabels = issue.labels.map((l) => l.name);
       } catch (err) {
-        core14.warning(
+        core15.warning(
           `route: live label fetch failed, falling back to payload snapshot: ${err instanceof Error ? err.message : String(err)}`
         );
       }
@@ -25430,34 +25662,34 @@ async function runRoute(adapter) {
     triggerLabel,
     liveLabels
   });
-  core14.setOutput("stage", decision.stage);
+  core15.setOutput("stage", decision.stage);
   if (decision.issueNumber !== void 0) {
-    core14.setOutput("issue_number", String(decision.issueNumber));
+    core15.setOutput("issue_number", String(decision.issueNumber));
   }
-  if (decision.complexity) core14.setOutput("complexity", decision.complexity);
-  if (decision.branchName) core14.setOutput("branch_name", decision.branchName);
+  if (decision.complexity) core15.setOutput("complexity", decision.complexity);
+  if (decision.branchName) core15.setOutput("branch_name", decision.branchName);
   if (decision.specFilePath) {
-    core14.setOutput("spec_file_path", decision.specFilePath);
+    core15.setOutput("spec_file_path", decision.specFilePath);
   }
   if (decision.planFilePath) {
-    core14.setOutput("plan_file_path", decision.planFilePath);
+    core15.setOutput("plan_file_path", decision.planFilePath);
   }
   if (decision.revisionMode !== void 0) {
-    core14.setOutput("revision_mode", String(decision.revisionMode));
+    core15.setOutput("revision_mode", String(decision.revisionMode));
   }
   if (decision.reviewIteration !== void 0) {
-    core14.setOutput("review_iteration", String(decision.reviewIteration));
+    core15.setOutput("review_iteration", String(decision.reviewIteration));
   }
   if (decision.implPrNumber !== void 0) {
-    core14.setOutput("impl_pr_number", String(decision.implPrNumber));
+    core15.setOutput("impl_pr_number", String(decision.implPrNumber));
   }
-  if (decision.reason) core14.setOutput("reason", decision.reason);
+  if (decision.reason) core15.setOutput("reason", decision.reason);
 }
 
 // src/index.ts
 async function main() {
-  const helper = core15.getInput("helper", { required: false }) || "route";
-  const token = core15.getInput("github_token", { required: true });
+  const helper = core16.getInput("helper", { required: false }) || "route";
+  const token = core16.getInput("github_token", { required: true });
   const octokit = (0, import_github2.getOctokit)(token);
   const adapter = new GitHubAdapter(octokit, {
     owner: import_github2.context.repo.owner,
@@ -25483,7 +25715,7 @@ async function main() {
     case "check-review-skip":
       return runCheckReviewSkip(adapter);
     case "aggregate-review": {
-      const reviewToken = core15.getInput("review_github_token") || "";
+      const reviewToken = core16.getInput("review_github_token") || "";
       const reviewAdapter = reviewToken ? new GitHubAdapter((0, import_github2.getOctokit)(reviewToken), {
         owner: import_github2.context.repo.owner,
         repo: import_github2.context.repo.repo
@@ -25498,12 +25730,14 @@ async function main() {
       return runApplyImplPostwork(adapter);
     case "precheck-stage":
       return runPrecheckStage(adapter);
+    case "build-revision-context":
+      return runBuildRevisionContext(adapter);
     default:
-      core15.setFailed(`Unknown helper: ${helper}`);
+      core16.setFailed(`Unknown helper: ${helper}`);
   }
 }
 main().catch((err) => {
-  core15.setFailed(err instanceof Error ? err.message : String(err));
+  core16.setFailed(err instanceof Error ? err.message : String(err));
 });
 /*! Bundled license information:
 
