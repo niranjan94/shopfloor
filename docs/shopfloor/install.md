@@ -42,7 +42,8 @@ If none of the above is acceptable for your threat model, Shopfloor is not a goo
   - AWS Bedrock (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, or `AWS_BEARER_TOKEN_BEDROCK`)
   - Google Vertex AI (`ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS`)
   - Microsoft Foundry (`ANTHROPIC_FOUNDRY_RESOURCE`)
-- The [Claude GitHub App](https://github.com/apps/claude) installed on the repository, OR a custom GitHub App you own (see "Custom GitHub App" below).
+- The [Claude GitHub App](https://github.com/apps/claude) installed on the repository (so the agents have an identity to act under).
+- **A custom GitHub App you own**, used by the router for label flips and PR pushes (see "GitHub App for the router" below). This is **not optional**: GitHub suppresses workflow triggers for any event caused by `secrets.GITHUB_TOKEN`, so the multi-stage Shopfloor pipeline cannot self-advance without an App-minted token. Without it, triage will run once and then the pipeline will stall.
 
 ## Step 1: Install the Claude GitHub App
 
@@ -52,16 +53,16 @@ The simplest path is the official [Claude GitHub App](https://github.com/apps/cl
 
 Go to **Settings → Secrets and variables → Actions → New repository secret** and add whichever of these apply to your provider:
 
-| Secret                                                                             | Required when using          |
-| ---------------------------------------------------------------------------------- | ---------------------------- |
-| `ANTHROPIC_API_KEY`                                                                | Claude API                   |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                          | Claude Code OAuth            |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`                         | Bedrock with IAM credentials |
-| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Bedrock with a bearer token  |
-| `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex                       |
-| `ANTHROPIC_FOUNDRY_RESOURCE`                                                       | Foundry                      |
-| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`                                          | Custom GitHub App (optional) |
-| `SSH_SIGNING_KEY`                                                                  | Signed commits (optional)    |
+| Secret                                                                             | Required when using                                                                              |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `ANTHROPIC_API_KEY`                                                                | Claude API                                                                                       |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                          | Claude Code OAuth                                                                                |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`                         | Bedrock with IAM credentials                                                                     |
+| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Bedrock with a bearer token                                                                      |
+| `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex                                                                                           |
+| `ANTHROPIC_FOUNDRY_RESOURCE`                                                       | Foundry                                                                                          |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`                                          | **Required** for the router to trigger downstream stages (see "GitHub App for the router" below) |
+| `SSH_SIGNING_KEY`                                                                  | Signed commits (optional)                                                                        |
 
 You only need to set the secrets for the provider you actually use. `GITHUB_TOKEN` is provided by GitHub automatically — do not add it yourself.
 
@@ -153,18 +154,39 @@ updates:
 
 This turns "trust the maintainer" into "review each upstream change". That is the same bar you already apply to `actions/checkout` and the rest of your CI supply chain.
 
-## Custom GitHub App
+## GitHub App for the router
 
-If you want Shopfloor's commits, comments, and PRs to appear under your own bot identity instead of the official Claude GitHub App, you can register your own GitHub App:
+> **This is required.** Without it the pipeline runs triage once and then stalls forever.
 
-1. Create a new GitHub App under **Settings → Developer settings → GitHub Apps → New GitHub App**. Give it these permissions:
-   - Repository permissions: Contents (read/write), Issues (read/write), Pull requests (read/write), Commit statuses (write), Metadata (read)
-   - Subscribe to events: Issue, Issue comment, Pull request, Pull request review
-2. Generate a private key and save the `.pem` file.
-3. Install the app on your target repository.
-4. Add two secrets to the repository: `GITHUB_APP_ID` (the numeric app id) and `GITHUB_APP_PRIVATE_KEY` (the full contents of the `.pem` file).
+### Why this is mandatory
 
-Shopfloor forwards these to `claude-code-action`, which mints a short-lived installation token and uses it for every GitHub call, so comments and pushes appear under your bot.
+GitHub deliberately suppresses workflow triggers for any event caused by `secrets.GITHUB_TOKEN`. Quoting the [GitHub Actions docs](https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow):
+
+> When you use the repository's `GITHUB_TOKEN` to perform tasks, events triggered by the `GITHUB_TOKEN`, with the exception of `workflow_dispatch` and `repository_dispatch`, will not create a new workflow run. This prevents you from accidentally creating recursive workflow runs.
+
+Shopfloor's entire state machine is label-driven. After triage classifies an issue, the router adds `shopfloor:needs-spec` (or `needs-plan` / `needs-impl`); that label flip is supposed to fire a `labeled` event that wakes up the next stage's job. If the label is added with `GITHUB_TOKEN`, GitHub silently drops the event on the floor and the issue stays parked. The same hole exists at every stage transition: spec-merged → needs-plan, plan-merged → needs-impl, impl-pushed → review matrix, review-requesting-changes → impl revision. Without an alternative token, you do not have a pipeline.
+
+A GitHub App installation token does not have this restriction. Shopfloor mints one at the start of every job that performs a triggering mutation (`actions/create-github-app-token@v2`) and uses it in place of `GITHUB_TOKEN` for every router helper call. App tokens are short-lived (1 hour, non-extendable), so the `implement` job mints a fresh one immediately before the post-agent push to guarantee a full hour of validity even if the agent ran for 59 minutes.
+
+### Setup
+
+1. Create a new GitHub App under **Settings → Developer settings → GitHub Apps → New GitHub App**. You can name it anything; "Shopfloor Router" is fine. Webhook URL can be any placeholder; webhooks are not used.
+2. Grant these **repository permissions**:
+   - **Contents**: Read & write (push commits, create branches)
+   - **Issues**: Read & write (label flips, comments)
+   - **Pull requests**: Read & write (open PRs, post reviews, update bodies)
+   - **Commit statuses**: Read & write (`shopfloor/review` status)
+   - **Metadata**: Read (mandatory baseline)
+3. **Subscribe to events**: none. The App is a write client only; webhook delivery is irrelevant.
+4. Generate a private key and download the `.pem` file. Treat it like any other secret: do not commit it.
+5. Install the app on your target repository (or org-wide).
+6. Add two secrets to the repository (or org): `GITHUB_APP_ID` (the numeric app id) and `GITHUB_APP_PRIVATE_KEY` (the full multi-line contents of the `.pem` file, including the `-----BEGIN/END-----` lines).
+
+Verify by opening any issue carrying your trigger label. The router job's first step will log a green "GitHub App credentials present" line; if you instead see the loud `::warning::` about falling back to `GITHUB_TOKEN`, the secrets are not visible to the workflow (most common cause: the secrets are set on a personal account but the workflow runs under an org).
+
+### Visual identity
+
+Commits, comments, PRs, and reviews from Shopfloor will appear under the App's bot identity (`<your-app-name>[bot]`). If you want Shopfloor's PRs to look like they came from a human, use a fork-based workflow instead and have a human cherry-pick. Bot-authored PRs are the trade-off for full automation.
 
 ## Troubleshooting
 

@@ -117,6 +117,10 @@ jobs:
       reason: ${{ steps.router.outputs.reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Warn if no GitHub App configured
+        if: ${{ secrets.github_app_id == '' || secrets.github_app_private_key == '' }}
+        run: |
+          echo "::warning title=Shopfloor::No GitHub App credentials configured (github_app_id / github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
       - id: bootstrap
         uses: ./router
         with:
@@ -185,12 +189,25 @@ jobs:
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status","complexity","rationale","clarifying_questions"]}'
+      # Mint a GitHub App installation token so the label flip below (needs-spec /
+      # needs-plan / needs-impl) triggers the next stage's workflow run. Events
+      # caused by secrets.GITHUB_TOKEN are suppressed by GitHub, so without this
+      # the pipeline stalls forever after triage classifies. If no App is
+      # configured, fall back to GITHUB_TOKEN and the operator will see the
+      # warning comment from the route job.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ success() && secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.github_app_id }}
+          private-key: ${{ secrets.github_app_private_key }}
       - name: Apply triage decision
         if: success()
         uses: ./router
         with:
           helper: apply-triage-decision
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           decision_json: ${{ steps.agent.outputs.structured_output }}
       - name: Report failure
@@ -537,6 +554,27 @@ jobs:
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --mcp-config $RUNNER_TEMP/shopfloor-mcp.json
             --json-schema '{"type":"object","properties":{"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"},"changed_files":{"type":"array","items":{"type":"string"}}},"required":["pr_title","pr_body","summary_for_issue_comment","changed_files"]}'
+      # Mint a FRESH GitHub App token here (not at job start). The impl agent can
+      # run for up to impl_timeout_minutes (default 60), which exceeds the 1-hour
+      # lifetime of an installation token. Minting after the agent guarantees the
+      # push below has a full hour of token validity, and the push event (which
+      # becomes pull_request.synchronize) triggers the review matrix. Events
+      # caused by secrets.GITHUB_TOKEN are suppressed by GitHub, so the review
+      # matrix would never fire without this.
+      - name: Mint post-agent GitHub App token
+        id: app_token_push
+        if: ${{ success() && secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.github_app_id }}
+          private-key: ${{ secrets.github_app_private_key }}
+      - name: Reconfigure git remote with App token for push
+        if: ${{ success() && steps.app_token_push.outputs.token != '' }}
+        env:
+          APP_TOKEN: ${{ steps.app_token_push.outputs.token }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Push impl commits
         if: success()
         run: git push origin "${{ needs.route.outputs.branch_name }}"
@@ -873,10 +911,20 @@ jobs:
       statuses: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # Mint a GitHub App token so the posted PR review (event = pull_request_review.submitted)
+      # actually triggers the implement job to revise. Reviews posted with secrets.GITHUB_TOKEN
+      # never fire pull_request_review events, so the revision loop would never start.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.github_app_id }}
+          private-key: ${{ secrets.github_app_private_key }}
       - uses: ./router
         with:
           helper: aggregate-review
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           pr_number: ${{ needs.route.outputs.impl_pr_number }}
           confidence_threshold: ${{ inputs.review_confidence_threshold }}
@@ -903,10 +951,20 @@ jobs:
           stage="${reason#pr_merged_}"
           stage="${stage%_triggered_label_flip}"
           echo "merged_stage=$stage" >> "$GITHUB_OUTPUT"
+      # Mint a GitHub App token so the label flip below (spec-merged → needs-plan,
+      # plan-merged → needs-impl) actually triggers the next stage's workflow run.
+      # secrets.GITHUB_TOKEN cannot trigger downstream workflows.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ secrets.github_app_id != '' && secrets.github_app_private_key != '' }}
+        uses: actions/create-github-app-token@v2 # TODO pin to SHA via pin-github-actions skill
+        with:
+          app-id: ${{ secrets.github_app_id }}
+          private-key: ${{ secrets.github_app_private_key }}
       - uses: ./router
         with:
           helper: handle-merge
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           merged_stage: ${{ steps.parse_merged_stage.outputs.merged_stage }}
           pr_number: ${{ github.event.pull_request.number }}
