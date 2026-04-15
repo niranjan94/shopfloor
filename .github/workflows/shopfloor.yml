@@ -125,16 +125,23 @@ jobs:
         if: ${{ env.SHOPFLOOR_HAS_APP != 'true' }}
         run: |
           echo "::warning title=Shopfloor::No GitHub App credentials configured (shopfloor_github_app_client_id / shopfloor_github_app_private_key). Falling back to GITHUB_TOKEN. The pipeline WILL stall at every label flip because GitHub suppresses workflow triggers from GITHUB_TOKEN-caused events. See docs/shopfloor/install.md for the GitHub App setup."
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: bootstrap
         uses: ./router
         with:
           helper: bootstrap-labels
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
       - id: router
         uses: ./router
         with:
           helper: route
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           trigger_label: ${{ inputs.trigger_label }}
 
   triage:
@@ -146,6 +153,21 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # Mint a GitHub App installation token up front and reuse it for every
+      # non-claude-code-action step in this job: the context builder's gh api
+      # call, render-prompt, apply-triage-decision (whose label flip must
+      # trigger the next stage's workflow), and report-failure. The App token
+      # lives about an hour, which is comfortably longer than the triage
+      # agent's wall-clock, so a single mint covers the whole job. Only
+      # claude-code-action keeps secrets.GITHUB_TOKEN, because its subprocess
+      # may run longer than the App token's lifetime.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Build triage context
         id: ctx
         env:
@@ -154,7 +176,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
             echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
@@ -175,7 +197,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/triage.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -199,19 +221,6 @@ jobs:
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status","complexity","rationale","clarifying_questions"]}'
-      # Mint a GitHub App installation token so the label flip below (needs-spec /
-      # needs-plan / needs-impl) triggers the next stage's workflow run. Events
-      # caused by secrets.GITHUB_TOKEN are suppressed by GitHub, so without this
-      # the pipeline stalls forever after triage classifies. If no App is
-      # configured, fall back to GITHUB_TOKEN and the operator will see the
-      # warning comment from the route job.
-      - name: Mint GitHub App token
-        id: app_token
-        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          client-id: ${{ secrets.shopfloor_github_app_client_id }}
-          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Apply triage decision
         if: success()
         uses: ./router
@@ -225,7 +234,7 @@ jobs:
         uses: ./router
         with:
           helper: report-failure
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: triage
           run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -243,6 +252,23 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # Single mint up front covers everything in this job: git push, context
+      # builder, render-prompt, open-stage-pr, advance-state, report-failure.
+      # Only claude-code-action stays on secrets.GITHUB_TOKEN.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Reconfigure git remote with App token
+        if: ${{ steps.app_token.outputs.token != '' }}
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Create spec branch
         run: |
           git config user.name "github-actions[bot]"
@@ -258,7 +284,7 @@ jobs:
           SPEC_FILE_PATH: ${{ needs.route.outputs.spec_file_path }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
             echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
@@ -284,7 +310,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/spec.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -317,16 +343,6 @@ jobs:
           git commit -m "docs(spec): add ${{ needs.route.outputs.spec_file_path }}"
           # Force-push to overwrite any stale branch from a previous failed run.
           git push -u origin "${{ needs.route.outputs.branch_name }}" --force
-      # github-actions[bot] is forbidden from creating pull requests by default
-      # (Settings > Actions > General > Workflow permissions). Mint a GitHub App
-      # token which is not subject to that restriction.
-      - name: Mint GitHub App token
-        id: app_token
-        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          client-id: ${{ secrets.shopfloor_github_app_client_id }}
-          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Open spec PR
         if: success()
         id: open_pr
@@ -345,7 +361,7 @@ jobs:
         uses: ./router
         with:
           helper: advance-state
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           from_labels: shopfloor:needs-spec,shopfloor:triaging
           to_labels: shopfloor:spec-in-review
@@ -354,7 +370,7 @@ jobs:
         uses: ./router
         with:
           helper: report-failure
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: spec
           run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -372,6 +388,23 @@ jobs:
       SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # Single mint up front covers everything in this job: git push, context
+      # builder, render-prompt, open-stage-pr, advance-state, report-failure.
+      # Only claude-code-action stays on secrets.GITHUB_TOKEN.
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Reconfigure git remote with App token
+        if: ${{ steps.app_token.outputs.token != '' }}
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Create plan branch
         run: |
           git config user.name "github-actions[bot]"
@@ -389,7 +422,7 @@ jobs:
           COMPLEXITY: ${{ needs.route.outputs.complexity }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
             echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
@@ -424,7 +457,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/plan.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(git log:*),Bash(git diff:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -457,15 +490,6 @@ jobs:
           git commit -m "docs(plan): add ${{ needs.route.outputs.plan_file_path }}"
           # Force-push to overwrite any stale branch from a previous failed run.
           git push -u origin "${{ needs.route.outputs.branch_name }}" --force
-      # github-actions[bot] is forbidden from creating pull requests by default.
-      # Mint a GitHub App token which is not subject to that restriction.
-      - name: Mint GitHub App token
-        id: app_token
-        if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          client-id: ${{ secrets.shopfloor_github_app_client_id }}
-          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Open plan PR
         if: success()
         id: open_pr
@@ -484,7 +508,7 @@ jobs:
         uses: ./router
         with:
           helper: advance-state
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           from_labels: shopfloor:needs-plan
           to_labels: shopfloor:plan-in-review
@@ -493,7 +517,7 @@ jobs:
         uses: ./router
         with:
           helper: report-failure
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: plan
           run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -515,6 +539,30 @@ jobs:
       comment_id: ${{ steps.progress.outputs.comment_id }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The impl job mints App tokens in two phases. The PRE token covers
+      # everything before the agent runs: the initial branch push, the draft
+      # PR, the progress comment, the context builder's gh api call, and
+      # render-prompt. The PUSH token (minted later, after the agent) covers
+      # the post-agent push, the ready_for_review un-draft, the progress
+      # finalize, and the postwork label flip. Two mints are needed because
+      # the impl agent can run up to 60 minutes, longer than the 1-hour App
+      # installation token lifetime, so the post-agent token is freshly
+      # minted right when it is needed. Only claude-code-action itself stays
+      # on secrets.GITHUB_TOKEN because its subprocess may run past both.
+      - name: Mint pre-agent GitHub App token
+        id: app_token_pre
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Reconfigure git remote with pre-agent App token
+        if: ${{ steps.app_token_pre.outputs.token != '' }}
+        env:
+          APP_TOKEN: ${{ steps.app_token_pre.outputs.token }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Create impl branch
         run: |
           git config user.name "github-actions[bot]"
@@ -531,22 +579,11 @@ jobs:
           # happen when a human clears the shopfloor:failed:* label) explicitly
           # opt into discarding whatever was there before.
           git push -u origin "${{ needs.route.outputs.branch_name }}" --force
-      # github-actions[bot] is forbidden from creating pull requests by default.
-      # Mint a pre-agent GitHub App token for the draft PR + initial progress
-      # comment so both surface under the same bot identity. A SECOND mint
-      # (app_token_push) happens later, after the agent, for the post-agent push.
-      - name: Mint pre-agent GitHub App token
-        id: app_token_pr
-        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          client-id: ${{ secrets.shopfloor_github_app_client_id }}
-          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: open_pr
         uses: ./router
         with:
           helper: open-stage-pr
-          github_token: ${{ steps.app_token_pr.outputs.token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: implement
           branch_name: ${{ needs.route.outputs.branch_name }}
@@ -564,7 +601,7 @@ jobs:
         uses: ./router
         with:
           helper: create-progress-comment
-          github_token: ${{ steps.app_token_pr.outputs.token || secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
           pr_number: ${{ steps.open_pr.outputs.pr_number }}
       - name: Write Shopfloor MCP config
         id: mcp_config
@@ -578,6 +615,8 @@ jobs:
                 "command": "bun",
                 "args": ["run", "mcp-servers/shopfloor-mcp/index.ts"],
                 "env": {
+                  "SHOPFLOOR_GITHUB_APP_CLIENT_ID": "${{ secrets.shopfloor_github_app_client_id }}",
+                  "SHOPFLOOR_GITHUB_APP_PRIVATE_KEY": ${{ toJSON(secrets.shopfloor_github_app_private_key) }},
                   "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}",
                   "REPO_OWNER": "${{ github.repository_owner }}",
                   "REPO_NAME": "${{ github.event.repository.name }}",
@@ -611,7 +650,7 @@ jobs:
           BASH_ALLOWLIST: ${{ inputs.impl_bash_allowlist }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if ! ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO_OWNER/$REPO_NAME/issues/$ISSUE_NUMBER/comments" --jq '[.[] | "**@\(.user.login)** (\(.created_at)):\n\(.body)"] | join("\n\n---\n\n")' 2>/dev/null); then
             echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
@@ -672,7 +711,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: ${{ steps.impl_choice.outputs.prompt_file }}
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Edit,Write,Bash(${{ inputs.impl_bash_allowlist }}),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git rev-parse:*),WebFetch,mcp__shopfloor__update_progress,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -705,28 +744,44 @@ jobs:
       # caused by secrets.GITHUB_TOKEN are suppressed by GitHub, so the review
       # matrix would never fire without this.
       - name: Mint post-agent GitHub App token
-        id: app_token_push
+        id: app_token_post
         if: ${{ success() && env.SHOPFLOOR_HAS_APP == 'true' }}
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Reconfigure git remote with App token for push
-        if: ${{ success() && steps.app_token_push.outputs.token != '' }}
+        if: ${{ success() && steps.app_token_post.outputs.token != '' }}
         env:
-          APP_TOKEN: ${{ steps.app_token_push.outputs.token }}
+          APP_TOKEN: ${{ steps.app_token_post.outputs.token }}
           REPO_SLUG: ${{ github.repository }}
         run: |
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Push impl commits
         if: success()
         run: git push origin "${{ needs.route.outputs.branch_name }}"
+      # The impl PR was opened as a draft so nothing reviews it mid-run. Now
+      # that the agent has finished and the final commits are pushed, mark it
+      # ready for review. This fires `pull_request.ready_for_review`, which
+      # the state machine translates into stage=review and fans out to the
+      # review matrix. The push above ALSO fires `pull_request.synchronize`,
+      # but the state machine skips synchronize events on still-draft PRs, so
+      # that one is a noop. Using the App token here (not GITHUB_TOKEN) is
+      # critical: events caused by GITHUB_TOKEN are suppressed and would
+      # never trigger the downstream review workflow.
+      - name: Mark impl PR ready for review
+        if: ${{ success() && steps.app_token_post.outputs.token != '' }}
+        env:
+          GH_TOKEN: ${{ steps.app_token_post.outputs.token }}
+          PR_NUMBER: ${{ steps.open_pr.outputs.pr_number }}
+          REPO_SLUG: ${{ github.repository }}
+        run: gh pr ready "$PR_NUMBER" --repo "$REPO_SLUG"
       - name: Finalize progress comment
         if: always()
         uses: ./router
         with:
           helper: finalize-progress-comment
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_post.outputs.token || secrets.GITHUB_TOKEN }}
           comment_id: ${{ steps.progress.outputs.comment_id }}
           terminal_state: ${{ job.status == 'success' && 'success' || 'failure' }}
           final_body: ${{ steps.agent.outputs.structured_output && fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
@@ -735,7 +790,7 @@ jobs:
         uses: ./router
         with:
           helper: apply-impl-postwork
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token_post.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           pr_number: ${{ steps.open_pr.outputs.pr_number }}
           pr_title: ${{ fromJSON(steps.agent.outputs.structured_output).pr_title }}
@@ -745,7 +800,12 @@ jobs:
         uses: ./router
         with:
           helper: report-failure
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Prefer the post-agent token if minted; fall back to the pre-agent
+          # token (still valid unless the agent ran past the 1-hour ceiling);
+          # final fallback to GITHUB_TOKEN. Failure reporting does not need to
+          # trigger any downstream workflow, so GITHUB_TOKEN is an acceptable
+          # last resort here.
+          github_token: ${{ steps.app_token_post.outputs.token || steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
           stage: implement
           run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -755,16 +815,25 @@ jobs:
     needs: route
     if: needs.route.outputs.stage == 'review'
     runs-on: ubuntu-latest
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       skip: ${{ steps.check.outputs.skip }}
       reason: ${{ steps.check.outputs.reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: check
         uses: ./router
         with:
           helper: check-review-skip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           pr_number: ${{ needs.route.outputs.impl_pr_number }}
 
   review-compliance:
@@ -772,6 +841,8 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
@@ -779,6 +850,13 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Build review context
         id: ctx
         env:
@@ -812,7 +890,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-compliance.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -842,6 +920,8 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
@@ -849,6 +929,13 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Build review context
         id: ctx
         env:
@@ -882,7 +969,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-bugs.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -912,6 +999,8 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
@@ -919,6 +1008,13 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Build review context
         id: ctx
         env:
@@ -952,7 +1048,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-security.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
@@ -982,6 +1078,8 @@ jobs:
     if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
     outputs:
       structured_output: ${{ steps.agent.outputs.structured_output }}
     steps:
@@ -989,6 +1087,13 @@ jobs:
         with:
           ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
           fetch-depth: 0
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Build review context
         id: ctx
         env:
@@ -1022,7 +1127,7 @@ jobs:
         uses: ./router
         with:
           helper: render-prompt
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           prompt_file: prompts/review-smells.md
           context_file: ${{ steps.ctx.outputs.path }}
           base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"

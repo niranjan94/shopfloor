@@ -300,7 +300,17 @@ function resolvePullRequestEvent(payload: PullRequestPayload): RouterDecision {
     return { stage: "none", reason: "pr_closed_not_merged_ignored" };
   }
 
-  if (payload.action === "synchronize" && meta.stage === "implement") {
+  // `synchronize` fires on every push to the impl branch (first impl run and
+  // every subsequent revision). `ready_for_review` fires once when the impl
+  // job un-drafts the PR after its final post-agent push: the initial
+  // synchronize arrives while the PR is still a draft (and is correctly
+  // ignored below), so ready_for_review is the event that actually promotes
+  // the first-iteration impl run into review.
+  if (
+    (payload.action === "synchronize" ||
+      payload.action === "ready_for_review") &&
+    meta.stage === "implement"
+  ) {
     const labels = prLabelSet(pr);
     if (labels.has("shopfloor:skip-review")) {
       return { stage: "none", reason: "skip_review_label_present" };

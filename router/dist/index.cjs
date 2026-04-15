@@ -24080,7 +24080,7 @@ function resolvePullRequestEvent(payload) {
   if (payload.action === "closed") {
     return { stage: "none", reason: "pr_closed_not_merged_ignored" };
   }
-  if (payload.action === "synchronize" && meta.stage === "implement") {
+  if ((payload.action === "synchronize" || payload.action === "ready_for_review") && meta.stage === "implement") {
     const labels = prLabelSet(pr);
     if (labels.has("shopfloor:skip-review")) {
       return { stage: "none", reason: "skip_review_label_present" };

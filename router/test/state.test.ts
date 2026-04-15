@@ -48,6 +48,15 @@ describe("resolveStage", () => {
     expect(decision.reviewIteration).toBe(0);
   });
 
+  test("ready_for_review on impl PR -> review (first iteration un-draft path)", () => {
+    const decision = resolveStage(
+      ctx("pull_request", "pr-ready-for-review-impl"),
+    );
+    expect(decision.stage).toBe("review");
+    expect(decision.implPrNumber).toBe(45);
+    expect(decision.reviewIteration).toBe(0);
+  });
+
   test("spec PR merged -> none (reason triggers label flip)", () => {
     const decision = resolveStage(ctx("pull_request", "pr-closed-merged-spec"));
     expect(decision.stage).toBe("none");

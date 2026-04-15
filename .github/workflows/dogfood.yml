@@ -5,7 +5,7 @@ on:
   issue_comment:
     types: [created]
   pull_request:
-    types: [opened, synchronize, closed, labeled, unlabeled]
+    types: [opened, synchronize, closed, labeled, unlabeled, ready_for_review]
   pull_request_review:
     types: [submitted]
 
@@ -14,11 +14,11 @@ jobs:
     uses: ./.github/workflows/shopfloor.yml
     permissions:
       contents: write
-      pull-requests: write
-      issues: write
+      pull-requests: read
+      issues: read
       id-token: write
       actions: read
-      statuses: write
+      statuses: read
       checks: read
     secrets: inherit
     with:
