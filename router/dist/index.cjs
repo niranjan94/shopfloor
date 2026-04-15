@@ -4261,18 +4261,18 @@ var require_webidl = __commonJS({
     webidl.errors.exception = function(message) {
       return new TypeError(`${message.header}: ${message.message}`);
     };
-    webidl.errors.conversionFailed = function(context2) {
-      const plural = context2.types.length === 1 ? "" : " one of";
-      const message = `${context2.argument} could not be converted to${plural}: ${context2.types.join(", ")}.`;
+    webidl.errors.conversionFailed = function(context3) {
+      const plural = context3.types.length === 1 ? "" : " one of";
+      const message = `${context3.argument} could not be converted to${plural}: ${context3.types.join(", ")}.`;
       return webidl.errors.exception({
-        header: context2.prefix,
+        header: context3.prefix,
         message
       });
     };
-    webidl.errors.invalidArgument = function(context2) {
+    webidl.errors.invalidArgument = function(context3) {
       return webidl.errors.exception({
-        header: context2.prefix,
-        message: `"${context2.value}" is an invalid ${context2.type}.`
+        header: context3.prefix,
+        message: `"${context3.value}" is an invalid ${context3.type}.`
       });
     };
     webidl.brandCheck = function(V, I, opts = void 0) {
@@ -9598,15 +9598,15 @@ var require_api_request = __commonJS({
         }
         addSignal(this, signal);
       }
-      onConnect(abort, context2) {
+      onConnect(abort, context3) {
         if (!this.callback) {
           throw new RequestAbortedError();
         }
         this.abort = abort;
-        this.context = context2;
+        this.context = context3;
       }
       onHeaders(statusCode, rawHeaders, resume, statusMessage) {
-        const { callback, opaque, abort, context: context2, responseHeaders, highWaterMark } = this;
+        const { callback, opaque, abort, context: context3, responseHeaders, highWaterMark } = this;
         const headers = responseHeaders === "raw" ? util.parseRawHeaders(rawHeaders) : util.parseHeaders(rawHeaders);
         if (statusCode < 200) {
           if (this.onInfo) {
@@ -9633,7 +9633,7 @@ var require_api_request = __commonJS({
               trailers: this.trailers,
               opaque,
               body,
-              context: context2
+              context: context3
             });
           }
         }
@@ -9753,15 +9753,15 @@ var require_api_stream = __commonJS({
         }
         addSignal(this, signal);
       }
-      onConnect(abort, context2) {
+      onConnect(abort, context3) {
         if (!this.callback) {
           throw new RequestAbortedError();
         }
         this.abort = abort;
-        this.context = context2;
+        this.context = context3;
       }
       onHeaders(statusCode, rawHeaders, resume, statusMessage) {
-        const { factory, opaque, context: context2, callback, responseHeaders } = this;
+        const { factory, opaque, context: context3, callback, responseHeaders } = this;
         const headers = responseHeaders === "raw" ? util.parseRawHeaders(rawHeaders) : util.parseHeaders(rawHeaders);
         if (statusCode < 200) {
           if (this.onInfo) {
@@ -9789,7 +9789,7 @@ var require_api_stream = __commonJS({
             statusCode,
             headers,
             opaque,
-            context: context2
+            context: context3
           });
           if (!res || typeof res.write !== "function" || typeof res.end !== "function" || typeof res.on !== "function") {
             throw new InvalidReturnValueError("expected Writable");
@@ -9981,17 +9981,17 @@ var require_api_pipeline = __commonJS({
         this.res = null;
         addSignal(this, signal);
       }
-      onConnect(abort, context2) {
+      onConnect(abort, context3) {
         const { ret, res } = this;
         assert(!res, "pipeline cannot be retried");
         if (ret.destroyed) {
           throw new RequestAbortedError();
         }
         this.abort = abort;
-        this.context = context2;
+        this.context = context3;
       }
       onHeaders(statusCode, rawHeaders, resume) {
-        const { opaque, handler, context: context2 } = this;
+        const { opaque, handler, context: context3 } = this;
         if (statusCode < 200) {
           if (this.onInfo) {
             const headers = this.responseHeaders === "raw" ? util.parseRawHeaders(rawHeaders) : util.parseHeaders(rawHeaders);
@@ -10009,7 +10009,7 @@ var require_api_pipeline = __commonJS({
             headers,
             opaque,
             body: this.res,
-            context: context2
+            context: context3
           });
         } catch (err) {
           this.res.on("error", util.nop);
@@ -10093,7 +10093,7 @@ var require_api_upgrade = __commonJS({
         this.context = null;
         addSignal(this, signal);
       }
-      onConnect(abort, context2) {
+      onConnect(abort, context3) {
         if (!this.callback) {
           throw new RequestAbortedError();
         }
@@ -10104,7 +10104,7 @@ var require_api_upgrade = __commonJS({
         throw new SocketError("bad upgrade", null);
       }
       onUpgrade(statusCode, rawHeaders, socket) {
-        const { callback, opaque, context: context2 } = this;
+        const { callback, opaque, context: context3 } = this;
         assert.strictEqual(statusCode, 101);
         removeSignal(this);
         this.callback = null;
@@ -10113,7 +10113,7 @@ var require_api_upgrade = __commonJS({
           headers,
           socket,
           opaque,
-          context: context2
+          context: context3
         });
       }
       onError(err) {
@@ -10181,18 +10181,18 @@ var require_api_connect = __commonJS({
         this.abort = null;
         addSignal(this, signal);
       }
-      onConnect(abort, context2) {
+      onConnect(abort, context3) {
         if (!this.callback) {
           throw new RequestAbortedError();
         }
         this.abort = abort;
-        this.context = context2;
+        this.context = context3;
       }
       onHeaders() {
         throw new SocketError("bad connect", null);
       }
       onUpgrade(statusCode, rawHeaders, socket) {
-        const { callback, opaque, context: context2 } = this;
+        const { callback, opaque, context: context3 } = this;
         removeSignal(this);
         this.callback = null;
         let headers = rawHeaders;
@@ -10204,7 +10204,7 @@ var require_api_connect = __commonJS({
           headers,
           socket,
           opaque,
-          context: context2
+          context: context3
         });
       }
       onError(err) {
@@ -19674,7 +19674,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path.delimiter}${process.env["PATH"]}`;
     }
     exports2.addPath = addPath;
-    function getInput13(name, options) {
+    function getInput14(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -19684,9 +19684,9 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports2.getInput = getInput13;
+    exports2.getInput = getInput14;
     function getMultilineInput(name, options) {
-      const inputs = getInput13(name, options).split("\n").filter((x) => x !== "");
+      const inputs = getInput14(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
@@ -19696,7 +19696,7 @@ var require_core = __commonJS({
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput13(name, options);
+      const val = getInput14(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -19735,10 +19735,10 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("error", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.error = error;
-    function warning3(message, properties = {}) {
+    function warning4(message, properties = {}) {
       (0, command_1.issueCommand)("warning", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.warning = warning3;
+    exports2.warning = warning4;
     function notice(message, properties = {}) {
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
@@ -20287,8 +20287,8 @@ var require_dist_node2 = __commonJS({
     function isKeyOperator(operator) {
       return operator === ";" || operator === "&" || operator === "?";
     }
-    function getValues(context2, operator, key, modifier) {
-      var value = context2[key], result = [];
+    function getValues(context3, operator, key, modifier) {
+      var value = context3[key], result = [];
       if (isDefined(value) && value !== "") {
         if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
           value = value.toString();
@@ -20352,7 +20352,7 @@ var require_dist_node2 = __commonJS({
         expand: expand.bind(null, template)
       };
     }
-    function expand(template, context2) {
+    function expand(template, context3) {
       var operators = ["+", "#", ".", "/", ";", "?", "&"];
       template = template.replace(
         /\{([^\{\}]+)\}|([^\{\}]+)/g,
@@ -20366,7 +20366,7 @@ var require_dist_node2 = __commonJS({
             }
             expression.split(/,/g).forEach(function(variable) {
               var tmp = /([^:\*]*)(?::(\d+)|(\*))?/.exec(variable);
-              values.push(getValues(context2, operator, tmp[1], tmp[2] || tmp[3]));
+              values.push(getValues(context3, operator, tmp[1], tmp[2] || tmp[3]));
             });
             if (operator && operator !== "+") {
               var separator = ",";
@@ -23878,256 +23878,8 @@ var require_github = __commonJS({
 });
 
 // src/index.ts
-var core13 = __toESM(require_core(), 1);
-var import_github = __toESM(require_github(), 1);
-
-// src/state.ts
-var STATE_LABELS = /* @__PURE__ */ new Set([
-  "shopfloor:triaging",
-  "shopfloor:awaiting-info",
-  "shopfloor:needs-spec",
-  "shopfloor:spec-in-review",
-  "shopfloor:needs-plan",
-  "shopfloor:plan-in-review",
-  "shopfloor:needs-impl",
-  "shopfloor:impl-in-review",
-  "shopfloor:needs-review",
-  "shopfloor:review-requested-changes",
-  "shopfloor:review-approved",
-  "shopfloor:review-stuck",
-  "shopfloor:done"
-]);
-var COMPLEXITY_LABELS = {
-  "shopfloor:quick": "quick",
-  "shopfloor:medium": "medium",
-  "shopfloor:large": "large"
-};
-function resolveStage(ctx) {
-  switch (ctx.eventName) {
-    case "issues":
-      return resolveIssueEvent(ctx.payload, ctx.triggerLabel);
-    case "issue_comment":
-      return { stage: "none", reason: "issue_comment_no_action_v0_1" };
-    case "pull_request":
-      return resolvePullRequestEvent(ctx.payload);
-    case "pull_request_review":
-      return resolvePullRequestReviewEvent(
-        ctx.payload,
-        ctx.shopfloorBotLogin
-      );
-    case "pull_request_review_comment":
-      return { stage: "none", reason: "review_comment_not_a_trigger_v0_1" };
-    default:
-      return { stage: "none", reason: `unhandled_event:${ctx.eventName}` };
-  }
-}
-function issueLabelSet(issue) {
-  return new Set(issue.labels.map((l) => l.name));
-}
-function prLabelSet(pr) {
-  return new Set(pr.labels.map((l) => l.name));
-}
-function stateLabel(labels) {
-  for (const l of labels) if (STATE_LABELS.has(l)) return l;
-  return null;
-}
-function complexityOf(labels) {
-  for (const [l, c] of Object.entries(COMPLEXITY_LABELS))
-    if (labels.has(l)) return c;
-  return void 0;
-}
-function parsePrMetadata(body) {
-  if (!body) return null;
-  const issueMatch = body.match(/Shopfloor-Issue:\s*#(\d+)/);
-  const stageMatch = body.match(
-    /Shopfloor-Stage:\s*(spec|plan|implement|review)/
-  );
-  const iterMatch = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
-  if (!issueMatch || !stageMatch) return null;
-  return {
-    issueNumber: Number(issueMatch[1]),
-    stage: stageMatch[1],
-    reviewIteration: iterMatch ? Number(iterMatch[1]) : 0
-  };
-}
-function branchSlug(title) {
-  return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().split(/\s+/).slice(0, 5).join("-").slice(0, 40);
-}
-var ADVANCEMENT_STATE_LABELS = /* @__PURE__ */ new Set([
-  "shopfloor:needs-spec",
-  "shopfloor:needs-plan",
-  "shopfloor:needs-impl"
-]);
-var FAILED_LABEL_PREFIX = "shopfloor:failed:";
-function failedLabel(labels) {
-  for (const l of labels) if (l.startsWith(FAILED_LABEL_PREFIX)) return l;
-  return null;
-}
-function computeStageFromLabels(labels, issue) {
-  const issueNumber = issue.number;
-  if (labels.has("shopfloor:needs-spec")) {
-    return {
-      stage: "spec",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(issue.title)}`
-    };
-  }
-  if (labels.has("shopfloor:needs-plan")) {
-    return {
-      stage: "plan",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`
-    };
-  }
-  if (labels.has("shopfloor:needs-impl")) {
-    return {
-      stage: "implement",
-      issueNumber,
-      complexity: complexityOf(labels),
-      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(issue.title)}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(issue.title)}.md`
-    };
-  }
-  return null;
-}
-function resolveIssueEvent(payload, triggerLabel) {
-  const labels = issueLabelSet(payload.issue);
-  const issueNumber = payload.issue.number;
-  const hasStateLabel = stateLabel(labels) !== null;
-  if (payload.issue.state === "closed") {
-    return { stage: "none", issueNumber, reason: "issue_closed_aborted" };
-  }
-  if (payload.issue.pull_request) {
-    return { stage: "none", reason: "issue_event_is_actually_a_pr" };
-  }
-  if (payload.action === "unlabeled" && payload.label?.name?.startsWith(FAILED_LABEL_PREFIX)) {
-    const failedStage = payload.label.name.slice(FAILED_LABEL_PREFIX.length);
-    const retryReason = `retry_after_${payload.label.name}_removed`;
-    const derived = computeStageFromLabels(labels, payload.issue);
-    if (derived) {
-      return { ...derived, reason: retryReason };
-    }
-    if (failedStage === "triage") {
-      return { stage: "triage", issueNumber, reason: retryReason };
-    }
-    return {
-      stage: "none",
-      issueNumber,
-      reason: `retry_${failedStage}_no_state_label_present`
-    };
-  }
-  const blockingFailed = failedLabel(labels);
-  if (blockingFailed) {
-    return {
-      stage: "none",
-      issueNumber,
-      reason: `blocked_by_${blockingFailed}`
-    };
-  }
-  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:review-stuck") {
-    return {
-      stage: "review",
-      issueNumber,
-      reason: "review_stuck_removed_force_review"
-    };
-  }
-  if (triggerLabel && triggerLabel.length > 0 && !labels.has(triggerLabel) && !hasStateLabel) {
-    return { stage: "none", issueNumber, reason: "trigger_label_absent" };
-  }
-  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:awaiting-info") {
-    return {
-      stage: "triage",
-      issueNumber,
-      reason: "re_triage_after_clarification"
-    };
-  }
-  if (payload.action === "opened" && triggerLabel && triggerLabel.length > 0) {
-    return {
-      stage: "none",
-      issueNumber,
-      reason: "opened_deferred_to_labeled_event"
-    };
-  }
-  if (payload.action === "opened" && !hasStateLabel) {
-    return { stage: "triage", issueNumber };
-  }
-  if (triggerLabel && triggerLabel.length > 0 && payload.action === "labeled" && payload.label?.name === triggerLabel && !hasStateLabel) {
-    return { stage: "triage", issueNumber, reason: "trigger_label_added" };
-  }
-  if (payload.action === "labeled" && payload.label?.name && ADVANCEMENT_STATE_LABELS.has(payload.label.name)) {
-    const derived = computeStageFromLabels(labels, payload.issue);
-    if (derived) return derived;
-  }
-  if (labels.has("shopfloor:awaiting-info")) {
-    return { stage: "none", issueNumber, reason: "awaiting_info_paused" };
-  }
-  return { stage: "none", issueNumber, reason: "no_matching_label_rule" };
-}
-function resolvePullRequestEvent(payload) {
-  const pr = payload.pull_request;
-  const meta = parsePrMetadata(pr.body);
-  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
-  if (payload.action === "closed" && pr.merged) {
-    return {
-      stage: "none",
-      reason: `pr_merged_${meta.stage}_triggered_label_flip`
-    };
-  }
-  if (payload.action === "closed") {
-    return { stage: "none", reason: "pr_closed_not_merged_ignored" };
-  }
-  if ((payload.action === "synchronize" || payload.action === "ready_for_review") && meta.stage === "implement") {
-    const labels = prLabelSet(pr);
-    if (labels.has("shopfloor:skip-review")) {
-      return { stage: "none", reason: "skip_review_label_present" };
-    }
-    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
-    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
-    return {
-      stage: "review",
-      issueNumber: meta.issueNumber,
-      implPrNumber: pr.number,
-      reviewIteration: meta.reviewIteration
-    };
-  }
-  return {
-    stage: "none",
-    reason: `pr_action_${payload.action}_on_${meta.stage}_no_action`
-  };
-}
-function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
-  const pr = payload.pull_request;
-  const meta = parsePrMetadata(pr.body);
-  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
-  if (payload.action !== "submitted") {
-    return { stage: "none", reason: `review_action_${payload.action}_ignored` };
-  }
-  if (payload.review.state !== "changes_requested") {
-    return {
-      stage: "none",
-      reason: `review_state_${payload.review.state}_no_action`
-    };
-  }
-  const isShopfloorReview = shopfloorBotLogin !== void 0 && payload.review.user.login === shopfloorBotLogin;
-  if (meta.stage === "implement") {
-    return {
-      stage: "implement",
-      issueNumber: meta.issueNumber,
-      revisionMode: true,
-      reviewIteration: meta.reviewIteration,
-      reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
-    };
-  }
-  return {
-    stage: meta.stage,
-    issueNumber: meta.issueNumber,
-    revisionMode: true
-  };
-}
+var core14 = __toESM(require_core(), 1);
+var import_github2 = __toESM(require_github(), 1);
 
 // src/github.ts
 var GitHubAdapter = class {
@@ -24880,12 +24632,12 @@ var core10 = __toESM(require_core(), 1);
 
 // src/prompt-render.ts
 var import_node_fs = require("node:fs");
-function renderPrompt(filePath, context2) {
+function renderPrompt(filePath, context3) {
   const template = (0, import_node_fs.readFileSync)(filePath, "utf-8");
   return template.replace(
     /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
     (_, key) => {
-      if (key in context2) return context2[key] ?? "";
+      if (key in context3) return context3[key] ?? "";
       return `{{MISSING:${key}}}`;
     }
   );
@@ -24964,16 +24716,16 @@ async function runRenderPrompt(_adapter) {
   } else {
     rawContext = contextJson;
   }
-  let context2;
+  let context3;
   try {
-    context2 = parseContextJson(rawContext);
+    context3 = parseContextJson(rawContext);
   } catch (err) {
     throw new Error(
       `render-prompt: failed to parse context: ${err instanceof Error ? err.message : String(err)}`
     );
   }
   const resolvedPromptFile = resolvePromptFile(promptFile);
-  const rendered = renderPrompt(resolvedPromptFile, context2);
+  const rendered = renderPrompt(resolvedPromptFile, context3);
   if (rendered.includes("{{MISSING:")) {
     const missing = Array.from(
       rendered.matchAll(/\{\{MISSING:([a-zA-Z0-9_]+)\}\}/g)
@@ -25081,47 +24833,322 @@ async function runApplyImplPostwork(adapter) {
   if (result.skipReason) core12.setOutput("skip_reason", result.skipReason);
 }
 
+// src/helpers/route.ts
+var core13 = __toESM(require_core(), 1);
+var import_github = __toESM(require_github(), 1);
+
+// src/state.ts
+var STATE_LABELS = /* @__PURE__ */ new Set([
+  "shopfloor:triaging",
+  "shopfloor:awaiting-info",
+  "shopfloor:needs-spec",
+  "shopfloor:spec-in-review",
+  "shopfloor:needs-plan",
+  "shopfloor:plan-in-review",
+  "shopfloor:needs-impl",
+  "shopfloor:impl-in-review",
+  "shopfloor:needs-review",
+  "shopfloor:review-requested-changes",
+  "shopfloor:review-approved",
+  "shopfloor:review-stuck",
+  "shopfloor:done"
+]);
+var COMPLEXITY_LABELS = {
+  "shopfloor:quick": "quick",
+  "shopfloor:medium": "medium",
+  "shopfloor:large": "large"
+};
+function resolveStage(ctx) {
+  switch (ctx.eventName) {
+    case "issues":
+      return resolveIssueEvent(
+        ctx.payload,
+        ctx.triggerLabel,
+        ctx.liveLabels
+      );
+    case "issue_comment":
+      return { stage: "none", reason: "issue_comment_no_action_v0_1" };
+    case "pull_request":
+      return resolvePullRequestEvent(ctx.payload);
+    case "pull_request_review":
+      return resolvePullRequestReviewEvent(
+        ctx.payload,
+        ctx.shopfloorBotLogin
+      );
+    case "pull_request_review_comment":
+      return { stage: "none", reason: "review_comment_not_a_trigger_v0_1" };
+    default:
+      return { stage: "none", reason: `unhandled_event:${ctx.eventName}` };
+  }
+}
+function issueLabelSet(issue) {
+  return new Set(issue.labels.map((l) => l.name));
+}
+function prLabelSet(pr) {
+  return new Set(pr.labels.map((l) => l.name));
+}
+function stateLabel(labels) {
+  for (const l of labels) if (STATE_LABELS.has(l)) return l;
+  return null;
+}
+function complexityOf(labels) {
+  for (const [l, c] of Object.entries(COMPLEXITY_LABELS))
+    if (labels.has(l)) return c;
+  return void 0;
+}
+function parsePrMetadata(body) {
+  if (!body) return null;
+  const issueMatch = body.match(/Shopfloor-Issue:\s*#(\d+)/);
+  const stageMatch = body.match(
+    /Shopfloor-Stage:\s*(spec|plan|implement|review)/
+  );
+  const iterMatch = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  if (!issueMatch || !stageMatch) return null;
+  return {
+    issueNumber: Number(issueMatch[1]),
+    stage: stageMatch[1],
+    reviewIteration: iterMatch ? Number(iterMatch[1]) : 0
+  };
+}
+function branchSlug(title) {
+  return title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().split(/\s+/).slice(0, 5).join("-").slice(0, 40);
+}
+var ADVANCEMENT_STATE_LABELS = /* @__PURE__ */ new Set([
+  "shopfloor:needs-spec",
+  "shopfloor:needs-plan",
+  "shopfloor:needs-impl"
+]);
+var FAILED_LABEL_PREFIX = "shopfloor:failed:";
+function failedLabel(labels) {
+  for (const l of labels) if (l.startsWith(FAILED_LABEL_PREFIX)) return l;
+  return null;
+}
+function computeStageFromLabels(labels, issue) {
+  const issueNumber = issue.number;
+  if (labels.has("shopfloor:needs-spec")) {
+    return {
+      stage: "spec",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/spec/${issueNumber}-${branchSlug(issue.title)}`
+    };
+  }
+  if (labels.has("shopfloor:needs-plan")) {
+    return {
+      stage: "plan",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/plan/${issueNumber}-${branchSlug(issue.title)}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`
+    };
+  }
+  if (labels.has("shopfloor:needs-impl")) {
+    return {
+      stage: "implement",
+      issueNumber,
+      complexity: complexityOf(labels),
+      branchName: `shopfloor/impl/${issueNumber}-${branchSlug(issue.title)}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${branchSlug(issue.title)}.md`,
+      planFilePath: `docs/shopfloor/plans/${issueNumber}-${branchSlug(issue.title)}.md`
+    };
+  }
+  return null;
+}
+function resolveIssueEvent(payload, triggerLabel, liveLabels) {
+  const labels = liveLabels ? new Set(liveLabels) : issueLabelSet(payload.issue);
+  const issueNumber = payload.issue.number;
+  const hasStateLabel = stateLabel(labels) !== null;
+  if (payload.issue.state === "closed") {
+    return { stage: "none", issueNumber, reason: "issue_closed_aborted" };
+  }
+  if (payload.issue.pull_request) {
+    return { stage: "none", reason: "issue_event_is_actually_a_pr" };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name?.startsWith(FAILED_LABEL_PREFIX)) {
+    const failedStage = payload.label.name.slice(FAILED_LABEL_PREFIX.length);
+    const retryReason = `retry_after_${payload.label.name}_removed`;
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) {
+      return { ...derived, reason: retryReason };
+    }
+    if (failedStage === "triage") {
+      return { stage: "triage", issueNumber, reason: retryReason };
+    }
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `retry_${failedStage}_no_state_label_present`
+    };
+  }
+  const blockingFailed = failedLabel(labels);
+  if (blockingFailed) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: `blocked_by_${blockingFailed}`
+    };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:review-stuck") {
+    return {
+      stage: "review",
+      issueNumber,
+      reason: "review_stuck_removed_force_review"
+    };
+  }
+  if (triggerLabel && triggerLabel.length > 0 && !labels.has(triggerLabel) && !hasStateLabel) {
+    return { stage: "none", issueNumber, reason: "trigger_label_absent" };
+  }
+  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:awaiting-info") {
+    return {
+      stage: "triage",
+      issueNumber,
+      reason: "re_triage_after_clarification"
+    };
+  }
+  if (payload.action === "opened" && triggerLabel && triggerLabel.length > 0) {
+    return {
+      stage: "none",
+      issueNumber,
+      reason: "opened_deferred_to_labeled_event"
+    };
+  }
+  if (payload.action === "opened" && !hasStateLabel) {
+    return { stage: "triage", issueNumber };
+  }
+  if (triggerLabel && triggerLabel.length > 0 && payload.action === "labeled" && payload.label?.name === triggerLabel && !hasStateLabel) {
+    return { stage: "triage", issueNumber, reason: "trigger_label_added" };
+  }
+  if (payload.action === "labeled" && payload.label?.name && ADVANCEMENT_STATE_LABELS.has(payload.label.name)) {
+    const derived = computeStageFromLabels(labels, payload.issue);
+    if (derived) return derived;
+  }
+  if (labels.has("shopfloor:awaiting-info")) {
+    return { stage: "none", issueNumber, reason: "awaiting_info_paused" };
+  }
+  return { stage: "none", issueNumber, reason: "no_matching_label_rule" };
+}
+function resolvePullRequestEvent(payload) {
+  const pr = payload.pull_request;
+  const meta = parsePrMetadata(pr.body);
+  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
+  if (payload.action === "closed" && pr.merged) {
+    return {
+      stage: "none",
+      issueNumber: meta.issueNumber,
+      reason: `pr_merged_${meta.stage}_triggered_label_flip`
+    };
+  }
+  if (payload.action === "closed") {
+    return { stage: "none", reason: "pr_closed_not_merged_ignored" };
+  }
+  if ((payload.action === "synchronize" || payload.action === "ready_for_review") && meta.stage === "implement") {
+    const labels = prLabelSet(pr);
+    if (labels.has("shopfloor:skip-review")) {
+      return { stage: "none", reason: "skip_review_label_present" };
+    }
+    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
+    return {
+      stage: "review",
+      issueNumber: meta.issueNumber,
+      implPrNumber: pr.number,
+      reviewIteration: meta.reviewIteration
+    };
+  }
+  return {
+    stage: "none",
+    reason: `pr_action_${payload.action}_on_${meta.stage}_no_action`
+  };
+}
+function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
+  const pr = payload.pull_request;
+  const meta = parsePrMetadata(pr.body);
+  if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
+  if (payload.action !== "submitted") {
+    return { stage: "none", reason: `review_action_${payload.action}_ignored` };
+  }
+  if (payload.review.state !== "changes_requested") {
+    return {
+      stage: "none",
+      reason: `review_state_${payload.review.state}_no_action`
+    };
+  }
+  const isShopfloorReview = shopfloorBotLogin !== void 0 && payload.review.user.login === shopfloorBotLogin;
+  if (meta.stage === "implement") {
+    return {
+      stage: "implement",
+      issueNumber: meta.issueNumber,
+      revisionMode: true,
+      reviewIteration: meta.reviewIteration,
+      reason: isShopfloorReview ? "agent_requested_changes" : "human_requested_changes"
+    };
+  }
+  return {
+    stage: meta.stage,
+    issueNumber: meta.issueNumber,
+    revisionMode: true
+  };
+}
+
+// src/helpers/route.ts
+async function runRoute(adapter) {
+  const triggerLabel = core13.getInput("trigger_label") || void 0;
+  let liveLabels;
+  if (import_github.context.eventName === "issues") {
+    const payload = import_github.context.payload;
+    if (payload.issue?.number !== void 0) {
+      try {
+        const issue = await adapter.getIssue(payload.issue.number);
+        liveLabels = issue.labels.map((l) => l.name);
+      } catch (err) {
+        core13.warning(
+          `route: live label fetch failed, falling back to payload snapshot: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+  }
+  const decision = resolveStage({
+    eventName: import_github.context.eventName,
+    payload: import_github.context.payload,
+    triggerLabel,
+    liveLabels
+  });
+  core13.setOutput("stage", decision.stage);
+  if (decision.issueNumber !== void 0) {
+    core13.setOutput("issue_number", String(decision.issueNumber));
+  }
+  if (decision.complexity) core13.setOutput("complexity", decision.complexity);
+  if (decision.branchName) core13.setOutput("branch_name", decision.branchName);
+  if (decision.specFilePath) {
+    core13.setOutput("spec_file_path", decision.specFilePath);
+  }
+  if (decision.planFilePath) {
+    core13.setOutput("plan_file_path", decision.planFilePath);
+  }
+  if (decision.revisionMode !== void 0) {
+    core13.setOutput("revision_mode", String(decision.revisionMode));
+  }
+  if (decision.reviewIteration !== void 0) {
+    core13.setOutput("review_iteration", String(decision.reviewIteration));
+  }
+  if (decision.implPrNumber !== void 0) {
+    core13.setOutput("impl_pr_number", String(decision.implPrNumber));
+  }
+  if (decision.reason) core13.setOutput("reason", decision.reason);
+}
+
 // src/index.ts
 async function main() {
-  const helper = core13.getInput("helper", { required: false }) || "route";
-  const token = core13.getInput("github_token", { required: true });
-  const octokit = (0, import_github.getOctokit)(token);
+  const helper = core14.getInput("helper", { required: false }) || "route";
+  const token = core14.getInput("github_token", { required: true });
+  const octokit = (0, import_github2.getOctokit)(token);
   const adapter = new GitHubAdapter(octokit, {
-    owner: import_github.context.repo.owner,
-    repo: import_github.context.repo.repo
+    owner: import_github2.context.repo.owner,
+    repo: import_github2.context.repo.repo
   });
   switch (helper) {
-    case "route": {
-      const triggerLabel = core13.getInput("trigger_label") || void 0;
-      const decision = resolveStage({
-        eventName: import_github.context.eventName,
-        payload: import_github.context.payload,
-        triggerLabel
-      });
-      core13.setOutput("stage", decision.stage);
-      if (decision.issueNumber !== void 0) {
-        core13.setOutput("issue_number", String(decision.issueNumber));
-      }
-      if (decision.complexity)
-        core13.setOutput("complexity", decision.complexity);
-      if (decision.branchName)
-        core13.setOutput("branch_name", decision.branchName);
-      if (decision.specFilePath)
-        core13.setOutput("spec_file_path", decision.specFilePath);
-      if (decision.planFilePath)
-        core13.setOutput("plan_file_path", decision.planFilePath);
-      if (decision.revisionMode !== void 0) {
-        core13.setOutput("revision_mode", String(decision.revisionMode));
-      }
-      if (decision.reviewIteration !== void 0) {
-        core13.setOutput("review_iteration", String(decision.reviewIteration));
-      }
-      if (decision.implPrNumber !== void 0) {
-        core13.setOutput("impl_pr_number", String(decision.implPrNumber));
-      }
-      if (decision.reason) core13.setOutput("reason", decision.reason);
-      return;
-    }
+    case "route":
+      return runRoute(adapter);
     case "bootstrap-labels":
       return runBootstrapLabels(adapter);
     case "open-stage-pr":
@@ -25139,10 +25166,10 @@ async function main() {
     case "check-review-skip":
       return runCheckReviewSkip(adapter);
     case "aggregate-review": {
-      const reviewToken = core13.getInput("review_github_token") || "";
-      const reviewAdapter = reviewToken ? new GitHubAdapter((0, import_github.getOctokit)(reviewToken), {
-        owner: import_github.context.repo.owner,
-        repo: import_github.context.repo.repo
+      const reviewToken = core14.getInput("review_github_token") || "";
+      const reviewAdapter = reviewToken ? new GitHubAdapter((0, import_github2.getOctokit)(reviewToken), {
+        owner: import_github2.context.repo.owner,
+        repo: import_github2.context.repo.repo
       }) : adapter;
       return runAggregateReview(adapter, reviewAdapter);
     }
@@ -25153,11 +25180,11 @@ async function main() {
     case "apply-impl-postwork":
       return runApplyImplPostwork(adapter);
     default:
-      core13.setFailed(`Unknown helper: ${helper}`);
+      core14.setFailed(`Unknown helper: ${helper}`);
   }
 }
 main().catch((err) => {
-  core13.setFailed(err instanceof Error ? err.message : String(err));
+  core14.setFailed(err instanceof Error ? err.message : String(err));
 });
 /*! Bundled license information:
 
