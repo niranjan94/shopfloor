@@ -88,6 +88,20 @@ export class FakeGitHub {
     return next;
   }
 
+  /**
+   * Seed the list of changed files on an existing PR. The production
+   * workflow derives this from the real git push; in the harness we have
+   * no working tree, so scenarios must declare the file list whenever a
+   * helper downstream of open-stage-pr reads `adapter.listChangedFiles`
+   * (notably check-review-skip, which short-circuits to skip=true when
+   * the list is empty).
+   */
+  setPrFiles(prNumber: number, files: string[]): void {
+    const pr = this.state.pulls.get(prNumber);
+    if (!pr) throw new Error(`setPrFiles: pr #${prNumber} not found`);
+    pr.files = files.slice();
+  }
+
   /** Helper used by scenarios; the router never merges PRs in production. */
   mergePr(prNumber: number, sha: string): void {
     const pr = this.state.pulls.get(prNumber);
