@@ -26,11 +26,12 @@ describe("renderPrompt", () => {
     expect(result).toBe("Hello Marvin from Sirius Cybernetics.");
   });
 
-  test("marks missing keys", () => {
+  test("throws on missing keys", () => {
     const path = join(tmpDir, "p.md");
     writeFileSync(path, "Hello {{name}} from {{missing_key}}.");
-    const result = renderPrompt(path, { name: "Marvin" });
-    expect(result).toContain("{{MISSING:missing_key}}");
+    expect(() => renderPrompt(path, { name: "Marvin" })).toThrowError(
+      "renderPrompt: unresolved placeholders: missing_key",
+    );
   });
 
   test("allows whitespace in placeholder", () => {
