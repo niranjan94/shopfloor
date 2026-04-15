@@ -27,7 +27,10 @@ export type ShopfloorLabel =
   | "shopfloor:skip-review"
   | "shopfloor:done"
   | "shopfloor:revise"
-  | `shopfloor:failed:${"triage" | "spec" | "plan" | "implement" | "review"}`;
+  | `shopfloor:failed:${"triage" | "spec" | "plan" | "implement" | "review"}`
+  | "shopfloor:spec-running"
+  | "shopfloor:plan-running"
+  | "shopfloor:implementing";
 
 export interface RouterDecision {
   stage: Stage;

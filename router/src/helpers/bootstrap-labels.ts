@@ -119,6 +119,24 @@ const LABEL_DEFS: Array<{ name: string; color: string; description: string }> =
       color: "b60205",
       description: "Review stage failed.",
     },
+    {
+      name: "shopfloor:spec-running",
+      color: "fbca04",
+      description:
+        "Transient marker: a spec stage job is actively running for this issue. Removed automatically when the stage completes.",
+    },
+    {
+      name: "shopfloor:plan-running",
+      color: "fbca04",
+      description:
+        "Transient marker: a plan stage job is actively running for this issue. Removed automatically when the stage completes.",
+    },
+    {
+      name: "shopfloor:implementing",
+      color: "fbca04",
+      description:
+        "Transient marker: an implement stage job is actively running for this issue. Removed automatically when the stage completes. If this label is stuck after a crash, remove it manually to unblock retries.",
+    },
   ];
 
 export async function bootstrapLabels(

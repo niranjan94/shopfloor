@@ -22,6 +22,10 @@ const STATE_LABELS = new Set<string>([
   "shopfloor:review-approved",
   "shopfloor:review-stuck",
   "shopfloor:done",
+  // transient mutex markers (spec 5.4)
+  "shopfloor:spec-running",
+  "shopfloor:plan-running",
+  "shopfloor:implementing",
 ]);
 
 const COMPLEXITY_LABELS: Record<string, Complexity> = {

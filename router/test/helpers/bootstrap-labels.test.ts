@@ -9,7 +9,7 @@ describe("bootstrapLabels", () => {
       data: [{ name: "shopfloor:triaging" }],
     });
     const created = await bootstrapLabels(adapter);
-    expect(created.length).toBeGreaterThanOrEqual(15);
+    expect(created.length).toBeGreaterThanOrEqual(18);
     expect(mocks.createLabel).toHaveBeenCalledWith(
       expect.objectContaining({
         owner: "o",
@@ -19,5 +19,8 @@ describe("bootstrapLabels", () => {
       }),
     );
     expect(created).not.toContain("shopfloor:triaging");
+    expect(created).toContain("shopfloor:spec-running");
+    expect(created).toContain("shopfloor:plan-running");
+    expect(created).toContain("shopfloor:implementing");
   });
 });
