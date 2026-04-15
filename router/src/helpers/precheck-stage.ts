@@ -172,13 +172,9 @@ export async function precheckStage(
   }
 }
 
-export async function runPrecheckStage(
-  adapter: GitHubAdapter,
-): Promise<void> {
+export async function runPrecheckStage(adapter: GitHubAdapter): Promise<void> {
   const stage = core.getInput("stage", { required: true }) as PrecheckStage;
-  const issueNumber = Number(
-    core.getInput("issue_number", { required: true }),
-  );
+  const issueNumber = Number(core.getInput("issue_number", { required: true }));
   const analysedSha = core.getInput("analysed_sha") || undefined;
   const prNumberInput = core.getInput("pr_number");
   const prNumber = prNumberInput ? Number(prNumberInput) : undefined;

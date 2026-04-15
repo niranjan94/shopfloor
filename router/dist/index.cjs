@@ -25054,9 +25054,7 @@ async function precheckStage(adapter, params) {
 }
 async function runPrecheckStage(adapter) {
   const stage = core13.getInput("stage", { required: true });
-  const issueNumber = Number(
-    core13.getInput("issue_number", { required: true })
-  );
+  const issueNumber = Number(core13.getInput("issue_number", { required: true }));
   const analysedSha = core13.getInput("analysed_sha") || void 0;
   const prNumberInput = core13.getInput("pr_number");
   const prNumber = prNumberInput ? Number(prNumberInput) : void 0;

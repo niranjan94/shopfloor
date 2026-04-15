@@ -36,10 +36,7 @@ describe("runRoute", () => {
     const bundle = makeMockAdapter();
     bundle.mocks.getIssue.mockResolvedValueOnce({
       data: {
-        labels: [
-          { name: "shopfloor:needs-impl" },
-          { name: "shopfloor:quick" },
-        ],
+        labels: [{ name: "shopfloor:needs-impl" }, { name: "shopfloor:quick" }],
         state: "open",
       },
     });
