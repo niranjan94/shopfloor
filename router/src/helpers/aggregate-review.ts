@@ -26,6 +26,7 @@ export interface AggregateReviewParams {
     string
   >;
   workflowRunUrl?: string;
+  analysedSha?: string;
 }
 
 const SHOPFLOOR_REVIEW_MARKER = "<!-- shopfloor-review -->";
@@ -116,6 +117,13 @@ export async function aggregateReview(
   const pr = await adapter.getPr(params.prNumber);
   const headSha = pr.head.sha;
   const currentIteration = parseIterationFromBody(pr.body ?? null);
+
+  if (params.analysedSha && params.analysedSha !== headSha) {
+    core.notice(
+      `aggregateReview: PR #${params.prNumber} head sha drifted (analysed ${params.analysedSha}, current ${headSha}); exiting no-op.`,
+    );
+    return;
+  }
 
   await adapter.setReviewStatus(
     headSha,
@@ -252,6 +260,7 @@ export async function runAggregateReview(
       smells: core.getInput("smells_output") || "",
     },
     workflowRunUrl: core.getInput("workflow_run_url") || undefined,
+    analysedSha: core.getInput("analysed_sha") || undefined,
   };
   await aggregateReview(adapter, params, reviewAdapter);
 }

@@ -7,6 +7,21 @@ export async function advanceState(
   fromLabels: string[],
   toLabels: string[],
 ): Promise<void> {
+  if (fromLabels.length > 0) {
+    const issue = await adapter.getIssue(issueNumber);
+    const current = new Set(issue.labels.map((l) => l.name));
+    const missing = fromLabels.filter((l) => !current.has(l));
+    if (missing.length === fromLabels.length) {
+      throw new Error(
+        `advance-state: none of the expected from_labels are present on issue #${issueNumber}: [${fromLabels.join(", ")}]. Refusing to apply stale transition.`,
+      );
+    }
+    if (missing.length > 0) {
+      core.warning(
+        `advance-state: some from_labels not present on issue #${issueNumber}: [${missing.join(", ")}]`,
+      );
+    }
+  }
   for (const l of fromLabels) await adapter.removeLabel(issueNumber, l);
   for (const l of toLabels) await adapter.addLabel(issueNumber, l);
 }

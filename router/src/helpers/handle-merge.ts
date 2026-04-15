@@ -12,6 +12,21 @@ export async function handleMerge(
   adapter: GitHubAdapter,
   params: HandleMergeParams,
 ): Promise<void> {
+  const issue = await adapter.getIssue(params.issueNumber);
+  const current = new Set(
+    (issue.labels as Array<{ name: string }>).map((l) => l.name),
+  );
+  const alreadyApplied =
+    (params.mergedStage === "spec" && current.has("shopfloor:needs-plan")) ||
+    (params.mergedStage === "plan" && current.has("shopfloor:needs-impl")) ||
+    (params.mergedStage === "implement" && current.has("shopfloor:done"));
+  if (alreadyApplied) {
+    core.info(
+      `handle-merge: ${params.mergedStage} transition already applied for issue #${params.issueNumber}, exiting no-op`,
+    );
+    return;
+  }
+
   switch (params.mergedStage) {
     case "spec":
       await advanceState(

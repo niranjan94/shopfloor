@@ -17581,12 +17581,12 @@ var require_lib = __commonJS({
             throw new Error("Client has already been disposed.");
           }
           const parsedUrl = new URL(requestUrl);
-          let info5 = this._prepareRequest(verb, parsedUrl, headers);
+          let info6 = this._prepareRequest(verb, parsedUrl, headers);
           const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb) ? this._maxRetries + 1 : 1;
           let numTries = 0;
           let response;
           do {
-            response = yield this.requestRaw(info5, data);
+            response = yield this.requestRaw(info6, data);
             if (response && response.message && response.message.statusCode === HttpCodes.Unauthorized) {
               let authenticationHandler;
               for (const handler of this.handlers) {
@@ -17596,7 +17596,7 @@ var require_lib = __commonJS({
                 }
               }
               if (authenticationHandler) {
-                return authenticationHandler.handleAuthentication(this, info5, data);
+                return authenticationHandler.handleAuthentication(this, info6, data);
               } else {
                 return response;
               }
@@ -17619,8 +17619,8 @@ var require_lib = __commonJS({
                   }
                 }
               }
-              info5 = this._prepareRequest(verb, parsedRedirectUrl, headers);
-              response = yield this.requestRaw(info5, data);
+              info6 = this._prepareRequest(verb, parsedRedirectUrl, headers);
+              response = yield this.requestRaw(info6, data);
               redirectsRemaining--;
             }
             if (!response.message.statusCode || !HttpResponseRetryCodes.includes(response.message.statusCode)) {
@@ -17649,7 +17649,7 @@ var require_lib = __commonJS({
        * @param info
        * @param data
        */
-      requestRaw(info5, data) {
+      requestRaw(info6, data) {
         return __awaiter(this, void 0, void 0, function* () {
           return new Promise((resolve, reject) => {
             function callbackForResult(err, res) {
@@ -17661,7 +17661,7 @@ var require_lib = __commonJS({
                 resolve(res);
               }
             }
-            this.requestRawWithCallback(info5, data, callbackForResult);
+            this.requestRawWithCallback(info6, data, callbackForResult);
           });
         });
       }
@@ -17671,12 +17671,12 @@ var require_lib = __commonJS({
        * @param data
        * @param onResult
        */
-      requestRawWithCallback(info5, data, onResult) {
+      requestRawWithCallback(info6, data, onResult) {
         if (typeof data === "string") {
-          if (!info5.options.headers) {
-            info5.options.headers = {};
+          if (!info6.options.headers) {
+            info6.options.headers = {};
           }
-          info5.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
+          info6.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
         }
         let callbackCalled = false;
         function handleResult(err, res) {
@@ -17685,7 +17685,7 @@ var require_lib = __commonJS({
             onResult(err, res);
           }
         }
-        const req = info5.httpModule.request(info5.options, (msg) => {
+        const req = info6.httpModule.request(info6.options, (msg) => {
           const res = new HttpClientResponse(msg);
           handleResult(void 0, res);
         });
@@ -17697,7 +17697,7 @@ var require_lib = __commonJS({
           if (socket) {
             socket.end();
           }
-          handleResult(new Error(`Request timeout: ${info5.options.path}`));
+          handleResult(new Error(`Request timeout: ${info6.options.path}`));
         });
         req.on("error", function(err) {
           handleResult(err);
@@ -17733,27 +17733,27 @@ var require_lib = __commonJS({
         return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
       }
       _prepareRequest(method, requestUrl, headers) {
-        const info5 = {};
-        info5.parsedUrl = requestUrl;
-        const usingSsl = info5.parsedUrl.protocol === "https:";
-        info5.httpModule = usingSsl ? https : http;
+        const info6 = {};
+        info6.parsedUrl = requestUrl;
+        const usingSsl = info6.parsedUrl.protocol === "https:";
+        info6.httpModule = usingSsl ? https : http;
         const defaultPort = usingSsl ? 443 : 80;
-        info5.options = {};
-        info5.options.host = info5.parsedUrl.hostname;
-        info5.options.port = info5.parsedUrl.port ? parseInt(info5.parsedUrl.port) : defaultPort;
-        info5.options.path = (info5.parsedUrl.pathname || "") + (info5.parsedUrl.search || "");
-        info5.options.method = method;
-        info5.options.headers = this._mergeHeaders(headers);
+        info6.options = {};
+        info6.options.host = info6.parsedUrl.hostname;
+        info6.options.port = info6.parsedUrl.port ? parseInt(info6.parsedUrl.port) : defaultPort;
+        info6.options.path = (info6.parsedUrl.pathname || "") + (info6.parsedUrl.search || "");
+        info6.options.method = method;
+        info6.options.headers = this._mergeHeaders(headers);
         if (this.userAgent != null) {
-          info5.options.headers["user-agent"] = this.userAgent;
+          info6.options.headers["user-agent"] = this.userAgent;
         }
-        info5.options.agent = this._getAgent(info5.parsedUrl);
+        info6.options.agent = this._getAgent(info6.parsedUrl);
         if (this.handlers) {
           for (const handler of this.handlers) {
-            handler.prepareRequest(info5.options);
+            handler.prepareRequest(info6.options);
           }
         }
-        return info5;
+        return info6;
       }
       _mergeHeaders(headers) {
         if (this.requestOptions && this.requestOptions.headers) {
@@ -19735,18 +19735,18 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("error", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.error = error;
-    function warning5(message, properties = {}) {
+    function warning6(message, properties = {}) {
       (0, command_1.issueCommand)("warning", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.warning = warning5;
-    function notice2(message, properties = {}) {
+    exports2.warning = warning6;
+    function notice3(message, properties = {}) {
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
-    exports2.notice = notice2;
-    function info5(message) {
+    exports2.notice = notice3;
+    function info6(message) {
       process.stdout.write(message + os.EOL);
     }
-    exports2.info = info5;
+    exports2.info = info6;
     function startGroup(name) {
       (0, command_1.issue)("group", name);
     }
@@ -24269,6 +24269,21 @@ async function runOpenStagePr(adapter) {
 // src/helpers/advance-state.ts
 var core3 = __toESM(require_core(), 1);
 async function advanceState(adapter, issueNumber, fromLabels, toLabels) {
+  if (fromLabels.length > 0) {
+    const issue = await adapter.getIssue(issueNumber);
+    const current = new Set(issue.labels.map((l) => l.name));
+    const missing = fromLabels.filter((l) => !current.has(l));
+    if (missing.length === fromLabels.length) {
+      throw new Error(
+        `advance-state: none of the expected from_labels are present on issue #${issueNumber}: [${fromLabels.join(", ")}]. Refusing to apply stale transition.`
+      );
+    }
+    if (missing.length > 0) {
+      core3.warning(
+        `advance-state: some from_labels not present on issue #${issueNumber}: [${missing.join(", ")}]`
+      );
+    }
+  }
   for (const l of fromLabels) await adapter.removeLabel(issueNumber, l);
   for (const l of toLabels) await adapter.addLabel(issueNumber, l);
 }
@@ -24311,6 +24326,17 @@ async function runReportFailure(adapter) {
 // src/helpers/handle-merge.ts
 var core5 = __toESM(require_core(), 1);
 async function handleMerge(adapter, params) {
+  const issue = await adapter.getIssue(params.issueNumber);
+  const current = new Set(
+    issue.labels.map((l) => l.name)
+  );
+  const alreadyApplied = params.mergedStage === "spec" && current.has("shopfloor:needs-plan") || params.mergedStage === "plan" && current.has("shopfloor:needs-impl") || params.mergedStage === "implement" && current.has("shopfloor:done");
+  if (alreadyApplied) {
+    core5.info(
+      `handle-merge: ${params.mergedStage} transition already applied for issue #${params.issueNumber}, exiting no-op`
+    );
+    return;
+  }
   switch (params.mergedStage) {
     case "spec":
       await advanceState(
@@ -24512,6 +24538,12 @@ async function aggregateReview(adapter, params, reviewAdapter = adapter) {
   const pr = await adapter.getPr(params.prNumber);
   const headSha = pr.head.sha;
   const currentIteration = parseIterationFromBody(pr.body ?? null);
+  if (params.analysedSha && params.analysedSha !== headSha) {
+    core9.notice(
+      `aggregateReview: PR #${params.prNumber} head sha drifted (analysed ${params.analysedSha}, current ${headSha}); exiting no-op.`
+    );
+    return;
+  }
   await adapter.setReviewStatus(
     headSha,
     "pending",
@@ -24635,7 +24667,8 @@ async function runAggregateReview(adapter, reviewAdapter = adapter) {
       security: core9.getInput("security_output") || "",
       smells: core9.getInput("smells_output") || ""
     },
-    workflowRunUrl: core9.getInput("workflow_run_url") || void 0
+    workflowRunUrl: core9.getInput("workflow_run_url") || void 0,
+    analysedSha: core9.getInput("analysed_sha") || void 0
   };
   await aggregateReview(adapter, params, reviewAdapter);
 }
@@ -24764,8 +24797,32 @@ var NEXT_STAGE_LABEL = {
   medium: "shopfloor:needs-plan",
   large: "shopfloor:needs-spec"
 };
+var UNEXPECTED_TRIAGE_LABELS = [
+  "shopfloor:needs-spec",
+  "shopfloor:spec-in-review",
+  "shopfloor:needs-plan",
+  "shopfloor:plan-in-review",
+  "shopfloor:needs-impl",
+  "shopfloor:impl-in-review",
+  "shopfloor:needs-review",
+  "shopfloor:review-requested-changes",
+  "shopfloor:review-approved",
+  "shopfloor:review-stuck",
+  "shopfloor:done"
+];
 async function applyTriageDecision(adapter, params) {
   const { issueNumber, decision } = params;
+  const issue = await adapter.getIssue(issueNumber);
+  const current = new Set(
+    issue.labels.map((l) => l.name)
+  );
+  for (const l of UNEXPECTED_TRIAGE_LABELS) {
+    if (current.has(l)) {
+      throw new Error(
+        `apply-triage-decision: refusing to re-triage issue #${issueNumber}: unexpected state label '${l}' is already present.`
+      );
+    }
+  }
   if (decision.status === "needs_clarification") {
     const questionsBlock = decision.clarifying_questions.map((q) => `- ${q}`).join("\n");
     const body2 = [
@@ -24823,6 +24880,15 @@ async function runApplyTriageDecision(adapter) {
 // src/helpers/apply-impl-postwork.ts
 var core12 = __toESM(require_core(), 1);
 async function applyImplPostwork(adapter, params) {
+  const issue = await adapter.getIssue(params.issueNumber);
+  const current = new Set(
+    issue.labels.map((l) => l.name)
+  );
+  if (!current.has("shopfloor:implementing")) {
+    throw new Error(
+      `apply-impl-postwork: refusing to finalize implement for issue #${params.issueNumber}: shopfloor:implementing marker is not present. Either the impl job did not add it (wiring bug) or a crash left the issue in an ambiguous state.`
+    );
+  }
   await adapter.updatePr(params.prNumber, {
     title: params.prTitle,
     body: params.prBody
@@ -24831,6 +24897,7 @@ async function applyImplPostwork(adapter, params) {
   const nextLabel = skip.skip ? "shopfloor:impl-in-review" : "shopfloor:needs-review";
   await adapter.addLabel(params.issueNumber, nextLabel);
   await adapter.removeLabel(params.issueNumber, "shopfloor:needs-impl");
+  await adapter.removeLabel(params.issueNumber, "shopfloor:implementing");
   await adapter.removeLabel(
     params.issueNumber,
     "shopfloor:review-requested-changes"

@@ -170,6 +170,35 @@ describe("aggregateReview", () => {
     expect(review.mocks.createCommitStatus).not.toHaveBeenCalled();
   });
 
+  test("exits no-op when PR head SHA has drifted from the analysed SHA", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "newsha" },
+        body: "Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0\n",
+      },
+    });
+    await aggregateReview(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      analysedSha: "oldsha",
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    expect(bundle.mocks.createReview).not.toHaveBeenCalled();
+    expect(bundle.mocks.addLabels).not.toHaveBeenCalled();
+  });
+
   test('matrix cell failed (empty output) -> treated as "no findings"', async () => {
     const bundle = makeMockAdapter();
     primeImplPr(bundle);

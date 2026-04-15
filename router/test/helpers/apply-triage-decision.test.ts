@@ -5,6 +5,14 @@ import { makeMockAdapter } from "./_mock-adapter";
 describe("applyTriageDecision", () => {
   test("needs_clarification: posts questions and applies awaiting-info", async () => {
     const bundle = makeMockAdapter();
+    // triage assertion check: no unexpected labels present
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    // advance-state from-labels check: shopfloor:triaging present
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
       decision: {
@@ -26,6 +34,14 @@ describe("applyTriageDecision", () => {
 
   test("classified large: applies complexity + needs-spec labels", async () => {
     const bundle = makeMockAdapter();
+    // triage assertion check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    // advance-state from-labels check (soft-fail: triaging present, awaiting-info absent is ok)
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
       decision: {
@@ -44,6 +60,14 @@ describe("applyTriageDecision", () => {
 
   test("classified quick: applies complexity + needs-impl labels", async () => {
     const bundle = makeMockAdapter();
+    // triage assertion check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    // advance-state from-labels check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
       decision: {
@@ -62,6 +86,14 @@ describe("applyTriageDecision", () => {
 
   test("classified medium: applies complexity + needs-plan labels", async () => {
     const bundle = makeMockAdapter();
+    // triage assertion check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    // advance-state from-labels check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
       decision: {
@@ -76,5 +108,27 @@ describe("applyTriageDecision", () => {
     );
     expect(labelCalls.flat()).toContain("shopfloor:medium");
     expect(labelCalls.flat()).toContain("shopfloor:needs-plan");
+  });
+
+  test("throws when a non-triaging state label is already present", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:needs-impl" }],
+        state: "open",
+      },
+    });
+    await expect(
+      applyTriageDecision(bundle.adapter, {
+        issueNumber: 42,
+        decision: {
+          status: "classified",
+          complexity: "quick",
+          rationale: "x",
+          clarifying_questions: [],
+        },
+      }),
+    ).rejects.toThrow(/shopfloor:needs-impl/);
+    expect(bundle.mocks.addLabels).not.toHaveBeenCalled();
   });
 });

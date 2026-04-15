@@ -56,10 +56,10 @@ inputs:
   terminal_state: { description: "success or failure", required: false }
   final_body: { description: "Final progress body", required: false }
 
-  # precheck-stage inputs
+  # precheck-stage and aggregate-review inputs
   analysed_sha:
     {
-      description: "For precheck-stage review-aggregator: the HEAD SHA the matrix analysed",
+      description: "For precheck-stage and aggregate-review: the PR HEAD SHA the review matrix analysed. Both helpers exit no-op if the PR has since advanced.",
       required: false,
     }
 

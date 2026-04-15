@@ -20,11 +20,37 @@ export interface ApplyTriageParams {
   decision: TriageOutput;
 }
 
+const UNEXPECTED_TRIAGE_LABELS = [
+  "shopfloor:needs-spec",
+  "shopfloor:spec-in-review",
+  "shopfloor:needs-plan",
+  "shopfloor:plan-in-review",
+  "shopfloor:needs-impl",
+  "shopfloor:impl-in-review",
+  "shopfloor:needs-review",
+  "shopfloor:review-requested-changes",
+  "shopfloor:review-approved",
+  "shopfloor:review-stuck",
+  "shopfloor:done",
+];
+
 export async function applyTriageDecision(
   adapter: GitHubAdapter,
   params: ApplyTriageParams,
 ): Promise<void> {
   const { issueNumber, decision } = params;
+
+  const issue = await adapter.getIssue(issueNumber);
+  const current = new Set(
+    (issue.labels as Array<{ name: string }>).map((l) => l.name),
+  );
+  for (const l of UNEXPECTED_TRIAGE_LABELS) {
+    if (current.has(l)) {
+      throw new Error(
+        `apply-triage-decision: refusing to re-triage issue #${issueNumber}: unexpected state label '${l}' is already present.`,
+      );
+    }
+  }
 
   if (decision.status === "needs_clarification") {
     const questionsBlock = decision.clarifying_questions

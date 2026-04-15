@@ -18,6 +18,17 @@ describe("applyImplPostwork", () => {
     bundle.mocks.listFiles.mockResolvedValueOnce({
       data: [{ filename: "src/auth.ts" }],
     });
+    // implementing-marker assertion check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [
+          { name: "shopfloor:needs-impl" },
+          { name: "shopfloor:implementing" },
+        ],
+        state: "open",
+      },
+    });
+    // checkReviewSkip origin-issue check
     bundle.mocks.getIssue.mockResolvedValueOnce({
       data: { labels: [], state: "open" },
     });
@@ -57,6 +68,17 @@ describe("applyImplPostwork", () => {
     bundle.mocks.listFiles.mockResolvedValueOnce({
       data: [{ filename: "src/auth.ts" }],
     });
+    // implementing-marker assertion check
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [
+          { name: "shopfloor:needs-impl" },
+          { name: "shopfloor:implementing" },
+        ],
+        state: "open",
+      },
+    });
+    // checkReviewSkip origin-issue check
     bundle.mocks.getIssue.mockResolvedValueOnce({
       data: { labels: [], state: "open" },
     });
@@ -69,5 +91,70 @@ describe("applyImplPostwork", () => {
       prBody: "body",
     });
     expect(result.nextLabel).toBe("shopfloor:impl-in-review");
+  });
+
+  test("throws when shopfloor:implementing marker is not present", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:needs-impl" }], state: "open" },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        labels: [],
+        state: "open",
+        draft: false,
+        merged: false,
+        head: { sha: "x" },
+        body: "",
+      },
+    });
+    await expect(
+      applyImplPostwork(bundle.adapter, {
+        issueNumber: 42,
+        prNumber: 45,
+        prTitle: "t",
+        prBody: "b",
+      }),
+    ).rejects.toThrow(/implementing/);
+  });
+
+  test("removes shopfloor:implementing as part of the transition", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [
+          { name: "shopfloor:needs-impl" },
+          { name: "shopfloor:implementing" },
+        ],
+        state: "open",
+      },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "abc" },
+        body: "Body\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\n",
+      },
+    });
+    bundle.mocks.listFiles.mockResolvedValueOnce({
+      data: [{ filename: "src/auth.ts" }],
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open" },
+    });
+    bundle.mocks.listReviews.mockResolvedValueOnce({ data: [] });
+
+    await applyImplPostwork(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      prTitle: "t",
+      prBody: "b",
+    });
+    expect(bundle.mocks.removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:implementing" }),
+    );
   });
 });
