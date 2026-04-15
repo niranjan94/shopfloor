@@ -20,6 +20,8 @@
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "vitest run router/test/e2e",
+    "test:e2e:watch": "vitest router/test/e2e",
     "typecheck": "pnpm exec tsc --noEmit",
     "typecheck:all": "pnpm -r typecheck",
     "format": "prettier --write .",
