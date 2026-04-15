@@ -15,9 +15,9 @@ Shopfloor is deliberately boring where it counts: a pure TypeScript state machin
    | `medium`   | plan → implement → review        |
    | `large`    | spec → plan → implement → review |
 
-3. Each non-review stage opens a pull request against your default branch. You review it, request changes or merge. Merging flips the next label and the next stage fires.
+3. Spec and plan each open a pull request against your default branch containing a single markdown file. These stages are **human-only review gates**: no agent matrix, no confidence scoring, just you reading what the agent wrote. Push edits to the branch directly if you want to tweak it, apply `shopfloor:revise` to re-run the stage against fresh context, or merge to accept. Merging flips the next label and fires the next stage.
 4. The implementation agent commits on its own branch, streams progress into a single pinned PR comment, and flips the PR out of draft when done.
-5. Review is a four-cell matrix: **compliance, bugs, security, code smells**. Each cell runs independently, then an aggregator posts one combined review. `APPROVE` when every cell is clean; `REQUEST_CHANGES` with batched line comments otherwise. If the loop cannot converge inside `max_review_iterations` rounds, Shopfloor applies `shopfloor:review-stuck` and hands the PR back to a human.
+5. Implementation review is a four-cell matrix: **compliance, bugs, security, code smells**. Each cell runs independently, then an aggregator posts one combined review. `APPROVE` when every cell is clean; `REQUEST_CHANGES` with batched line comments otherwise. If the loop cannot converge inside `max_review_iterations` rounds, Shopfloor applies `shopfloor:review-stuck` and hands the PR back to a human.
 6. You merge the implementation PR. Shopfloor closes the origin issue with `shopfloor:done`.
 
 ## Repository layout
