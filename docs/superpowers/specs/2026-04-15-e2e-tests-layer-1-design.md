@@ -82,34 +82,39 @@ interface FakeState {
   pulls: Map<number, Pull>;
   comments: Map<number, Comment>;
   reviews: Map<number, Review>;
+  reviewComments: Map<number, ReviewComment>; // keyed by comment id
   statuses: Map<string, Map<string, Status>>; // sha -> context -> latest
   branches: Set<string>;
-  nextIssueNumber: number;     // shared issue/PR counter, matches GitHub
+  nextIssueNumber: number; // shared issue/PR counter, matches GitHub
   nextCommentId: number;
   nextReviewId: number;
-  authIdentity: string;        // primary App identity
+  authIdentity: string; // primary App identity
   reviewAuthIdentity?: string; // secondary review App identity
-  eventLog: WriteEvent[];      // chronological mutations, for failure messages
+  eventLog: WriteEvent[]; // chronological mutations, for failure messages
 }
 ```
 
 Entity shapes:
 
 ```ts
-interface Label { name: string; color: string; description?: string }
+interface Label {
+  name: string;
+  color: string;
+  description?: string;
+}
 
 interface Issue {
   number: number;
   title: string;
   body: string | null;
   state: "open" | "closed";
-  labels: string[];            // names; must reference labels.has(name)
+  labels: string[]; // names; must reference labels.has(name)
   author: string;
   createdAt: string;
 }
 
 interface Pull {
-  number: number;              // shares numbering pool with issues
+  number: number; // shares numbering pool with issues
   title: string;
   body: string | null;
   state: "open" | "closed";
@@ -118,8 +123,8 @@ interface Pull {
   base: { ref: string; sha: string };
   head: { ref: string; sha: string };
   labels: string[];
-  author: string;              // critical for self-review enforcement
-  files: string[];             // pre-seeded by harness; listFiles returns this
+  author: string; // critical for self-review enforcement
+  files: string[]; // pre-seeded by harness; listFiles returns this
   createdAt: string;
   mergedAt?: string;
 }
@@ -134,16 +139,29 @@ interface Comment {
 interface Review {
   id: number;
   prNumber: number;
-  commitId: string;
+  commitId: string; // emitted as `commit_id` via the shim
+  // `event` is the input verb the API takes; `state` is the field the API returns.
+  // Both are tracked because the adapter reads `state`.
   event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+  state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED";
   body: string;
   user: { login: string };
-  submittedAt: string;
+  submittedAt: string; // emitted as `submitted_at` via the shim
+}
+
+interface ReviewComment {
+  id: number;
+  prNumber: number;
+  path: string;
+  line: number;
+  side: "LEFT" | "RIGHT";
+  body: string;
+  user: { login: string };
 }
 
 interface Status {
   sha: string;
-  context: string;             // e.g. "shopfloor/review"
+  context: string; // e.g. "shopfloor/review"
   state: "pending" | "success" | "failure" | "error";
   description: string;
   targetUrl?: string;
@@ -157,24 +175,26 @@ interface Status {
 
 Mapped directly to what `GitHubAdapter` calls (verified by reading `router/src/github.ts`). Every method below is implemented as a method on `FakeGitHub` AND exposed via the Octokit-shape shim.
 
-| Octokit method | FakeGitHub semantics |
-|---|---|
-| `issues.addLabels` | Validates label exists in `labels` (else 422 "Label does not exist"). Pushes onto `issue.labels` if not present. Idempotent. |
-| `issues.removeLabel` | Throws 404 if label not on issue (matches the adapter's catch-and-ignore). |
-| `issues.createComment` | Allocates `nextCommentId`. Returns `{ data: { id } }`. |
-| `issues.updateComment` | 404 if comment id unknown. |
-| `issues.listLabelsForRepo` | Returns all labels; pagination honored. |
-| `issues.createLabel` | 422 if label already exists (matches the adapter's catch). |
-| `issues.update` | Patches `state` and/or `body`. Logs `closeIssue` on state flip. |
-| `issues.get` | Returns issue with labels reshaped as `[{ name }]` (Octokit envelope). |
-| `pulls.create` | Strict: requires `head` branch in `branches`; rejects duplicate open PR with same head (422 "A pull request already exists"). |
-| `pulls.list` | Filters by `state` and `head` (matches `owner:branch` format the adapter passes). |
-| `pulls.update` | Patches title/body. |
-| `pulls.get` | Full PR shape. |
-| `pulls.listFiles` | Returns harness-seeded `files`. Pagination honored. |
-| `pulls.createReview` | **Self-review enforcement:** if the review user identity matches the PR author identity and `event !== "COMMENT"`, throws 422 "Can not approve your own pull request". |
-| `pulls.listReviews` | Returns reviews for the PR. |
-| `repos.createCommitStatus` | Upserts `(sha, context) -> status`. Truncates description at 140 chars (matches GitHub). |
+| Octokit method             | FakeGitHub semantics                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issues.addLabels`         | Validates label exists in `labels` (else 422 "Label does not exist"). Pushes onto `issue.labels` if not present. Idempotent.                                                                                                                                                                                                                                     |
+| `issues.removeLabel`       | Throws 404 if label not on issue (matches the adapter's catch-and-ignore).                                                                                                                                                                                                                                                                                       |
+| `issues.createComment`     | Allocates `nextCommentId`. Returns `{ data: { id } }`.                                                                                                                                                                                                                                                                                                           |
+| `issues.updateComment`     | 404 if comment id unknown.                                                                                                                                                                                                                                                                                                                                       |
+| `issues.listLabelsForRepo` | Returns all labels; pagination honored.                                                                                                                                                                                                                                                                                                                          |
+| `issues.createLabel`       | 422 if label already exists (matches the adapter's catch).                                                                                                                                                                                                                                                                                                       |
+| `issues.update`            | Patches `state` and/or `body`. Logs `closeIssue` on state flip.                                                                                                                                                                                                                                                                                                  |
+| `issues.get`               | Returns issue with labels reshaped as `[{ name }]` (Octokit envelope).                                                                                                                                                                                                                                                                                           |
+| `pulls.create`             | Strict: requires `head` branch in `branches`; rejects duplicate open PR with same head (422 "A pull request already exists").                                                                                                                                                                                                                                    |
+| `pulls.list`               | Filters by `state` and `head` (matches `owner:branch` format the adapter passes).                                                                                                                                                                                                                                                                                |
+| `pulls.update`             | Patches title/body.                                                                                                                                                                                                                                                                                                                                              |
+| `pulls.get`                | Full PR shape.                                                                                                                                                                                                                                                                                                                                                   |
+| `pulls.listFiles`          | Returns harness-seeded `files`. Pagination honored.                                                                                                                                                                                                                                                                                                              |
+| `pulls.createReview`       | **Self-review enforcement:** if the review user identity matches the PR author identity and `event !== "COMMENT"`, throws 422 "Can not approve your own pull request".                                                                                                                                                                                           |
+| `pulls.listReviews`        | Returns reviews for the PR. Each row carries `id`, `user.login`, `body`, `commit_id`, `state` (`APPROVED`/`CHANGES_REQUESTED`/`COMMENTED`), and `submitted_at` — all four are read by `getPrReviewsAtSha` and `listPrReviews` in `router/src/github.ts`, so the fake's row shape MUST include them or the review aggregator scenarios crash on undefined fields. |
+| `pulls.listReviewComments` | Returns review-comment threads for the PR with `id`, `path`, `line`, `body`, `user.login`. Used by `listPrReviewComments` in the adapter; required by the impl review retry loop scenario. Pagination honored.                                                                                                                                                   |
+| `issues.listComments`      | Returns issue comments with `id`, `body`, `user.login`, `created_at`. Used by `listIssueComments` in the adapter. Pagination honored.                                                                                                                                                                                                                            |
+| `repos.createCommitStatus` | Upserts `(sha, context) -> status`. Truncates description at 140 chars (matches GitHub).                                                                                                                                                                                                                                                                         |
 
 ### Semantic rules (the "generous" part)
 
@@ -208,16 +228,16 @@ class FakeRequestError extends Error {
 
 `octokit-shim.ts` builds an `OctokitLike` whose `rest.{issues,pulls,repos}` methods are thin wrappers around `FakeGitHub`. Each wrapper validates the input has the expected `owner`/`repo`, delegates to the corresponding fake method, and wraps the return in `{ data: ... }` to match Octokit's response envelope.
 
-The harness wires this up via `vi.mock("@actions/github", ...)` so that `getOctokit(token)` returns the shim. Token is used as a key into a token-to-fake map so the primary and review identities resolve to different shims of the *same* underlying `FakeGitHub` (different `authIdentity`, shared state).
+The harness wires this up via `vi.mock("@actions/github", ...)` so that `getOctokit(token)` returns the shim. Token is used as a key into a token-to-fake map so the primary and review identities resolve to different shims of the _same_ underlying `FakeGitHub` (different `authIdentity`, shared state).
 
 ```ts
 const fake = new FakeGitHub({ owner: "o", repo: "r" });
 const primary = fake.asOctokit("shopfloor[bot]");
-const review  = fake.asOctokit("shopfloor-review[bot]");
+const review = fake.asOctokit("shopfloor-review[bot]");
 
 vi.mocked(getOctokit).mockImplementation((token: string) => {
   if (token === "primary-token") return primary;
-  if (token === "review-token")  return review;
+  if (token === "review-token") return review;
   throw new Error(`unknown token in test: ${token}`);
 });
 ```
@@ -225,17 +245,17 @@ vi.mocked(getOctokit).mockImplementation((token: string) => {
 ### Snapshot and assertion helpers
 
 ```ts
-fake.issue(42)
-fake.pr(101)
-fake.labelsOn(42)              // string[]
-fake.commentsOn(42)            // Comment[]
-fake.reviewsOn(101)            // Review[]
-fake.statusFor(sha, "shopfloor/review")
-fake.openPrs()                 // Pull[]
-fake.snapshot()                // serializable; safe for vitest snapshot
-fake.eventLog()                // WriteEvent[]
-fake.eventLogSummary()         // pretty-printed string for error messages
-fake.tick()                    // advance internal clock 1s; returns ISO string
+fake.issue(42);
+fake.pr(101);
+fake.labelsOn(42); // string[]
+fake.commentsOn(42); // Comment[]
+fake.reviewsOn(101); // Review[]
+fake.statusFor(sha, "shopfloor/review");
+fake.openPrs(); // Pull[]
+fake.snapshot(); // serializable; safe for vitest snapshot
+fake.eventLog(); // WriteEvent[]
+fake.eventLogSummary(); // pretty-printed string for error messages
+fake.tick(); // advance internal clock 1s; returns ISO string
 ```
 
 `snapshot()` deliberately omits internal counters and the event log so snapshot files diff cleanly across reorderings of those internals.
@@ -250,15 +270,23 @@ const fake = new FakeGitHub({
   reviewAuthIdentity: "shopfloor-review[bot]",
 });
 
-fake.seedLabels([
-  { name: "shopfloor:trigger", color: "ededed" },
-  { name: "shopfloor:needs-spec", color: "0e8a16" },
-]);
-fake.seedIssue({ number: 42, title: "Add foo", body: "...", author: "alice", labels: [] });
+// The trigger label is the ONLY label needed before bootstrap. Once
+// `harness.bootstrap()` runs the real bootstrap-labels helper, all the
+// shopfloor:* labels exist in the fake's registry. Scenarios that want
+// to test pre-bootstrap state can call fake.seedLabels(...) directly
+// and skip harness.bootstrap().
+fake.seedLabels([{ name: "shopfloor:trigger", color: "ededed" }]);
+fake.seedIssue({
+  number: 42,
+  title: "Add foo",
+  body: "...",
+  author: "alice",
+  labels: [],
+});
 fake.seedBranch("main", "sha-main-0");
 ```
 
-Seeding is explicit and required. No auto-create of unseeded labels; no implicit branches. Forces scenarios to declare their initial conditions, which is what makes them readable.
+`harness.bootstrap()` invokes the real `runBootstrapLabels` helper against the fake, which creates all `shopfloor:*` labels through the same code path production uses. This is what makes the registry authoritative once bootstrap runs: every scenario gets the real label set without duplicating the list. `fake.seedLabels(...)` exists as an escape hatch for tests that want to bypass bootstrap or add non-shopfloor labels (e.g., the issue's own user labels). Branch and issue seeding remains explicit because the router does not create those.
 
 ### Tests for the fake
 
@@ -266,16 +294,16 @@ Seeding is explicit and required. No auto-create of unseeded labels; no implicit
 
 ### Approximate size
 
-| File | Approx LoC |
-|---|---|
-| `state.ts` (entity types + WriteEvent union) | 120 |
-| `errors.ts` | 30 |
-| `handlers/issues.ts` | 150 |
-| `handlers/pulls.ts` | 180 |
-| `handlers/repos.ts` | 30 |
-| `octokit-shim.ts` | 120 |
-| `index.ts` (FakeGitHub class wiring) | 200 |
-| **Total** | **~830** |
+| File                                         | Approx LoC |
+| -------------------------------------------- | ---------- |
+| `state.ts` (entity types + WriteEvent union) | 120        |
+| `errors.ts`                                  | 30         |
+| `handlers/issues.ts`                         | 150        |
+| `handlers/pulls.ts`                          | 180        |
+| `handlers/repos.ts`                          | 30         |
+| `octokit-shim.ts`                            | 120        |
+| `index.ts` (FakeGitHub class wiring)         | 200        |
+| **Total**                                    | **~830**   |
 
 ---
 
@@ -334,14 +362,40 @@ describe("medium issue happy path", () => {
 
 No env var setting, no module mocking, no `JSON.stringify` of webhook bodies, no manual chaining of helpers. All of that lives in the harness.
 
+### Review stage agent fan-out
+
+The review stage is the only stage where the workflow runs multiple parallel agents (verified at `.github/workflows/shopfloor.yml` lines 1010-1473). Four reviewer jobs (`review-compliance`, `review-bugs`, `review-security`, `review-smells`) each invoke `claude-code-action`, and their outputs become the `compliance_output`, `bugs_output`, `security_output`, `smells_output` inputs to `aggregate-review` in the `review-aggregator` job. The harness models this with a dedicated bundle type:
+
+```ts
+type AgentRole = "compliance" | "bugs" | "security" | "smells";
+
+interface ReviewAgentBundle {
+  compliance: { output: string; failed?: false } | { failed: true; reason: string };
+  bugs:       { output: string; failed?: false } | { failed: true; reason: string };
+  security:   { output: string; failed?: false } | { failed: true; reason: string };
+  smells:     { output: string; failed?: false } | { failed: true; reason: string };
+}
+
+// Scenario usage:
+harness.queueReviewAgents({
+  compliance: { output: JSON.stringify({ verdict: "lgtm", confidence: 95, comments: [] }) },
+  bugs:       { output: JSON.stringify({ verdict: "lgtm", confidence: 90, comments: [] }) },
+  security:   { output: JSON.stringify({ verdict: "request_changes", confidence: 85, comments: [...] }) },
+  smells:     { output: JSON.stringify({ verdict: "lgtm", confidence: 88, comments: [] }) },
+});
+await harness.runStage("review");
+```
+
+`runStage("review")` consumes the entire bundle in one call and threads each role's output to the matching `aggregate-review` input. Forgetting to queue a bundle before `runStage("review")` throws with a clear message naming the missing roles. A reviewer marked `failed: true` simulates the corresponding job timing out or returning empty output, which is what the workflow passes through to `aggregate-review` as an empty input.
+
 ### API surface
 
 ```ts
 class ScenarioHarness {
   constructor(opts: {
     fake: FakeGitHub;
-    triggerLabel?: string;          // default "shopfloor:trigger"
-    workspaceDir?: string;          // for RUNNER_TEMP; default tmp.dirSync()
+    triggerLabel?: string; // default "shopfloor:trigger"
+    workspaceDir?: string; // for RUNNER_TEMP; default tmp.dirSync()
   });
 
   // ── Setup ─────────────────────────────────────────────────────────
@@ -356,8 +410,20 @@ class ScenarioHarness {
   ): Promise<HelperOutputs>;
 
   // ── Agent simulation ──────────────────────────────────────────────
-  queueAgent(stage: StageName, response: AgentResponse): void;
-  queueAgentError(stage: StageName, error: AgentError): void;
+  // Most stages have one agent. The review stage runs FOUR parallel
+  // reviewer agents (compliance, bugs, security, smells) whose outputs
+  // become the corresponding inputs to aggregate-review. The harness
+  // exposes a per-stage queue keyed by agent role.
+  queueAgent(
+    stage: Exclude<StageName, "review">,
+    response: AgentResponse,
+  ): void;
+  queueReviewAgents(response: ReviewAgentBundle): void;
+  queueAgentError(
+    stage: StageName,
+    role: AgentRole | "default",
+    error: AgentError,
+  ): void;
 
   // ── Cleanup ───────────────────────────────────────────────────────
   async dispose(): Promise<void>;
@@ -417,40 +483,97 @@ Three subtleties:
 type GraphStep =
   | { kind: "helper"; helper: HelperName; from: InputMap }
   | { kind: "agent"; stage: StageName }
+  // The triage and review stages contain `run:` shell steps that build
+  // a context JSON file via `gh api` calls and write its path into a
+  // step output that subsequent helpers read. These are not router
+  // helpers; the harness simulates them by writing a synthetic context
+  // file to RUNNER_TEMP and exposing its path as a previous-step output.
+  | {
+      kind: "context";
+      id: string;
+      build: (ctx: StageContext) => ContextArtifact;
+    }
   | { kind: "if"; when: (ctx: StageContext) => boolean; then: GraphStep[] };
+
+interface ContextArtifact {
+  // Written to `${RUNNER_TEMP}/<id>.json` and exposed as
+  // `previous[<id>].path` for downstream `from: { source: "previous" }`.
+  json: unknown;
+}
 
 type InputMap = Record<string, InputSource>;
 type InputSource =
-  | { source: "route"; key: string }      // pull from route outputs
-  | { source: "agent"; key: string }      // pull from queued agent response
-  | { source: "previous"; helper: HelperName; key: string }
+  | { source: "route"; key: string } // pull from route outputs
+  | { source: "agent"; key: string } // pull from queued agent response
+  | { source: "previous"; helper: HelperName | string; key: string }
   | { source: "literal"; value: string };
 
 export const jobGraph: Record<StageName, GraphStep[]> = {
   triage: [
-    { kind: "helper", helper: "render-prompt", from: {
-        stage: { source: "literal", value: "triage" },
-        issue_number: { source: "route", key: "issue_number" },
-    }},
+    // Mirrors the "Build triage context" run-step in shopfloor.yml that
+    // calls `gh api .../comments` and writes RUNNER_TEMP/context.json.
+    {
+      kind: "context",
+      id: "ctx",
+      build: (ctx) => ({
+        json: {
+          issue_number: String(ctx.routeOutputs.issue_number),
+          issue_title: ctx.fake.issue(Number(ctx.routeOutputs.issue_number))
+            .title,
+          issue_body:
+            ctx.fake.issue(Number(ctx.routeOutputs.issue_number)).body ?? "",
+          // Comments come from the fake's in-memory store, mirroring the
+          // gh api call without actually shelling out.
+          issue_comments: ctx.fake
+            .commentsOn(Number(ctx.routeOutputs.issue_number))
+            .map((c) => `**@${c.author}**:\n${c.body}`)
+            .join("\n\n---\n\n"),
+          repo_owner: ctx.fake.owner,
+          repo_name: ctx.fake.repo,
+        },
+      }),
+    },
+    {
+      kind: "helper",
+      helper: "render-prompt",
+      from: {
+        prompt_file: { source: "literal", value: "prompts/triage.md" },
+        context_file: { source: "previous", helper: "ctx", key: "path" },
+      },
+    },
     { kind: "agent", stage: "triage" },
-    { kind: "helper", helper: "apply-triage-decision", from: {
+    {
+      kind: "helper",
+      helper: "apply-triage-decision",
+      from: {
         issue_number: { source: "route", key: "issue_number" },
         decision_json: { source: "agent", key: "decision_json" },
-    }},
-    { kind: "helper", helper: "advance-state", from: { /* ... */ } },
+      },
+    },
   ],
-  plan: [ /* ... */ ],
-  spec: [ /* ... */ ],
-  implement: [ /* ... */ ],
-  review: [ /* ... */ ],
-  "handle-merge": [ /* ... */ ],
+  plan: [
+    /* ... */
+  ],
+  spec: [
+    /* ... */
+  ],
+  implement: [
+    /* ... */
+  ],
+  review: [
+    /* ... */
+  ],
+  "handle-merge": [
+    /* ... */
+  ],
 };
 ```
 
-Two things to note:
+Three things to note:
 
 1. **The graph is hand-maintained.** This is the source of drift if `shopfloor.yml` evolves. We accept this with two mitigations: (a) the graph file lives next to the YAML in the repo so PR reviewers can spot drift; (b) Layer 2 catches drift between graph and YAML once Layer 2 ships.
 2. **`InputSource` is typed.** Bad references fail loudly at scenario time, with an error pointing at the graph step. Not silently passing `undefined`.
+3. **Every stage uses the `context` step pattern, not just triage.** Verified: `shopfloor.yml` has eight `id: ctx` shell steps (one per stage that runs claude-code-action) at lines 232, 367, 532, 789, 1049, 1145, 1241, 1337. Each writes a JSON context file and exposes its path as `steps.ctx.outputs.path`, which the next `render-prompt` step reads via `context_file:`. The job graph models all eight via the `kind: "context"` step type. The `build` callback for each stage assembles the JSON differently — triage pulls issue comments, the stage agents pull issue body + already-merged previous-stage artifacts, the four reviewers pull PR diff metadata, and so on. The implementation plan should enumerate each context shape by reading the corresponding YAML block.
 
 ### Event helpers
 
@@ -503,15 +626,15 @@ Without this, debugging a 30-step scenario by reading vitest output is misery.
 
 ### Approximate size
 
-| File | Approx LoC |
-|---|---|
-| `scenario-harness.ts` | 250 |
-| `job-graph.ts` | 200 |
-| `agent-stub.ts` | 80 |
-| `env.ts` (snapshot/restore + resetCoreState) | 120 |
-| `fixtures.ts` | 80 |
-| `parse-output.ts` | 50 |
-| **Total** | **~780** |
+| File                                         | Approx LoC |
+| -------------------------------------------- | ---------- |
+| `scenario-harness.ts`                        | 250        |
+| `job-graph.ts`                               | 200        |
+| `agent-stub.ts`                              | 80         |
+| `env.ts` (snapshot/restore + resetCoreState) | 120        |
+| `fixtures.ts`                                | 80         |
+| `parse-output.ts`                            | 50         |
+| **Total**                                    | **~780**   |
 
 Plus ~100 LoC of harness self-tests covering env lifecycle, output parsing, agent queue exhaustion, and `InputSource` resolution.
 
@@ -529,21 +652,21 @@ The simplest possible end-to-end. If this breaks, everything is on fire.
 
 - **Path:** triage (`complexity: "quick"`) -> implement -> review approved -> merge -> done
 - **Skips:** spec, plan
-- **Asserts:** label sequence `trigger -> needs-impl -> impl-in-review -> needs-review -> review-approved -> done`; one impl PR exists, merged; final issue state closed; no stray PRs.
+- **Asserts:** the persistent complexity label `shopfloor:quick` is present from triage onward; the transient stage labels evolve through the sequence `trigger -> needs-impl -> impl-in-review -> needs-review -> review-approved -> done`; one impl PR exists, merged; final issue state closed; no stray PRs. Note: `apply-triage-decision` adds BOTH `shopfloor:<complexity>` and the next-stage label in a single `advanceState` call (see `router/src/helpers/apply-triage-decision.ts:110`), so the complexity label coexists with every transient stage label after triage runs.
 
 ### 2. `medium-happy-path.test.ts`
 
 Canonical path. Exercises the most stages without weirdness.
 
 - **Path:** triage (medium) -> plan -> implement -> review approved -> merge
-- **Asserts:** plan PR is created and merged before impl PR opens; impl PR body contains `Shopfloor-Stage: implement` and `Shopfloor-Review-Iteration: 0`; issue body carries `Shopfloor-Slug:` after triage; no spec stage runs.
+- **Asserts:** persistent `shopfloor:medium` label present from triage onward (coexists with every transient stage label); plan PR is created and merged before impl PR opens; impl PR body contains `Shopfloor-Stage: implement` and `Shopfloor-Review-Iteration: 0`; issue body carries `Shopfloor-Slug:` after triage; no spec stage runs.
 
 ### 3. `large-happy-path.test.ts`
 
 The only scenario that exercises the spec stage.
 
 - **Path:** triage (large) -> spec -> plan -> implement -> review approved -> merge
-- **Asserts:** spec PR opens, gets approved, merges to main; *then* plan stage runs against the merged spec; metadata round-trip via issue body works across all three stage PRs; spec/plan PRs are not draft, impl PR is.
+- **Asserts:** persistent `shopfloor:large` label present from triage onward; spec PR opens, gets approved, merges to main; _then_ plan stage runs against the merged spec; metadata round-trip via issue body works across all three stage PRs; spec/plan PRs are not draft, impl PR is.
 
 ### 4. `triage-clarification-and-resume.test.ts`
 
@@ -557,7 +680,7 @@ Tests the awaiting-info loop.
 Tests stage PR review feedback for spec. Plan rework is structurally identical so we don't duplicate it.
 
 - **Path:** triage (large) -> spec PR opened -> reviewer requests changes -> agent re-runs spec -> spec PR updated (NOT recreated) -> approved -> merged -> normal flow continues
-- **Critical assertion:** the spec PR's *number* is the same before and after rework. This is what `findOpenPrByHead` + `pulls.update` guarantees, and exactly what unit tests can't see across a full sequence.
+- **Critical assertion:** the spec PR's _number_ is the same before and after rework. This is what `findOpenPrByHead` + `pulls.update` guarantees, and exactly what unit tests can't see across a full sequence.
 - **Also asserts:** `Shopfloor-Stage: spec` metadata survives the body update; reviewer changes-requested label flow.
 
 ### 6. `impl-review-retry-loop.test.ts`
@@ -581,15 +704,15 @@ Tests the failure boundary of the retry loop.
 
 ### Coverage matrix
 
-| Scenario | triage | spec | plan | impl | review-once | review-loop | failure |
-|---|---|---|---|---|---|---|---|
-| 1 quick-happy | ✓ | | | ✓ | ✓ | | |
-| 2 medium-happy | ✓ | | ✓ | ✓ | ✓ | | |
-| 3 large-happy | ✓ | ✓ | ✓ | ✓ | ✓ | | |
-| 4 clarify-resume | ✓ | | ✓ | ✓ | ✓ | | partial |
-| 5 spec-rework | ✓ | ✓ | ✓ | ✓ | ✓ | | |
-| 6 impl-retry-loop | ✓ | | ✓ | ✓ | | ✓ | |
-| 7 review-stuck | ✓ | | ✓ | ✓ | | ✓ | ✓ |
+| Scenario          | triage | spec | plan | impl | review-once | review-loop | failure |
+| ----------------- | ------ | ---- | ---- | ---- | ----------- | ----------- | ------- |
+| 1 quick-happy     | ✓      |      |      | ✓    | ✓           |             |         |
+| 2 medium-happy    | ✓      |      | ✓    | ✓    | ✓           |             |         |
+| 3 large-happy     | ✓      | ✓    | ✓    | ✓    | ✓           |             |         |
+| 4 clarify-resume  | ✓      |      | ✓    | ✓    | ✓           |             | partial |
+| 5 spec-rework     | ✓      | ✓    | ✓    | ✓    | ✓           |             |         |
+| 6 impl-retry-loop | ✓      |      | ✓    | ✓    |             | ✓           |         |
+| 7 review-stuck    | ✓      |      | ✓    | ✓    |             | ✓           | ✓       |
 
 Every helper is exercised by at least two scenarios. `aggregate-review` is exercised by all five that reach review. `bootstrap-labels` runs in every `beforeEach`.
 
@@ -658,11 +781,11 @@ Nothing existing moves. The new code is fully additive.
 // package.json (diff)
 {
   "scripts": {
-    "test":           "vitest run",                  // unchanged; now includes e2e scenarios
-    "test:watch":     "vitest",                      // unchanged
-    "test:e2e":       "vitest run router/test/e2e",  // NEW
-    "test:e2e:watch": "vitest router/test/e2e"       // NEW
-  }
+    "test": "vitest run", // unchanged; now includes e2e scenarios
+    "test:watch": "vitest", // unchanged
+    "test:e2e": "vitest run router/test/e2e", // NEW
+    "test:e2e:watch": "vitest router/test/e2e", // NEW
+  },
 }
 ```
 
@@ -670,14 +793,22 @@ Nothing existing moves. The new code is fully additive.
 
 ## Vitest config diff
 
+The existing `vitest.config.ts` already globs `router/test/**/*.test.ts`, so `router/test/e2e/**/*.test.ts` is picked up automatically with no `include` change. Only `setupFiles` needs to be added:
+
 ```ts
-// vitest.config.ts
+// vitest.config.ts (only the new field)
 test: {
-  setupFiles: ["router/test/e2e/setup.ts"],
+  include: [
+    "router/test/**/*.test.ts",        // existing — already matches e2e/
+    "mcp-servers/**/test/**/*.test.ts", // existing
+    "test/e2e/**/*.test.ts",            // existing top-level dir, untouched
+  ],
+  setupFiles: ["router/test/e2e/setup.ts"], // NEW
+  // ... rest unchanged
 }
 ```
 
-`setup.ts` does the global `vi.mock("@actions/github", ...)`. Existing tests are unaffected because the mock only intercepts `getOctokit` calls made through the active `FakeGitHub` registry; tests that don't register a fake bypass it entirely.
+`setup.ts` does the global `vi.mock("@actions/github", ...)`. Existing tests are unaffected because the mock only intercepts `getOctokit` calls made through the active `FakeGitHub` registry; tests that don't register a fake bypass it entirely (the mock falls through to a no-op stub that throws if called, ensuring accidental calls fail loudly rather than silently).
 
 ## New dependencies
 
@@ -743,7 +874,7 @@ These need explicit handling in the implementation plan, not buried in code:
 
 2. **Vitest concurrency + shared mock.** Vitest runs test files in parallel by default. If two scenario files run concurrently and both manipulate `process.env.INPUT_*`, they trample each other. The harness must serialize scenarios within a file (default behavior) AND scenarios must not use `test.concurrent`. **Decision:** ban `test.concurrent` in `e2e/scenarios/**` via a comment in the README and a setup-file assertion that throws if `process.env.INPUT_*` exists at the start of a scenario.
 
-3. **Snapshot file size.** A full `fake.snapshot()` after a 30-step scenario could be hundreds of lines. Acceptable, but watch for snapshots dominating PR diffs. Mitigation: snapshot only the *delta from initial seed*. Decide during scenario #1 implementation.
+3. **Snapshot file size.** A full `fake.snapshot()` after a 30-step scenario could be hundreds of lines. Acceptable, but watch for snapshots dominating PR diffs. Mitigation: snapshot only the _delta from initial seed_. Decide during scenario #1 implementation.
 
 4. **Branch SHA progression.** The harness needs deterministic SHAs (`sha-plan-0`, `sha-plan-merged`, etc.) for assertions to be stable. Add `fake.advanceSha(branch)` for predictable values.
 
@@ -763,14 +894,14 @@ These need explicit handling in the implementation plan, not buried in code:
 
 ## Aggregate size estimate
 
-| Component | LoC |
-|---|---|
-| FakeGitHub (incl. handlers, shim, errors, state) | ~830 |
-| Harness (incl. job graph, fixtures, output parser) | ~780 |
-| Harness self-tests | ~100 |
-| FakeGitHub self-tests | ~250 |
-| 7 scenarios @ ~200 LoC avg | ~1400 |
-| README | ~150 |
-| **Total new code** | **~3500 LoC** |
+| Component                                          | LoC           |
+| -------------------------------------------------- | ------------- |
+| FakeGitHub (incl. handlers, shim, errors, state)   | ~830          |
+| Harness (incl. job graph, fixtures, output parser) | ~780          |
+| Harness self-tests                                 | ~100          |
+| FakeGitHub self-tests                              | ~250          |
+| 7 scenarios @ ~200 LoC avg                         | ~1400         |
+| README                                             | ~150          |
+| **Total new code**                                 | **~3500 LoC** |
 
 For a project of Shopfloor's complexity and the leverage scenario tests provide, this is a reasonable budget.

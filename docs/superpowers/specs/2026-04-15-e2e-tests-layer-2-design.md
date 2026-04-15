@@ -17,22 +17,22 @@ Read this first so we don't accidentally re-litigate the framing.
 
 ### What Layer 2 sees that Layer 1 doesn't
 
-`act` runs **one event through one workflow invocation per test**. It does NOT simulate "label flip in job A triggers a fresh workflow run for job B" — that's GitHub-server-side behavior. Every Layer 2 test is therefore single-webhook in scope: *given this event payload, did the workflow execute the right job graph and produce the right outputs?*
+`act` runs **one event through one workflow invocation per test**. It does NOT simulate "label flip in job A triggers a fresh workflow run for job B" — that's GitHub-server-side behavior. Every Layer 2 test is therefore single-webhook in scope: _given this event payload, did the workflow execute the right job graph and produce the right outputs?_
 
 That constraint shapes the catalog. Layer 2 tests answer **wiring** questions, not lifecycle questions. Lifecycles stay in Layer 1.
 
-| Concern | Layer 1 catches | Layer 2 catches |
-|---|---|---|
-| Helper logic, state machine, retry loops | ✓ | |
-| Job-graph drift between code and YAML | partial (via assertion mismatch) | ✓ |
-| `if:` conditionals on job-level outputs | | ✓ |
-| Secret-to-output-string flag pattern (`has_review_app`) | | ✓ |
-| Env var flow between `run:` steps | | ✓ |
-| `claude_args` parsing of `${{ runner.temp }}` literals | | ✓ |
-| `persist-credentials: false` invariant on every checkout | | ✓ (YAML lint) |
-| `secrets.GITHUB_TOKEN` does-not-fire-downstream behavior | ✗ | ✗ (GitHub-only) |
-| `actions/checkout` extraheader credential override | ✗ | ✗ (GitHub-only) |
-| Real claude-code-action prompt behavior | ✗ (separate suite) | ✗ (separate suite) |
+| Concern                                                  | Layer 1 catches                  | Layer 2 catches    |
+| -------------------------------------------------------- | -------------------------------- | ------------------ |
+| Helper logic, state machine, retry loops                 | ✓                                |                    |
+| Job-graph drift between code and YAML                    | partial (via assertion mismatch) | ✓                  |
+| `if:` conditionals on job-level outputs                  |                                  | ✓                  |
+| Secret-to-output-string flag pattern (`has_review_app`)  |                                  | ✓                  |
+| Env var flow between `run:` steps                        |                                  | ✓                  |
+| `claude_args` parsing of `${{ runner.temp }}` literals   |                                  | ✓                  |
+| `persist-credentials: false` invariant on every checkout |                                  | ✓ (YAML lint)      |
+| `secrets.GITHUB_TOKEN` does-not-fire-downstream behavior | ✗                                | ✗ (GitHub-only)    |
+| `actions/checkout` extraheader credential override       | ✗                                | ✗ (GitHub-only)    |
+| Real claude-code-action prompt behavior                  | ✗ (separate suite)               | ✗ (separate suite) |
 
 The two ✗-✗ rows are accepted as residual risk. Dogfooding via `dogfood.yml` catches them informally. We document this clearly in the README so contributors don't think Layer 2 is more comprehensive than it is.
 
@@ -112,15 +112,15 @@ export interface WorkflowHarnessOpts {
   setupApi?: (m: Moctokit) => void;
 }
 
-export async function runWorkflow(opts: WorkflowHarnessOpts): Promise<RunResult> {
+export async function runWorkflow(
+  opts: WorkflowHarnessOpts,
+): Promise<RunResult> {
   const mockGithub = new MockGithub({
     repo: {
       "test-target": {
         pushedBranches: ["main"],
         currentBranch: "main",
-        files: [
-          { src: path.join(REPO_ROOT, ".github"), dest: ".github" },
-        ],
+        files: [{ src: path.join(REPO_ROOT, ".github"), dest: ".github" }],
       },
     },
     env: { ...opts.env },
@@ -157,8 +157,24 @@ export async function runWorkflow(opts: WorkflowHarnessOpts): Promise<RunResult>
 1. **The mock repo gets the real `.github/` directory copied in** via `MockGithub`'s `files` config. This means the test always runs against current `shopfloor.yml`, no fixture drift.
 2. **A synthetic caller workflow** (`router/test/workflow/fixtures/test-caller.yml`) lives alongside the test. It's a tiny `workflow_call`-style caller that maps test inputs into `shopfloor.yml` invocation, mirroring the dogfood workflow's structure but parameterized for tests. We test `test-caller.yml`, which transitively tests `shopfloor.yml`.
 3. **Moctokit is request-replay**, so each test enumerates only the API calls it expects. If the workflow makes more calls than mocked, Moctokit fails with "no matching mock" — also a useful signal.
-4. **All claude-code-action steps stubbed by default.** A shared `mockSteps` map in `mock-step-stubs.ts` provides canned stubs keyed by step name (`claude-code-action-triage`, `claude-code-action-spec`, etc.) that just write the expected output and exit 0. Individual tests override specific steps when they need different agent behavior.
-5. **Sanity assertion on stub coverage.** Before invoking act, the harness loads the workflow YAML, enumerates the `claude-code-action` step IDs, and asserts every one is covered by a mockStep. Without this, a renamed step silently runs the real action (which would call Anthropic in CI). ~20 LoC of harness code.
+4. **All claude-code-action steps stubbed by default.** Verified by grep: `shopfloor.yml` has eight `id: agent` steps (one per job that runs claude-code-action), all sharing the same `id`. They are distinguished only by their parent job. `@kie/act-js`'s `mockSteps` API keys by `(jobId, stepIdOrName)` — confirm during implementation by reading the act-js source — so the shared map in `mock-step-stubs.ts` is structured as `Record<JobId, MockStep[]>` and each entry stubs the `agent` step for that job:
+
+   ```ts
+   const defaultMockSteps: Record<string, MockStep[]> = {
+     triage:            [{ id: "agent", mockWith: 'echo \'{"complexity":"medium"}\' >> $GITHUB_OUTPUT' }],
+     spec:              [{ id: "agent", mockWith: "..." }],
+     plan:              [{ id: "agent", mockWith: "..." }],
+     implement:         [{ id: "agent", mockWith: "..." }],
+     "review-compliance": [{ id: "agent", mockWith: "..." }],
+     "review-bugs":       [{ id: "agent", mockWith: "..." }],
+     "review-security":   [{ id: "agent", mockWith: "..." }],
+     "review-smells":     [{ id: "agent", mockWith: "..." }],
+   };
+   ```
+
+   If act-js's `mockSteps` actually keys differently (some versions key only by step id with the result that all eight `agent` steps collide), the implementation switches to the `mockWith` payload being a function that reads `GITHUB_JOB` and dispatches accordingly. **This is the single biggest unknown in the L2 design and must be resolved by reading the @kie/act-js source before locking in the harness shape.** Treat it as a research item in the implementation plan.
+
+5. **Sanity assertion on stub coverage.** Before invoking act, the harness loads the workflow YAML, enumerates the eight `(jobId, agent)` tuples, and asserts every one is covered by a mockStep entry. Without this, a renamed job silently runs the real action (which would call Anthropic in CI). ~30 LoC of harness code, prevents an expensive class of mistakes.
 
 ---
 
@@ -174,16 +190,34 @@ Smoke test. The cheapest, fastest, most valuable.
 test("shopfloor.yml parses and lists expected jobs", async () => {
   const act = new Act(REPO_ROOT);
   const workflows = await act.list();
-  const shopfloor = workflows.find(w => w.workflowName === "Shopfloor");
+  const shopfloor = workflows.find((w) => w.workflowName === "Shopfloor");
   expect(shopfloor).toBeDefined();
   expect(shopfloor!.events).toContain("workflow_call");
 
+  // Verified against .github/workflows/shopfloor.yml: 12 jobs total. The
+  // review stage is split into 6 jobs (one skip-check, four parallel
+  // reviewers, one aggregator). report-failure is a router *helper*
+  // invoked as a step inside other jobs, NOT a standalone job — do not
+  // include it here.
   const jobIds = workflows
-    .filter(w => w.workflowName === "Shopfloor")
-    .map(w => w.jobId);
-  expect(jobIds).toEqual(expect.arrayContaining([
-    "route", "triage", "spec", "plan", "implement", "review", "report-failure",
-  ]));
+    .filter((w) => w.workflowName === "Shopfloor")
+    .map((w) => w.jobId);
+  expect(jobIds).toEqual(
+    expect.arrayContaining([
+      "route",
+      "triage",
+      "spec",
+      "plan",
+      "implement",
+      "review-skip-check",
+      "review-compliance",
+      "review-bugs",
+      "review-security",
+      "review-smells",
+      "review-aggregator",
+      "handle-merge",
+    ]),
+  );
 });
 ```
 
@@ -193,15 +227,17 @@ test("shopfloor.yml parses and lists expected jobs", async () => {
 
 The route job's outputs correctly gate downstream jobs.
 
-Five sub-tests, one per webhook -> stage mapping:
+Five sub-tests, one per webhook -> stage mapping (job names verified against `shopfloor.yml`):
 
 - `issue-labeled-trigger-label-added.json` -> route runs -> only `triage` job runs downstream
 - `issue-labeled-needs-spec.json` -> route runs -> only `spec` job runs
 - `issue-labeled-needs-plan-no-title.json` -> route runs -> only `plan` job runs
-- `pr-ready-for-review-impl.json` -> route runs -> only `review` job runs
-- `pr-closed-merged-spec.json` -> route runs -> only `handle-merge` step runs
+- `pr-ready-for-review-impl.json` -> route runs -> the six review jobs run (`review-skip-check`, `review-compliance`, `review-bugs`, `review-security`, `review-smells`, `review-aggregator`)
+- `pr-closed-merged-spec.json` -> route runs -> only the `handle-merge` job runs
 
 Each sub-test asserts on the returned `Step[]`: which jobs reported `status: 0` and which were `skipped`. **Catches:** broken `if:` expressions on jobs, output name typos, empty-string ternary bugs.
+
+Note on the review case: when the workflow gates on `review-skip-check`'s output, the four reviewer jobs and aggregator are correctly skipped by act when the skip flag is true. The test should verify both (a) the skip path leaves four reviewers as `skipped` and (b) the non-skip path runs all six. That's two of the five sub-tests, not one — reframe accordingly during implementation.
 
 ### W3 — `has-review-app-gating.test.ts`
 
@@ -209,10 +245,10 @@ The most fragile pattern in the workflow per CLAUDE.md. Highest test ROI.
 
 Two cases:
 
-- With `SHOPFLOOR_GITHUB_APP_REVIEW_APP_ID` secret set -> `route.outputs.has_review_app == 'true'` -> review aggregator step uses the review token
-- Without that secret -> `route.outputs.has_review_app == 'false'` -> aggregator falls back to primary token
+- With `SHOPFLOOR_GITHUB_APP_REVIEW_APP_ID` secret set -> `route.outputs.has_review_app == 'true'` -> the aggregate step (`id: aggregate` inside the `review-aggregator` job) uses the review token
+- Without that secret -> `route.outputs.has_review_app == 'false'` -> aggregate falls back to primary token
 
-Asserts on the resolved `INPUT_REVIEW_GITHUB_TOKEN` env var passed to the `aggregate-review` step (captured via a Moctokit assertion or a mockSteps inspector).
+Asserts on the resolved `INPUT_REVIEW_GITHUB_TOKEN` env var passed to the aggregator step. The actual step ID is `aggregate` (not `aggregate-review`); the helper invocation is `helper: aggregate-review`. Don't confuse the two when wiring the mockSteps key. Captured via a Moctokit assertion or a mockSteps inspector around the aggregator step.
 
 **Catches:** if anyone "fixes" this back to `if: secrets.foo != ''`, this test fails immediately and the failure message points right at the gotcha.
 
@@ -220,7 +256,7 @@ Asserts on the resolved `INPUT_REVIEW_GITHUB_TOKEN` env var passed to the `aggre
 
 The `$RUNNER_TEMP` / `${{ runner.temp }}` expansion gotcha.
 
-Fires the triage stage. Stubs `claude-code-action-triage` with a mockStep that writes `decision_json` containing the literal string `${{ runner.temp }}` (which should NOT be expanded by the parser). Asserts the next router step receives the literal string, proving the resolved-path-output-step pattern works.
+Fires the triage stage. Stubs the `agent` step inside the `triage` job (via `mockSteps.triage[0]`) with a mockStep that writes `decision_json` containing the literal string `${{ runner.temp }}` (which should NOT be expanded by the parser). Asserts the next router step receives the literal string, proving the resolved-path-output-step pattern works.
 
 **Catches:** regression of the `claude_args` env var expansion bug from CLAUDE.md.
 
@@ -237,7 +273,10 @@ test("every actions/checkout step has persist-credentials: false", async () => {
   const parsed = parseYaml(yaml);
   const violations: string[] = [];
   walkSteps(parsed, (step, location) => {
-    if (typeof step.uses === "string" && step.uses.startsWith("actions/checkout@")) {
+    if (
+      typeof step.uses === "string" &&
+      step.uses.startsWith("actions/checkout@")
+    ) {
       if (step.with?.["persist-credentials"] !== false) {
         violations.push(location);
       }
@@ -249,7 +288,7 @@ test("every actions/checkout step has persist-credentials: false", async () => {
 
 **Catches:** any new checkout step that forgets the flag. Permanently encodes the CLAUDE.md gotcha as a test invariant.
 
-This test does NOT need Docker and runs in ~10ms. We put it in `router/test/workflow/lint/` and **include it in the default `pnpm test`**, not just `pnpm test:workflow`. The expensive ones (W1-W4) stay opt-in.
+This test does NOT need Docker and runs in ~10ms. We put it in `router/test/lint/` (a sibling of `router/test/workflow/`, NOT inside it) so the default vitest include picks it up automatically while the workflow-only exclude does not match it. **It runs in the default `pnpm test`**, not just `pnpm test:workflow`. The expensive ones (W1-W4) stay opt-in. See "File layout" and "Vitest config" below for why this split exists.
 
 ### W6 — `agent-output-flow.test.ts` (optional)
 
@@ -263,54 +302,60 @@ This is the closest Layer 2 gets to lifecycle testing. It's redundant with Layer
 
 ## File layout
 
+The lint test (W5) lives **outside** `router/test/workflow/` so it is naturally picked up by the default vitest include without needing negation re-include patterns (which vitest's `exclude` does not support). Everything that requires Docker stays in `router/test/workflow/`, which is excluded from the default suite via a flat `exclude` glob.
+
 ```
-router/test/workflow/                            # NEW
-├── README.md                                    # what L2 catches and what it doesn't
-├── helpers/
-│   ├── act-runner.ts                            # WorkflowHarness wrapper
-│   ├── mock-step-stubs.ts                       # canned claude-code-action stubs
-│   └── load-event-fixture.ts                    # shared with L1 fixtures dir
-├── fixtures/
-│   └── test-caller.yml                          # synthetic workflow_call caller
-├── lint/
-│   └── checkout-credentials-invariant.test.ts   # W5 — runs in default suite
-├── workflow-parses.test.ts                      # W1
-├── route-dispatch.test.ts                       # W2
-├── has-review-app-gating.test.ts                # W3
-├── runner-temp-plumbing.test.ts                 # W4
-└── agent-output-flow.test.ts                    # W6 (if included)
+router/test/
+├── lint/                                        # NEW — runs in default pnpm test
+│   └── checkout-credentials-invariant.test.ts   # W5
+└── workflow/                                    # NEW — opt-in via pnpm test:workflow
+    ├── README.md                                # what L2 catches and what it doesn't
+    ├── helpers/
+    │   ├── act-runner.ts                        # WorkflowHarness wrapper
+    │   ├── mock-step-stubs.ts                   # canned claude-code-action stubs
+    │   └── load-event-fixture.ts                # shared with L1 fixtures dir
+    ├── fixtures/
+    │   └── test-caller.yml                      # synthetic workflow_call caller
+    ├── workflow-parses.test.ts                  # W1
+    ├── route-dispatch.test.ts                   # W2
+    ├── has-review-app-gating.test.ts            # W3
+    ├── runner-temp-plumbing.test.ts             # W4
+    └── agent-output-flow.test.ts                # W6 (if included)
 ```
 
 ## Vitest config
 
-A new `vitest.workflow.config.ts` excludes everything from the default suite except the `lint/` tests, and a new `pnpm test:workflow` script runs the expensive ones:
+Two configs. The default config excludes `router/test/workflow/**` outright. A separate `vitest.workflow.config.ts` runs only the workflow tests via `pnpm test:workflow`.
 
 ```ts
-// vitest.workflow.config.ts
+// vitest.config.ts (diff to existing config)
+test: {
+  include: [
+    "router/test/**/*.test.ts",         // unchanged — picks up router/test/lint/**
+    "mcp-servers/**/test/**/*.test.ts", // unchanged
+    "test/e2e/**/*.test.ts",             // unchanged
+  ],
+  exclude: [
+    "node_modules/**",                   // unchanged
+    "router/test/workflow/**",           // NEW — keep Docker tests out of default
+  ],
+}
+```
+
+```ts
+// vitest.workflow.config.ts (NEW file)
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     include: ["router/test/workflow/**/*.test.ts"],
-    exclude: ["router/test/workflow/lint/**"],   // lint runs in default suite
-    testTimeout: 60_000,                         // act + Docker is slow
-    retry: 1,                                     // tolerate one Docker hiccup
+    testTimeout: 60_000, // act + Docker is slow
+    retry: 1, // tolerate one Docker hiccup
   },
 });
 ```
 
-Default `vitest.config.ts` continues to glob `router/test/**/*.test.ts` but excludes the workflow execution tests:
-
-```ts
-// vitest.config.ts (diff)
-test: {
-  exclude: [
-    "node_modules/**",
-    "router/test/workflow/**",
-    "!router/test/workflow/lint/**",  // re-include lint
-  ],
-}
-```
+This split avoids vitest's lack of negation re-include in `exclude` (verified: vitest uses anymatch globs and does not interpret leading `!` as re-inclusion the way ripgrep does). Putting the lint test in a sibling directory is a one-line decision that sidesteps an entire class of config drift.
 
 ## pnpm scripts
 
@@ -318,9 +363,9 @@ test: {
 // package.json (diff)
 {
   "scripts": {
-    "test:workflow":       "vitest run --config vitest.workflow.config.ts",  // NEW
-    "test:workflow:watch": "vitest --config vitest.workflow.config.ts"       // NEW
-  }
+    "test:workflow": "vitest run --config vitest.workflow.config.ts", // NEW
+    "test:workflow:watch": "vitest --config vitest.workflow.config.ts", // NEW
+  },
 }
 ```
 
@@ -420,20 +465,20 @@ A new `router/test/workflow/README.md` covering:
 
 ## Aggregate size estimate
 
-| Component | LoC |
-|---|---|
-| `act-runner.ts` | ~150 |
-| `mock-step-stubs.ts` | ~120 |
-| `test-caller.yml` | ~30 |
-| W1 | ~30 |
-| W2 (5 sub-tests) | ~150 |
-| W3 | ~120 |
-| W4 | ~80 |
-| W5 (no Docker, fast) | ~60 |
-| W6 (optional) | ~80 |
-| `vitest.workflow.config.ts` | ~20 |
-| README | ~100 |
-| **Total new code** | **~940 LoC** |
+| Component                   | LoC          |
+| --------------------------- | ------------ |
+| `act-runner.ts`             | ~150         |
+| `mock-step-stubs.ts`        | ~120         |
+| `test-caller.yml`           | ~30          |
+| W1                          | ~30          |
+| W2 (5 sub-tests)            | ~150         |
+| W3                          | ~120         |
+| W4                          | ~80          |
+| W5 (no Docker, fast)        | ~60          |
+| W6 (optional)               | ~80          |
+| `vitest.workflow.config.ts` | ~20          |
+| README                      | ~100         |
+| **Total new code**          | **~940 LoC** |
 
 Plus ~30 lines of CI YAML and ~15 lines of `package.json` diff.
 
