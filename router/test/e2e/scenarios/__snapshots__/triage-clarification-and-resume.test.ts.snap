@@ -1,0 +1,81 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`triage clarification and resume > triage(needs_clarification) -> user answers -> triage(classified) resumes 1`] = `
+{
+  "comments": [
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor triage: need more information.**
+
+The issue body does not describe the auth flow.
+
+**Please answer the following before I proceed:**
+- What auth flow?
+- Mobile too?
+
+Remove the \`shopfloor:awaiting-info\` label once you have updated the issue body or added answers in comments.",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "OAuth via GitHub App, and yes mobile too.",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor triage: classified as \`medium\`.**
+
+now clear",
+      "issue": 42,
+    },
+  ],
+  "issues": [
+    {
+      "body": "Need foo, but the spec is unclear.
+
+<!-- shopfloor:metadata
+Shopfloor-Slug: add-foo
+-->",
+      "labels": [
+        "shopfloor:enabled",
+        "shopfloor:medium",
+        "shopfloor:needs-plan",
+      ],
+      "number": 42,
+      "state": "open",
+      "title": "Add foo",
+    },
+  ],
+  "labels": [
+    "shopfloor:awaiting-info",
+    "shopfloor:done",
+    "shopfloor:failed:implement",
+    "shopfloor:failed:plan",
+    "shopfloor:failed:review",
+    "shopfloor:failed:spec",
+    "shopfloor:failed:triage",
+    "shopfloor:impl-in-review",
+    "shopfloor:implementing",
+    "shopfloor:large",
+    "shopfloor:medium",
+    "shopfloor:needs-impl",
+    "shopfloor:needs-plan",
+    "shopfloor:needs-review",
+    "shopfloor:needs-spec",
+    "shopfloor:plan-in-review",
+    "shopfloor:plan-running",
+    "shopfloor:quick",
+    "shopfloor:review-approved",
+    "shopfloor:review-requested-changes",
+    "shopfloor:review-stuck",
+    "shopfloor:revise",
+    "shopfloor:skip-review",
+    "shopfloor:spec-in-review",
+    "shopfloor:spec-running",
+    "shopfloor:triaging",
+  ],
+  "pulls": [],
+  "reviews": [],
+  "statuses": [],
+}
+`;
