@@ -1,32 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
-
-vi.mock("@actions/github", async () => {
-  const actual =
-    await vi.importActual<typeof import("@actions/github")>("@actions/github");
-  return {
-    ...actual,
-    getOctokit: vi.fn(),
-    context: {
-      get eventName() {
-        return process.env.GITHUB_EVENT_NAME ?? "";
-      },
-      get payload() {
-        const p = process.env.GITHUB_EVENT_PATH;
-        if (!p) return {};
-        const fs = require("node:fs") as typeof import("node:fs");
-        return JSON.parse(fs.readFileSync(p, "utf8"));
-      },
-      repo: {
-        get owner() {
-          return process.env.GITHUB_REPOSITORY?.split("/")[0] ?? "";
-        },
-        get repo() {
-          return process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
-        },
-      },
-    },
-  };
-});
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 
 import { parseGithubOutput } from "./parse-output";
 

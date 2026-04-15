@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    setupFiles: ["router/test/e2e/setup.ts"],
     include: [
       "router/test/**/*.test.ts",
       "mcp-servers/**/test/**/*.test.ts",
