@@ -116,10 +116,10 @@ inputs:
     required: false
   progress_comment_id:
     description: "For build-revision-context: progress comment id to thread through to the agent"
-    required: false
+    required: true
   bash_allowlist:
     description: "For build-revision-context: bash allowlist to pass to the agent"
-    required: false
+    required: true
   repo_owner:
     description: "For build-revision-context: repository owner login"
     required: false

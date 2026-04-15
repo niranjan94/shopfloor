@@ -66,7 +66,8 @@ export async function buildRevisionContext(
     .sort((a, b) => {
       const aTime = a.submitted_at ?? "";
       const bTime = b.submitted_at ?? "";
-      return bTime.localeCompare(aTime);
+      const cmp = bTime.localeCompare(aTime);
+      return cmp !== 0 ? cmp : b.id - a.id;
     });
 
   if (requestChangesReviews.length === 0) {
@@ -143,8 +144,8 @@ export async function runBuildRevisionContext(
     branchName: core.getInput("branch_name", { required: true }),
     specFilePath: core.getInput("spec_file_path", { required: true }),
     planFilePath: core.getInput("plan_file_path", { required: true }),
-    progressCommentId: core.getInput("progress_comment_id") || "",
-    bashAllowlist: core.getInput("bash_allowlist") || "",
+    progressCommentId: core.getInput("progress_comment_id", { required: true }),
+    bashAllowlist: core.getInput("bash_allowlist", { required: true }),
     repoOwner: core.getInput("repo_owner", { required: true }),
     repoName: core.getInput("repo_name", { required: true }),
     outputPath: core.getInput("output_path", { required: true }),
