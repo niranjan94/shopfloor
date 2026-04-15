@@ -294,7 +294,7 @@ This test does NOT need Docker and runs in ~10ms. We put it in `router/test/lint
 
 End-to-end stub-to-router data flow for one stage.
 
-Triggers the triage stage. Stubs `claude-code-action-triage` to emit `decision_json: '{"complexity":"medium",...}'` as a step output. Asserts that `apply-triage-decision`'s `INPUT_DECISION_JSON` receives exactly that string and that the step exits successfully.
+Triggers the triage stage. Stubs the `agent` step inside the `triage` job (via `mockSteps.triage[0]`) to emit `decision_json: '{"complexity":"medium",...}'` as a step output. Asserts that `apply-triage-decision`'s `INPUT_DECISION_JSON` receives exactly that string and that the step exits successfully.
 
 This is the closest Layer 2 gets to lifecycle testing. It's redundant with Layer 1 in spirit, but it validates the YAML-side wiring (`outputs:` -> `with:`) that Layer 1 cannot see. **Recommendation:** include it. Marginal cost, real value.
 
