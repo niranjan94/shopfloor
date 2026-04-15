@@ -20,6 +20,7 @@ function makeMockOctokit(): {
     createPr: vi.fn().mockResolvedValue({
       data: { number: 100, html_url: "https://x/pr/100" },
     }),
+    listPrs: vi.fn().mockResolvedValue({ data: [] }),
     updatePr: vi.fn().mockResolvedValue({ data: {} }),
     getPr: vi.fn().mockResolvedValue({ data: {} }),
     listFiles: vi.fn().mockResolvedValue({ data: [] }),
@@ -41,6 +42,7 @@ function makeMockOctokit(): {
       },
       pulls: {
         create: mocks.createPr,
+        list: mocks.listPrs,
         update: mocks.updatePr,
         get: mocks.getPr,
         listFiles: mocks.listFiles,
@@ -86,7 +88,7 @@ describe("GitHubAdapter", () => {
     expect(id).toBe(999);
   });
 
-  test("openStagePr merges title, body, metadata block", async () => {
+  test("openStagePr creates when no existing PR and injects metadata", async () => {
     const { octokit, mocks } = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);
     await adapter.openStagePr({
@@ -97,10 +99,64 @@ describe("GitHubAdapter", () => {
       stage: "spec",
       issueNumber: 42,
     });
+    expect(mocks.listPrs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner: "niranjan94",
+        repo: "shopfloor",
+        head: "niranjan94:shopfloor/spec/42-x",
+        state: "open",
+      }),
+    );
+    expect(mocks.updatePr).not.toHaveBeenCalled();
     const call = mocks.createPr.mock.calls[0][0] as { body: string };
     expect(call.body).toMatch(/Shopfloor-Issue: #42/);
     expect(call.body).toMatch(/Shopfloor-Stage: spec/);
     expect(call.body).toMatch(/Body text\./);
+  });
+
+  test("openStagePr upserts existing spec PR by updating title and body", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    mocks.listPrs.mockResolvedValueOnce({
+      data: [{ number: 77, html_url: "https://x/pr/77" }],
+    });
+    const adapter = new GitHubAdapter(octokit, repo);
+    const result = await adapter.openStagePr({
+      base: "main",
+      head: "shopfloor/spec/42-x",
+      title: "Spec for #42 (retry)",
+      body: "Fresh body.",
+      stage: "spec",
+      issueNumber: 42,
+    });
+    expect(result.number).toBe(77);
+    expect(mocks.createPr).not.toHaveBeenCalled();
+    expect(mocks.updatePr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pull_number: 77,
+        title: "Spec for #42 (retry)",
+        body: expect.stringMatching(/Fresh body\./),
+      }),
+    );
+  });
+
+  test("openStagePr upserts existing impl PR without clobbering title or body when preserveBodyIfExists is set", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    mocks.listPrs.mockResolvedValueOnce({
+      data: [{ number: 88, html_url: "https://x/pr/88" }],
+    });
+    const adapter = new GitHubAdapter(octokit, repo);
+    const result = await adapter.openStagePr({
+      base: "main",
+      head: "shopfloor/impl/42-x",
+      title: "wip: whatever",
+      body: "Placeholder body",
+      stage: "implement",
+      issueNumber: 42,
+      preserveBodyIfExists: true,
+    });
+    expect(result.number).toBe(88);
+    expect(mocks.createPr).not.toHaveBeenCalled();
+    expect(mocks.updatePr).not.toHaveBeenCalled();
   });
 
   test("setReviewStatus calls createCommitStatus with context shopfloor/review", async () => {

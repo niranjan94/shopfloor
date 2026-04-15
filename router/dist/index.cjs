@@ -24171,6 +24171,17 @@ var GitHubAdapter = class {
       body
     });
   }
+  async findOpenPrByHead(head) {
+    const res = await this.octokit.rest.pulls.list({
+      ...this.repo,
+      head: `${this.repo.owner}:${head}`,
+      state: "open",
+      per_page: 1
+    });
+    if (!res.data || res.data.length === 0) return null;
+    const pr = res.data[0];
+    return { number: pr.number, url: pr.html_url };
+  }
   async openStagePr(input) {
     const metadataLines = [
       "",
@@ -24186,6 +24197,18 @@ var GitHubAdapter = class {
     const body = `${input.body}
 ${metadataLines.join("\n")}
 `;
+    const existing = await this.findOpenPrByHead(input.head);
+    if (existing) {
+      if (!input.preserveBodyIfExists) {
+        await this.octokit.rest.pulls.update({
+          ...this.repo,
+          pull_number: existing.number,
+          title: input.title,
+          body
+        });
+      }
+      return existing;
+    }
     const res = await this.octokit.rest.pulls.create({
       ...this.repo,
       base: input.base,
@@ -24450,7 +24473,11 @@ async function openStagePr(adapter, params) {
     stage: params.stage,
     issueNumber: params.issueNumber,
     reviewIteration: params.reviewIteration,
-    draft: params.draft
+    draft: params.draft,
+    // Implement PRs can be mid-review, with a Shopfloor-Review-Iteration
+    // marker in the body that the review loop depends on. Never clobber it
+    // on upsert. Spec/plan PRs have no such marker so a refresh is fine.
+    preserveBodyIfExists: params.stage === "implement"
   });
   return { prNumber: pr.number, url: pr.url };
 }

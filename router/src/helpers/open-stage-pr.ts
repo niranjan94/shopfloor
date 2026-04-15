@@ -25,6 +25,10 @@ export async function openStagePr(
     issueNumber: params.issueNumber,
     reviewIteration: params.reviewIteration,
     draft: params.draft,
+    // Implement PRs can be mid-review, with a Shopfloor-Review-Iteration
+    // marker in the body that the review loop depends on. Never clobber it
+    // on upsert. Spec/plan PRs have no such marker so a refresh is fine.
+    preserveBodyIfExists: params.stage === "implement",
   });
   return { prNumber: pr.number, url: pr.url };
 }

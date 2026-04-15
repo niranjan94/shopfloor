@@ -14,6 +14,7 @@ export interface MockBundle {
     updateIssue: ReturnType<typeof vi.fn>;
     getIssue: ReturnType<typeof vi.fn>;
     createPr: ReturnType<typeof vi.fn>;
+    listPrs: ReturnType<typeof vi.fn>;
     updatePr: ReturnType<typeof vi.fn>;
     getPr: ReturnType<typeof vi.fn>;
     listFiles: ReturnType<typeof vi.fn>;
@@ -38,6 +39,7 @@ export function makeMockAdapter(repo = { owner: "o", repo: "r" }): MockBundle {
     createPr: vi.fn().mockResolvedValue({
       data: { number: 100, html_url: "https://x/pr/100" },
     }),
+    listPrs: vi.fn().mockResolvedValue({ data: [] }),
     updatePr: vi.fn().mockResolvedValue({ data: {} }),
     getPr: vi.fn().mockResolvedValue({ data: {} }),
     listFiles: vi.fn().mockResolvedValue({ data: [] }),
@@ -59,6 +61,7 @@ export function makeMockAdapter(repo = { owner: "o", repo: "r" }): MockBundle {
       },
       pulls: {
         create: mocks.createPr,
+        list: mocks.listPrs,
         update: mocks.updatePr,
         get: mocks.getPr,
         listFiles: mocks.listFiles,

@@ -171,6 +171,15 @@ export interface OctokitLike {
         body: string;
         draft?: boolean;
       }): Promise<{ data: { number: number; html_url: string } }>;
+      list(params: {
+        owner: string;
+        repo: string;
+        head?: string;
+        state?: "open" | "closed" | "all";
+        per_page?: number;
+      }): Promise<{
+        data: Array<{ number: number; html_url: string }>;
+      }>;
       update(params: {
         owner: string;
         repo: string;

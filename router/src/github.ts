@@ -14,6 +14,13 @@ export interface OpenStagePrInput {
   issueNumber: number;
   reviewIteration?: number;
   draft?: boolean;
+  /**
+   * When true and an open PR already exists for this head branch, return the
+   * existing PR without overwriting its title or body. Used for the implement
+   * stage where the body may already contain a Shopfloor-Review-Iteration
+   * marker from a running review loop that must not be clobbered.
+   */
+  preserveBodyIfExists?: boolean;
 }
 
 export interface ReviewComment {
@@ -69,6 +76,20 @@ export class GitHubAdapter {
     });
   }
 
+  async findOpenPrByHead(
+    head: string,
+  ): Promise<{ number: number; url: string } | null> {
+    const res = await this.octokit.rest.pulls.list({
+      ...this.repo,
+      head: `${this.repo.owner}:${head}`,
+      state: "open",
+      per_page: 1,
+    });
+    if (!res.data || res.data.length === 0) return null;
+    const pr = res.data[0];
+    return { number: pr.number, url: pr.html_url };
+  }
+
   async openStagePr(
     input: OpenStagePrInput,
   ): Promise<{ number: number; url: string }> {
@@ -84,6 +105,26 @@ export class GitHubAdapter {
       );
     }
     const body = `${input.body}\n${metadataLines.join("\n")}\n`;
+
+    // Upsert: if a previous run (or an open review loop) already left an open
+    // PR for this head branch, reuse it instead of failing with "A pull
+    // request already exists". For spec/plan we also refresh the title/body
+    // so the PR reflects the latest stage output. For implement we preserve
+    // whatever's on the PR (per preserveBodyIfExists) because the body may
+    // carry a Shopfloor-Review-Iteration marker from the review flow.
+    const existing = await this.findOpenPrByHead(input.head);
+    if (existing) {
+      if (!input.preserveBodyIfExists) {
+        await this.octokit.rest.pulls.update({
+          ...this.repo,
+          pull_number: existing.number,
+          title: input.title,
+          body,
+        });
+      }
+      return existing;
+    }
+
     const res = await this.octokit.rest.pulls.create({
       ...this.repo,
       base: input.base,
