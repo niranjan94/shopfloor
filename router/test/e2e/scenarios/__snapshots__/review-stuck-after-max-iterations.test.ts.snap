@@ -1,0 +1,214 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`review stuck after max iterations > three REQUEST_CHANGES rounds trip the iteration cap and flag review-stuck 1`] = `
+{
+  "comments": [
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor triage: classified as \`medium\`.**
+
+needs plan",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "Plan merged in #43. Moving to implementation stage.",
+      "issue": 42,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor implementation complete.**
+
+Done v1.",
+      "issue": 44,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor implementation complete.**
+
+Revised (v2).",
+      "issue": 44,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor implementation complete.**
+
+Revised (v3).",
+      "issue": 44,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "**Shopfloor implementation complete.**
+
+Revised (v4).",
+      "issue": 44,
+    },
+    {
+      "author": "shopfloor[bot]",
+      "body": "Shopfloor agent review has been through 3 iterations without converging. A human should take over this PR. See commit status for the current findings list.",
+      "issue": 44,
+    },
+  ],
+  "issues": [
+    {
+      "body": "Implement foo per spec.
+
+<!-- shopfloor:metadata
+Shopfloor-Slug: add-foo
+-->",
+      "labels": [
+        "shopfloor:enabled",
+        "shopfloor:medium",
+        "shopfloor:review-stuck",
+      ],
+      "number": 42,
+      "state": "open",
+      "title": "Add foo",
+    },
+  ],
+  "labels": [
+    "shopfloor:awaiting-info",
+    "shopfloor:done",
+    "shopfloor:failed:implement",
+    "shopfloor:failed:plan",
+    "shopfloor:failed:review",
+    "shopfloor:failed:spec",
+    "shopfloor:failed:triage",
+    "shopfloor:impl-in-review",
+    "shopfloor:implementing",
+    "shopfloor:large",
+    "shopfloor:medium",
+    "shopfloor:needs-impl",
+    "shopfloor:needs-plan",
+    "shopfloor:needs-review",
+    "shopfloor:needs-spec",
+    "shopfloor:plan-in-review",
+    "shopfloor:plan-running",
+    "shopfloor:quick",
+    "shopfloor:review-approved",
+    "shopfloor:review-requested-changes",
+    "shopfloor:review-stuck",
+    "shopfloor:revise",
+    "shopfloor:skip-review",
+    "shopfloor:spec-in-review",
+    "shopfloor:spec-running",
+    "shopfloor:triaging",
+  ],
+  "pulls": [
+    {
+      "base": "main",
+      "body": "Plan body.
+
+---
+Shopfloor-Issue: #42
+Shopfloor-Stage: plan
+",
+      "draft": false,
+      "head": "shopfloor/plan/42-fix-can-t-log-in",
+      "merged": true,
+      "number": 43,
+      "state": "closed",
+      "title": "plan: add foo",
+    },
+    {
+      "base": "main",
+      "body": "Revision 3: still not enough.
+
+---
+Shopfloor-Issue: #42
+Shopfloor-Stage: implement
+Shopfloor-Review-Iteration: 3
+",
+      "draft": false,
+      "head": "shopfloor/impl/42-add-foo",
+      "merged": false,
+      "number": 44,
+      "state": "open",
+      "title": "feat: add foo (v4)",
+    },
+  ],
+  "reviews": [
+    {
+      "body": "<!-- shopfloor-review -->
+**Shopfloor agent review: changes requested** (iteration 1/3).
+
+- still needs rename (v0)
+- ok
+- ok
+- ok",
+      "commit": "sha-impl-0",
+      "pr": 44,
+      "state": "changes_requested",
+      "user": "shopfloor-review[bot]",
+    },
+    {
+      "body": "<!-- shopfloor-review -->
+**Shopfloor agent review: changes requested** (iteration 2/3).
+
+- still needs rename (v1)
+- ok
+- ok
+- ok",
+      "commit": "sha-impl-1",
+      "pr": 44,
+      "state": "changes_requested",
+      "user": "shopfloor-review[bot]",
+    },
+    {
+      "body": "<!-- shopfloor-review -->
+**Shopfloor agent review: changes requested** (iteration 3/3).
+
+- still needs rename (v2)
+- ok
+- ok
+- ok",
+      "commit": "sha-impl-2",
+      "pr": 44,
+      "state": "changes_requested",
+      "user": "shopfloor-review[bot]",
+    },
+  ],
+  "statuses": [
+    {
+      "contexts": [
+        {
+          "context": "shopfloor/review",
+          "description": "Shopfloor review requested changes (iteration 1)",
+          "state": "failure",
+        },
+      ],
+      "sha": "sha-impl-0",
+    },
+    {
+      "contexts": [
+        {
+          "context": "shopfloor/review",
+          "description": "Shopfloor review requested changes (iteration 2)",
+          "state": "failure",
+        },
+      ],
+      "sha": "sha-impl-1",
+    },
+    {
+      "contexts": [
+        {
+          "context": "shopfloor/review",
+          "description": "Shopfloor review requested changes (iteration 3)",
+          "state": "failure",
+        },
+      ],
+      "sha": "sha-impl-2",
+    },
+    {
+      "contexts": [
+        {
+          "context": "shopfloor/review",
+          "description": "Shopfloor review: iteration cap reached (3)",
+          "state": "failure",
+        },
+      ],
+      "sha": "sha-impl-3",
+    },
+  ],
+}
+`;
