@@ -108,6 +108,13 @@ export interface StateContext {
    * state label, the gate stops applying so iteration continues normally.
    */
   triggerLabel?: string;
+  /**
+   * Optional live label set for the issue, fetched from the GitHub API at
+   * route-run time. When present, the state machine uses this instead of
+   * the payload's (event-time) label snapshot so a route job can observe
+   * writes made by an earlier group-mate's stage job.
+   */
+  liveLabels?: string[];
 }
 
 export interface OctokitLike {

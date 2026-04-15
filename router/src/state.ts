@@ -33,7 +33,11 @@ const COMPLEXITY_LABELS: Record<string, Complexity> = {
 export function resolveStage(ctx: StateContext): RouterDecision {
   switch (ctx.eventName) {
     case "issues":
-      return resolveIssueEvent(ctx.payload as IssuePayload, ctx.triggerLabel);
+      return resolveIssueEvent(
+        ctx.payload as IssuePayload,
+        ctx.triggerLabel,
+        ctx.liveLabels,
+      );
     case "issue_comment":
       return { stage: "none", reason: "issue_comment_no_action_v0_1" };
     case "pull_request":
@@ -148,8 +152,11 @@ function computeStageFromLabels(
 function resolveIssueEvent(
   payload: IssuePayload,
   triggerLabel?: string,
+  liveLabels?: string[],
 ): RouterDecision {
-  const labels = issueLabelSet(payload.issue);
+  const labels = liveLabels
+    ? new Set(liveLabels)
+    : issueLabelSet(payload.issue);
   const issueNumber = payload.issue.number;
   const hasStateLabel = stateLabel(labels) !== null;
 

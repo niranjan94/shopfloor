@@ -234,4 +234,28 @@ describe("resolveStage", () => {
     expect(decision.stage).toBe("none");
     expect(decision.reason).toBe("no_matching_label_rule");
   });
+
+  test("liveLabels takes precedence over payload.issue.labels for advancement", () => {
+    // payload.issue.labels is empty; liveLabels supplies shopfloor:needs-spec.
+    // payload.label.name is still shopfloor:needs-spec (the just-added trigger gate).
+    // Without liveLabels the labels set would be empty and computeStageFromLabels
+    // would return null; with liveLabels it resolves to spec.
+    const decision = resolveStage({
+      ...ctx("issues", "issue-labeled-needs-spec-empty-issue-labels"),
+      liveLabels: ["shopfloor:needs-spec"],
+    });
+    expect(decision.stage).toBe("spec");
+  });
+
+  test("liveLabels can expose a stale advancement when payload says no-op", () => {
+    // An opened event where liveLabels carries a state label (needs-impl).
+    // hasStateLabel derives from the liveLabels set, so the opened-without-state-label
+    // branch does NOT fire, and the decision falls through to none rather than triage.
+    // Proves liveLabels are consulted inside resolveIssueEvent.
+    const decision = resolveStage({
+      ...ctx("issues", "issue-opened-bare"),
+      liveLabels: ["shopfloor:quick", "shopfloor:needs-impl"],
+    });
+    expect(decision.stage).not.toBe("triage");
+  });
 });
