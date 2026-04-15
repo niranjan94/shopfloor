@@ -518,8 +518,11 @@ jobs:
           stage: implement
           branch_name: ${{ needs.route.outputs.branch_name }}
           base_branch: ${{ github.event.repository.default_branch }}
-          pr_title: "[WIP] Implementation for #${{ needs.route.outputs.issue_number }}"
-          pr_body: "Shopfloor is drafting this PR now. The body will be replaced when work completes."
+          pr_title: "[WIP] ${{ github.event.issue.title }} (#${{ needs.route.outputs.issue_number }})"
+          pr_body: |
+            Shopfloor is implementing issue #${{ needs.route.outputs.issue_number }} now. The title and body will be rewritten with the agent's final summary when work completes. Follow live progress in the Shopfloor comment below.
+
+            Tracking: #${{ needs.route.outputs.issue_number }}
       - id: progress
         uses: ./router
         with:
