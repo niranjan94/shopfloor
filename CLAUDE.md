@@ -25,14 +25,14 @@ pnpm monorepo with two packages:
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `router/src/state.ts` | State machine — maps GitHub events + labels -> stage decisions |
-| `router/src/index.ts` | Action entry point; dispatches to helpers via `helper` input |
-| `router/src/github.ts` | `GitHubAdapter` wrapping Octokit |
-| `router/src/types.ts` | All shared types (`RouterDecision`, `StateContext`, etc.) |
-| `router/src/helpers/` | One file per action helper (advance-state, open-stage-pr, etc.) |
-| `.github/workflows/shopfloor.yml` | The reusable workflow callers include |
+| File                              | Purpose                                                         |
+| --------------------------------- | --------------------------------------------------------------- |
+| `router/src/state.ts`             | State machine — maps GitHub events + labels -> stage decisions  |
+| `router/src/index.ts`             | Action entry point; dispatches to helpers via `helper` input    |
+| `router/src/github.ts`            | `GitHubAdapter` wrapping Octokit                                |
+| `router/src/types.ts`             | All shared types (`RouterDecision`, `StateContext`, etc.)       |
+| `router/src/helpers/`             | One file per action helper (advance-state, open-stage-pr, etc.) |
+| `.github/workflows/shopfloor.yml` | The reusable workflow callers include                           |
 
 ## Stage Flow
 
