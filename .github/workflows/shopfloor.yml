@@ -308,7 +308,8 @@ jobs:
         run: |
           git add "${{ needs.route.outputs.spec_file_path }}"
           git commit -m "docs(spec): add ${{ needs.route.outputs.spec_file_path }}"
-          git push -u origin "${{ needs.route.outputs.branch_name }}"
+          # Force-push to overwrite any stale branch from a previous failed run.
+          git push -u origin "${{ needs.route.outputs.branch_name }}" --force
       # github-actions[bot] is forbidden from creating pull requests by default
       # (Settings > Actions > General > Workflow permissions). Mint a GitHub App
       # token which is not subject to that restriction.
@@ -427,7 +428,8 @@ jobs:
         run: |
           git add "${{ needs.route.outputs.plan_file_path }}"
           git commit -m "docs(plan): add ${{ needs.route.outputs.plan_file_path }}"
-          git push -u origin "${{ needs.route.outputs.branch_name }}"
+          # Force-push to overwrite any stale branch from a previous failed run.
+          git push -u origin "${{ needs.route.outputs.branch_name }}" --force
       # github-actions[bot] is forbidden from creating pull requests by default.
       # Mint a GitHub App token which is not subject to that restriction.
       - name: Mint GitHub App token
@@ -497,7 +499,11 @@ jobs:
           # commits will stack on top and this placeholder can be squashed away
           # at merge time.
           git commit --allow-empty -m "chore(shopfloor): init impl branch for #${{ needs.route.outputs.issue_number }}"
-          git push -u origin "${{ needs.route.outputs.branch_name }}"
+          # Force-push to overwrite any stale branch left by a previous failed
+          # run. Shopfloor owns impl branches outright and retries (which only
+          # happen when a human clears the shopfloor:failed:* label) explicitly
+          # opt into discarding whatever was there before.
+          git push -u origin "${{ needs.route.outputs.branch_name }}" --force
       # github-actions[bot] is forbidden from creating pull requests by default.
       # Mint a pre-agent GitHub App token for the draft PR + initial progress
       # comment so both surface under the same bot identity. A SECOND mint
