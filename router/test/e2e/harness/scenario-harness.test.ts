@@ -1,4 +1,33 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest";
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+
+vi.mock("@actions/github", async () => {
+  const actual =
+    await vi.importActual<typeof import("@actions/github")>("@actions/github");
+  return {
+    ...actual,
+    getOctokit: vi.fn(),
+    context: {
+      get eventName() {
+        return process.env.GITHUB_EVENT_NAME ?? "";
+      },
+      get payload() {
+        const p = process.env.GITHUB_EVENT_PATH;
+        if (!p) return {};
+        const fs = require("node:fs") as typeof import("node:fs");
+        return JSON.parse(fs.readFileSync(p, "utf8"));
+      },
+      repo: {
+        get owner() {
+          return process.env.GITHUB_REPOSITORY?.split("/")[0] ?? "";
+        },
+        get repo() {
+          return process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
+        },
+      },
+    },
+  };
+});
+
 import { parseGithubOutput } from "./parse-output";
 
 describe("parseGithubOutput", () => {
@@ -7,9 +36,7 @@ describe("parseGithubOutput", () => {
     expect(parseGithubOutput(raw)).toEqual({ stage: "plan" });
   });
   test("parses multiple key/values", () => {
-    const raw =
-      "stage<<d1\nplan\nd1\n" +
-      "issue_number<<d2\n42\nd2\n";
+    const raw = "stage<<d1\nplan\nd1\n" + "issue_number<<d2\n42\nd2\n";
     expect(parseGithubOutput(raw)).toEqual({
       stage: "plan",
       issue_number: "42",
@@ -115,12 +142,59 @@ import { loadEvent } from "./fixtures";
 
 describe("loadEvent", () => {
   test("loads issue-labeled-trigger and applies issueNumber override", () => {
-    const ev = loadEvent("issue-labeled-trigger-label-added.json", { issueNumber: 99 });
+    const ev = loadEvent("issue-labeled-trigger-label-added.json", {
+      issueNumber: 99,
+    });
     expect(ev.eventName).toBe("issues");
     expect((ev.payload as { issue: { number: number } }).issue.number).toBe(99);
   });
   test("attaches event name based on payload shape", () => {
     const ev = loadEvent("pr-review-approved.json");
     expect(ev.eventName).toBe("pull_request_review");
+  });
+});
+
+import { FakeGitHub } from "../fake-github";
+import { ScenarioHarness } from "./scenario-harness";
+
+describe("ScenarioHarness end-to-end smoke", () => {
+  test("triage stage runs without throwing on a freshly seeded issue", async () => {
+    const fake = new FakeGitHub({
+      owner: "niranjan94",
+      repo: "shopfloor",
+      authIdentity: "shopfloor[bot]",
+      reviewAuthIdentity: "shopfloor-review[bot]",
+    });
+    const harness = new ScenarioHarness({ fake });
+    try {
+      await harness.bootstrap();
+      fake.seedBranch("main", "sha-main-0");
+      fake.seedIssue({
+        number: 42,
+        title: "Add foo",
+        body: "Need foo",
+        author: "alice",
+        labels: ["shopfloor:enabled"],
+      });
+      await harness.deliverEvent(
+        loadEvent("issue-labeled-trigger-label-added.json", {
+          issueNumber: 42,
+        }),
+        { trigger_label: "shopfloor:enabled" },
+      );
+      harness.queueAgent("triage", {
+        decision_json: JSON.stringify({
+          status: "classified",
+          complexity: "quick",
+          rationale: "small",
+          clarifying_questions: [],
+        }),
+      });
+      await harness.runStage("triage");
+      expect(fake.labelsOn(42)).toContain("shopfloor:quick");
+      expect(fake.labelsOn(42)).toContain("shopfloor:needs-impl");
+    } finally {
+      await harness.dispose();
+    }
   });
 });
