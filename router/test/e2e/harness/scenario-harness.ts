@@ -46,13 +46,14 @@ const REVIEW_TOKEN = "review-token";
 export class ScenarioHarness {
   readonly fake: FakeGitHub;
   readonly workspaceDir: string;
+  readonly useDraftPrs: boolean;
   private readonly tmpHandle: tmp.DirResult;
   private readonly stub = new AgentStub();
   private currentEvent: GitHubEvent | null = null;
   private routeOutputs: Record<string, string> = {};
   private seq = 0;
 
-  constructor(opts: { fake: FakeGitHub; workspaceDir?: string }) {
+  constructor(opts: { fake: FakeGitHub; workspaceDir?: string; useDraftPrs?: boolean }) {
     this.fake = opts.fake;
     if (opts.workspaceDir) {
       this.workspaceDir = opts.workspaceDir;
@@ -64,6 +65,7 @@ export class ScenarioHarness {
       this.tmpHandle = tmp.dirSync({ unsafeCleanup: true });
       this.workspaceDir = this.tmpHandle.name;
     }
+    this.useDraftPrs = opts.useDraftPrs ?? true;
     registerFake(this.fake);
   }
 
@@ -204,6 +206,7 @@ export class ScenarioHarness {
       previous,
       workspaceDir: this.workspaceDir,
       currentEvent: this.currentEvent,
+      useDraftPrs: this.useDraftPrs,
     };
   }
 

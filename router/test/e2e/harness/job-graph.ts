@@ -66,6 +66,8 @@ export interface StageContext {
    * github.event.pull_request.number, not from a route output).
    */
   currentEvent: { eventName: string; payload: unknown } | null;
+  /** When false, the harness uses shopfloor:wip labels instead of draft PRs. Defaults to true. */
+  useDraftPrs: boolean;
 }
 
 export interface ContextArtifact {
@@ -597,7 +599,19 @@ jobGraph["implement-first-run"] = [
       base_branch: { source: "literal", value: "main" },
       pr_title: { source: "literal", value: "wip: impl" },
       pr_body: { source: "literal", value: "Shopfloor is implementing." },
-      draft: { source: "literal", value: "true" },
+      draft: { source: "fake", resolve: (ctx) => ctx.useDraftPrs ? "true" : "false" },
+    },
+  },
+  {
+    kind: "fake",
+    id: "add_wip_label",
+    mutate: (ctx) => {
+      if (ctx.useDraftPrs) return;
+      const prNumberStr = ctx.previous.open_pr?.pr_number;
+      if (!prNumberStr) return;
+      const prNumber = Number(prNumberStr);
+      const pr = ctx.fake.pr(prNumber);
+      pr.labels.push({ name: "shopfloor:wip" });
     },
   },
   {
@@ -671,16 +685,17 @@ jobGraph["implement-first-run"] = [
     kind: "fake",
     id: "mark_ready",
     mutate: (ctx) => {
-      // Mirror the `gh pr ready` step in shopfloor.yml: the workflow
-      // opens the impl PR as a draft so nothing reviews it mid-run,
-      // then un-drafts it after the agent pushes. Without this,
-      // check-review-skip inside apply-impl-postwork would short-
-      // circuit on pr.draft and strand the issue in impl-in-review.
       const prNumberStr = ctx.previous.open_pr?.pr_number;
       if (!prNumberStr) return;
       const prNumber = Number(prNumberStr);
       const pr = ctx.fake.pr(prNumber);
-      pr.draft = false;
+      if (ctx.useDraftPrs) {
+        // Draft mode: mirror `gh pr ready`
+        pr.draft = false;
+      } else {
+        // WIP mode: mirror `gh pr edit --remove-label shopfloor:wip`
+        pr.labels = pr.labels.filter((l) => l.name !== "shopfloor:wip");
+      }
     },
   },
   {
@@ -726,6 +741,20 @@ jobGraph["implement-revision"] = [
       issue_number: { source: "route", key: "issue_number" },
       from_labels: { source: "literal", value: "" },
       to_labels: { source: "literal", value: "shopfloor:implementing" },
+    },
+  },
+  {
+    kind: "fake",
+    id: "add_wip_label_revision",
+    mutate: (ctx) => {
+      if (ctx.useDraftPrs) return;
+      const prNumberStr = ctx.routeOutputs.impl_pr_number;
+      if (!prNumberStr) return;
+      const prNumber = Number(prNumberStr);
+      const pr = ctx.fake.pr(prNumber);
+      if (!pr.labels.some((l) => l.name === "shopfloor:wip")) {
+        pr.labels.push({ name: "shopfloor:wip" });
+      }
     },
   },
   {
@@ -801,6 +830,18 @@ jobGraph["implement-revision"] = [
       ctx.fake.setPrFiles(prNumber, files);
       const branch = ctx.routeOutputs.branch_name;
       if (branch) ctx.fake.advanceSha(branch);
+    },
+  },
+  {
+    kind: "fake",
+    id: "mark_ready_revision",
+    mutate: (ctx) => {
+      if (ctx.useDraftPrs) return;
+      const prNumberStr = ctx.routeOutputs.impl_pr_number;
+      if (!prNumberStr) return;
+      const prNumber = Number(prNumberStr);
+      const pr = ctx.fake.pr(prNumber);
+      pr.labels = pr.labels.filter((l) => l.name !== "shopfloor:wip");
     },
   },
   {
