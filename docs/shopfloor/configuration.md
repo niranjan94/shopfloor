@@ -163,11 +163,11 @@ Every Shopfloor branch starts with `branch_prefix`. Specs live at `<artifacts_di
 
 Customize which GitHub Actions runner each job tier uses. Pass a plain string for standard runners or a JSON array for label-based selection.
 
-| Input           | Default          | Jobs                                                         |
-| --------------- | ---------------- | ------------------------------------------------------------ |
-| `runner_router` | `ubuntu-latest`  | `route`, `review-skip-check`, `review-aggregator`, `handle-merge` |
-| `runner_agent`  | `ubuntu-latest`  | `triage`, `spec`, `plan`, `implement`                        |
-| `runner_review` | `ubuntu-latest`  | `review-compliance`, `review-bugs`, `review-security`, `review-smells` |
+| Input           | Default         | Jobs                                                                   |
+| --------------- | --------------- | ---------------------------------------------------------------------- |
+| `runner_router` | `ubuntu-latest` | `route`, `review-skip-check`, `review-aggregator`, `handle-merge`      |
+| `runner_agent`  | `ubuntu-latest` | `triage`, `spec`, `plan`, `implement`                                  |
+| `runner_review` | `ubuntu-latest` | `review-compliance`, `review-bugs`, `review-security`, `review-smells` |
 
 **Plain string:**
 
