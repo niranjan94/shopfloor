@@ -24406,12 +24406,19 @@ async function reportFailure(adapter, params) {
     params.issueNumber,
     `shopfloor:failed:${params.stage}`
   );
-  if (params.stage === "triage") {
+  const mutexMarkers = {
+    triage: "shopfloor:triaging",
+    spec: "shopfloor:spec-running",
+    plan: "shopfloor:plan-running",
+    implement: "shopfloor:implementing"
+  };
+  const marker = mutexMarkers[params.stage];
+  if (marker) {
     try {
-      await adapter.removeLabel(params.issueNumber, "shopfloor:triaging");
+      await adapter.removeLabel(params.issueNumber, marker);
     } catch (err) {
       core4.warning(
-        `report-failure: failed to clear shopfloor:triaging marker: ${err instanceof Error ? err.message : String(err)}`
+        `report-failure: failed to clear ${marker} marker: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }

@@ -33,12 +33,49 @@ describe("reportFailure", () => {
     );
   });
 
-  test("stage=spec does not touch the triaging marker", async () => {
+  test("stage=spec clears the shopfloor:spec-running mutex marker", async () => {
     const { adapter, mocks } = makeMockAdapter();
     await reportFailure(adapter, {
       issueNumber: 42,
       stage: "spec",
       runUrl: "https://x/run/1",
+    });
+    expect(mocks.removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:spec-running" }),
+    );
+  });
+
+  test("stage=plan clears the shopfloor:plan-running mutex marker", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    await reportFailure(adapter, {
+      issueNumber: 42,
+      stage: "plan",
+      runUrl: "https://x/run/1",
+    });
+    expect(mocks.removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:plan-running" }),
+    );
+  });
+
+  test("stage=implement clears the shopfloor:implementing mutex marker", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    await reportFailure(adapter, {
+      issueNumber: 42,
+      stage: "implement",
+      runUrl: "https://x/run/1",
+    });
+    expect(mocks.removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:implementing" }),
+    );
+  });
+
+  test("stage=review does not clear any mutex marker", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    await reportFailure(adapter, {
+      issueNumber: 42,
+      stage: "review",
+      runUrl: "https://x/run/7",
+      targetPrNumber: 99,
     });
     expect(mocks.removeLabel).not.toHaveBeenCalled();
   });

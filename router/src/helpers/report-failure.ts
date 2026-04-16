@@ -38,17 +38,25 @@ export async function reportFailure(
     params.issueNumber,
     `shopfloor:failed:${params.stage}`,
   );
-  // Clear the triage mutex marker so that removing the failed:triage label
-  // can actually retry. Without this, the next triage run's precheck would
-  // see shopfloor:triaging still present and skip. removeLabel is a no-op
-  // when the label is already absent, which is the common case (the marker
-  // was cleared by apply-triage-decision before the agent step failed).
-  if (params.stage === "triage") {
+  // Clear the transient mutex marker for the failed stage so that removing
+  // the shopfloor:failed:* label can actually retry. Without this, the next
+  // run's precheck would see the marker still present and skip. removeLabel
+  // is a no-op when the label is already absent, which is the common case
+  // when the marker was cleared by the stage's postwork step before the
+  // agent step failed.
+  const mutexMarkers: Record<string, string> = {
+    triage: "shopfloor:triaging",
+    spec: "shopfloor:spec-running",
+    plan: "shopfloor:plan-running",
+    implement: "shopfloor:implementing",
+  };
+  const marker = mutexMarkers[params.stage];
+  if (marker) {
     try {
-      await adapter.removeLabel(params.issueNumber, "shopfloor:triaging");
+      await adapter.removeLabel(params.issueNumber, marker);
     } catch (err) {
       core.warning(
-        `report-failure: failed to clear shopfloor:triaging marker: ${
+        `report-failure: failed to clear ${marker} marker: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
