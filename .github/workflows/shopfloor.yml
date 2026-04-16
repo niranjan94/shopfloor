@@ -59,6 +59,14 @@ on:
       # transparency aid but can be flipped globally here. Pass the literal string 'true' or 'false';
       # claude-code-action expects a string, not a workflow boolean.
       display_report: { type: string, default: "true" }
+      use_draft_prs:
+        type: boolean
+        default: true
+        description: >-
+          When true (default), implementation PRs are opened as drafts and
+          un-drafted when the agent finishes. When false, a shopfloor:wip label
+          is used instead to suppress premature reviews. Callers that set this
+          to false MUST include 'unlabeled' in their pull_request event types.
     secrets:
       anthropic_api_key: { required: false }
       claude_code_oauth_token: { required: false }
@@ -822,7 +830,14 @@ jobs:
             Shopfloor is implementing issue #${{ needs.route.outputs.issue_number }} now. The title and body will be rewritten with the agent's final summary when work completes. Follow live progress in the Shopfloor comment below.
 
             Tracking: #${{ needs.route.outputs.issue_number }}
-          draft: "true"
+          draft: ${{ inputs.use_draft_prs && 'true' || 'false' }}
+      - name: Add WIP label to impl PR
+        if: ${{ steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true' && !inputs.use_draft_prs }}
+        env:
+          GH_TOKEN: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.open_pr.outputs.pr_number }}
+          REPO_SLUG: ${{ github.repository }}
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO_SLUG" --add-label "shopfloor:wip"
       # Revision runs reuse the existing impl PR rather than opening a new
       # one. Re-emit the route job's impl_pr_number as a step output so the
       # unified resolver below can feed it to downstream consumers without
@@ -851,6 +866,13 @@ jobs:
           else
             echo "pr_number=$FROM_REVISION" >> "$GITHUB_OUTPUT"
           fi
+      - name: Add WIP label to impl PR (revision)
+        if: ${{ steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true' && !inputs.use_draft_prs }}
+        env:
+          GH_TOKEN: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          REPO_SLUG: ${{ github.repository }}
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO_SLUG" --add-label "shopfloor:wip"
       - id: progress
         if: steps.precheck.outputs.skip != 'true'
         uses: ./router
@@ -1047,24 +1069,35 @@ jobs:
       - name: Push impl commits
         if: success() && steps.precheck.outputs.skip != 'true'
         run: git push origin "${{ needs.route.outputs.branch_name }}"
-      # The impl PR was opened as a draft so nothing reviews it mid-run. Now
-      # that the agent has finished and the final commits are pushed, mark it
-      # ready for review. This fires `pull_request.ready_for_review`, which
-      # the state machine translates into stage=review and fans out to the
-      # review matrix. The push above ALSO fires `pull_request.synchronize`,
-      # but the state machine skips synchronize events on still-draft PRs, so
-      # that one is a noop. Using the App token here (not GITHUB_TOKEN) is
-      # critical: events caused by GITHUB_TOKEN are suppressed and would
-      # never trigger the downstream review workflow.
-      # Only first runs need to un-draft the PR; on revision runs the PR is
-      # already ready-for-review and the `gh pr ready` call would fail.
+      # The impl PR was opened as a draft (or had shopfloor:wip applied)
+      # so nothing reviews it mid-run. Now that the agent has finished and
+      # the final commits are pushed, either un-draft the PR or remove the
+      # WIP label, depending on the use_draft_prs input. This fires
+      # pull_request.ready_for_review (draft mode) or
+      # pull_request.unlabeled (WIP mode), which the state machine
+      # translates into stage=review.
+      # Only first runs need to un-draft the PR; on revision runs the PR
+      # is already ready-for-review. The WIP label removal runs on both
+      # first and revision runs since the label is added at the start of
+      # every run.
       - name: Mark impl PR ready for review
-        if: ${{ success() && steps.app_token_post.outputs.token != '' && steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true' }}
+        if: ${{ success() && steps.app_token_post.outputs.token != '' && steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true' && inputs.use_draft_prs }}
         env:
           GH_TOKEN: ${{ steps.app_token_post.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           REPO_SLUG: ${{ github.repository }}
         run: gh pr ready "$PR_NUMBER" --repo "$REPO_SLUG"
+      # WIP-label equivalent of the draft -> ready transition above.
+      # Runs on BOTH first and revision runs (no revision_mode gate).
+      # Must use the App token: events from GITHUB_TOKEN are suppressed
+      # and the unlabeled event is the review trigger in non-draft mode.
+      - name: Remove WIP label from impl PR
+        if: ${{ success() && steps.app_token_post.outputs.token != '' && steps.precheck.outputs.skip != 'true' && !inputs.use_draft_prs }}
+        env:
+          GH_TOKEN: ${{ steps.app_token_post.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          REPO_SLUG: ${{ github.repository }}
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO_SLUG" --remove-label "shopfloor:wip"
       - name: Finalize progress comment
         if: always() && steps.precheck.outputs.skip != 'true'
         uses: ./router
