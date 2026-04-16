@@ -68,6 +68,7 @@ export interface IssuePayload {
 
 export interface PullRequestPayload {
   action: string;
+  label?: { name: string };
   pull_request: {
     number: number;
     body: string | null;
