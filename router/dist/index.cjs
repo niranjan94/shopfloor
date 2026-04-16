@@ -24814,27 +24814,18 @@ function renderPrompt(filePath, context3) {
 function resolvePromptFile(promptFile) {
   if ((0, import_node_path.isAbsolute)(promptFile) && (0, import_node_fs2.existsSync)(promptFile)) return promptFile;
   if ((0, import_node_fs2.existsSync)(promptFile)) return promptFile;
+  const searchRoots = [];
   const actionPath = process.env.GITHUB_ACTION_PATH;
   if (actionPath) {
-    core10.info(
-      `resolvePromptFile: GITHUB_ACTION_PATH=${actionPath}, trying sibling and self paths`
-    );
-    const fromActionSibling = (0, import_node_path.join)(actionPath, "..", promptFile);
-    core10.info(
-      `resolvePromptFile: sibling=${fromActionSibling} exists=${(0, import_node_fs2.existsSync)(fromActionSibling)}`
-    );
-    if ((0, import_node_fs2.existsSync)(fromActionSibling)) return fromActionSibling;
-    const fromActionSelf = (0, import_node_path.join)(actionPath, promptFile);
-    core10.info(
-      `resolvePromptFile: self=${fromActionSelf} exists=${(0, import_node_fs2.existsSync)(fromActionSelf)}`
-    );
-    if ((0, import_node_fs2.existsSync)(fromActionSelf)) return fromActionSelf;
-  } else {
-    core10.info("resolvePromptFile: GITHUB_ACTION_PATH is not set");
+    searchRoots.push((0, import_node_path.join)(actionPath, ".."));
+    searchRoots.push(actionPath);
   }
-  core10.warning(
-    `resolvePromptFile: could not find ${promptFile} in any search path, returning as-is`
-  );
+  searchRoots.push((0, import_node_path.join)(__dirname, "..", ".."));
+  searchRoots.push((0, import_node_path.join)(__dirname, ".."));
+  for (const root of searchRoots) {
+    const candidate = (0, import_node_path.join)(root, promptFile);
+    if ((0, import_node_fs2.existsSync)(candidate)) return candidate;
+  }
   return promptFile;
 }
 function parseContextJson(raw) {

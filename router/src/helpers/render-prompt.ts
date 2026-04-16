@@ -13,27 +13,27 @@ import { renderPrompt } from "../prompt-render";
 export function resolvePromptFile(promptFile: string): string {
   if (isAbsolute(promptFile) && existsSync(promptFile)) return promptFile;
   if (existsSync(promptFile)) return promptFile;
+
+  // For node actions, GITHUB_ACTION_PATH is not set (composite-only).
+  // Use __dirname (the compiled dist/ folder) to locate sibling directories
+  // in the downloaded action repo. dist/ is one level below router/, which is
+  // one level below the repo root, so "../../prompts/triage.md" resolves correctly.
+  const searchRoots: string[] = [];
   const actionPath = process.env.GITHUB_ACTION_PATH;
   if (actionPath) {
-    core.info(
-      `resolvePromptFile: GITHUB_ACTION_PATH=${actionPath}, trying sibling and self paths`,
-    );
-    const fromActionSibling = join(actionPath, "..", promptFile);
-    core.info(
-      `resolvePromptFile: sibling=${fromActionSibling} exists=${existsSync(fromActionSibling)}`,
-    );
-    if (existsSync(fromActionSibling)) return fromActionSibling;
-    const fromActionSelf = join(actionPath, promptFile);
-    core.info(
-      `resolvePromptFile: self=${fromActionSelf} exists=${existsSync(fromActionSelf)}`,
-    );
-    if (existsSync(fromActionSelf)) return fromActionSelf;
-  } else {
-    core.info("resolvePromptFile: GITHUB_ACTION_PATH is not set");
+    searchRoots.push(join(actionPath, ".."));
+    searchRoots.push(actionPath);
   }
-  core.warning(
-    `resolvePromptFile: could not find ${promptFile} in any search path, returning as-is`,
-  );
+  // __dirname = router/dist/ -> go up two levels to repo root
+  searchRoots.push(join(__dirname, "..", ".."));
+  // Also try one level up (router/) in case the file is there
+  searchRoots.push(join(__dirname, ".."));
+
+  for (const root of searchRoots) {
+    const candidate = join(root, promptFile);
+    if (existsSync(candidate)) return candidate;
+  }
+
   return promptFile;
 }
 
