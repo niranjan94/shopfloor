@@ -34,19 +34,14 @@ export function snapshotEnv(): () => void {
  *    there is nothing to reset here, but we assert the file exists and is
  *    truncated, as a tripwire.
  * 3. GITHUB_STATE / GITHUB_ENV -- `saveState` / `exportVariable` write
- *    here. No router helper currently uses them, so we throw if they are
- *    set at invocation time, as a tripwire for future helpers.
+ *    here. No router helper currently uses them. When running inside a
+ *    real GitHub Actions environment (CI), the runner pre-sets these to
+ *    file paths. We delete them so @actions/core does not try to write
+ *    state or env files during test runs. snapshotEnv restores them after
+ *    each helper invocation.
  */
 export function resetCoreState(): void {
   process.exitCode = undefined;
-  if (process.env.GITHUB_STATE !== undefined) {
-    throw new Error(
-      "resetCoreState: GITHUB_STATE is unexpectedly set. Update env.ts to handle the new helper that uses core.saveState.",
-    );
-  }
-  if (process.env.GITHUB_ENV !== undefined) {
-    throw new Error(
-      "resetCoreState: GITHUB_ENV is unexpectedly set. Update env.ts to handle the new helper that uses core.exportVariable.",
-    );
-  }
+  delete process.env.GITHUB_STATE;
+  delete process.env.GITHUB_ENV;
 }

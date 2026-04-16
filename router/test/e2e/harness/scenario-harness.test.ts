@@ -64,13 +64,12 @@ describe("resetCoreState", () => {
     resetCoreState();
     expect(process.exitCode).toBeUndefined();
   });
-  test("throws if GITHUB_STATE is set as a tripwire", () => {
+  test("deletes GITHUB_STATE and GITHUB_ENV if set", () => {
     process.env.GITHUB_STATE = "/tmp/x";
-    try {
-      expect(() => resetCoreState()).toThrow(/GITHUB_STATE/);
-    } finally {
-      delete process.env.GITHUB_STATE;
-    }
+    process.env.GITHUB_ENV = "/tmp/y";
+    resetCoreState();
+    expect(process.env.GITHUB_STATE).toBeUndefined();
+    expect(process.env.GITHUB_ENV).toBeUndefined();
   });
 });
 
