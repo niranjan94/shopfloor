@@ -159,7 +159,7 @@ describe("resolveStage", () => {
     (fixture.pull_request as Record<string, unknown>).draft = true;
     const decision = resolveStage({
       eventName: "pull_request",
-      payload: fixture as StateContext["payload"],
+      payload: fixture as unknown as StateContext["payload"],
     });
     expect(decision.stage).toBe("none");
     expect(decision.reason).toBe("pr_is_draft");
@@ -170,7 +170,7 @@ describe("resolveStage", () => {
     (fixture.pull_request as Record<string, unknown>).state = "closed";
     const decision = resolveStage({
       eventName: "pull_request",
-      payload: fixture as StateContext["payload"],
+      payload: fixture as unknown as StateContext["payload"],
     });
     expect(decision.stage).toBe("none");
     expect(decision.reason).toBe("pr_is_closed");
@@ -182,7 +182,7 @@ describe("resolveStage", () => {
     pr.labels = [{ name: "shopfloor:skip-review" }];
     const decision = resolveStage({
       eventName: "pull_request",
-      payload: fixture as StateContext["payload"],
+      payload: fixture as unknown as StateContext["payload"],
     });
     expect(decision.stage).toBe("none");
     expect(decision.reason).toBe("skip_review_label_present");
@@ -193,7 +193,7 @@ describe("resolveStage", () => {
     (fixture as Record<string, unknown>).label = { name: "some-other-label" };
     const decision = resolveStage({
       eventName: "pull_request",
-      payload: fixture as StateContext["payload"],
+      payload: fixture as unknown as StateContext["payload"],
     });
     expect(decision.stage).toBe("none");
     expect(decision.reason).toBe("pr_action_unlabeled_on_implement_no_action");
