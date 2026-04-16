@@ -185,12 +185,12 @@ jobs:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: bootstrap
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: bootstrap-labels
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
       - id: router
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: route
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -231,7 +231,7 @@ jobs:
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Precheck triage preconditions
         id: precheck
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: precheck-stage
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -247,7 +247,7 @@ jobs:
       # failure by report-failure (stage=triage).
       - name: Mark triage as running
         if: steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: advance-state
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -282,7 +282,7 @@ jobs:
       - name: Render triage prompt
         if: steps.precheck.outputs.skip != 'true'
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -312,7 +312,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status","complexity","rationale","clarifying_questions"]}'
       - name: Apply triage decision
         if: success() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: apply-triage-decision
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -320,7 +320,7 @@ jobs:
           decision_json: ${{ steps.agent.outputs.structured_output }}
       - name: Report failure
         if: failure() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: report-failure
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -365,7 +365,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Precheck spec preconditions
         id: precheck
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: precheck-stage
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -376,7 +376,7 @@ jobs:
         run: echo "::notice title=Shopfloor spec skipped::${{ steps.precheck.outputs.reason }}"
       - name: Mark spec as running
         if: steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: advance-state
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -432,7 +432,7 @@ jobs:
       - name: Build spec revision context
         id: ctx_revision
         if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: build-revision-context
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -462,7 +462,7 @@ jobs:
       - name: Render spec prompt
         if: steps.precheck.outputs.skip != 'true'
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -502,7 +502,7 @@ jobs:
       - name: Open spec PR
         if: success() && steps.precheck.outputs.skip != 'true'
         id: open_pr
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: open-stage-pr
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -514,7 +514,7 @@ jobs:
           pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
       - name: Advance state to spec-in-review
         if: success() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: advance-state
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -523,7 +523,7 @@ jobs:
           to_labels: shopfloor:spec-in-review
       - name: Report failure
         if: failure() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: report-failure
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -568,7 +568,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Precheck plan preconditions
         id: precheck
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: precheck-stage
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -579,7 +579,7 @@ jobs:
         run: echo "::notice title=Shopfloor plan skipped::${{ steps.precheck.outputs.reason }}"
       - name: Mark plan as running
         if: steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: advance-state
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -636,7 +636,7 @@ jobs:
       - name: Build plan revision context
         id: ctx_revision
         if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: build-revision-context
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -666,7 +666,7 @@ jobs:
       - name: Render plan prompt
         if: steps.precheck.outputs.skip != 'true'
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -706,7 +706,7 @@ jobs:
       - name: Open plan PR
         if: success() && steps.precheck.outputs.skip != 'true'
         id: open_pr
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: open-stage-pr
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -718,7 +718,7 @@ jobs:
           pr_body: ${{ fromJSON(steps.agent.outputs.structured_output).pr_body }}
       - name: Advance state to plan-in-review
         if: success() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: advance-state
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -727,7 +727,7 @@ jobs:
           to_labels: shopfloor:plan-in-review
       - name: Report failure
         if: failure() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: report-failure
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -782,7 +782,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Precheck implement preconditions
         id: precheck
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: precheck-stage
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
@@ -793,7 +793,7 @@ jobs:
         run: echo "::notice title=Shopfloor implement skipped::${{ steps.precheck.outputs.reason }}"
       - name: Mark implement as running
         if: steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: advance-state
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
@@ -833,7 +833,7 @@ jobs:
           git checkout -B "${BRANCH_NAME}" FETCH_HEAD
       - id: open_pr
         if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: open-stage-pr
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
@@ -894,7 +894,7 @@ jobs:
         run: gh pr edit "$PR_NUMBER" --repo "$REPO_SLUG" --add-label "shopfloor:wip"
       - id: progress
         if: steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: create-progress-comment
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
@@ -980,7 +980,7 @@ jobs:
       - name: Build revision context
         id: ctx_revision
         if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: build-revision-context
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1035,7 +1035,7 @@ jobs:
       - name: Render implement prompt
         if: steps.precheck.outputs.skip != 'true'
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token_pre.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1119,7 +1119,7 @@ jobs:
         run: gh pr edit "$PR_NUMBER" --repo "$REPO_SLUG" --remove-label "shopfloor:wip"
       - name: Finalize progress comment
         if: always() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: finalize-progress-comment
           github_token: ${{ steps.app_token_post.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1128,7 +1128,7 @@ jobs:
           final_body: ${{ steps.agent.outputs.structured_output && fromJSON(steps.agent.outputs.structured_output).summary_for_issue_comment || 'Implementation ended with errors.' }}
       - name: Apply impl postwork (update PR, flip labels)
         if: success() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: apply-impl-postwork
           github_token: ${{ steps.app_token_post.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1144,7 +1144,7 @@ jobs:
           has_review_app: ${{ needs.route.outputs.has_review_app }}
       - name: Report failure
         if: failure() && steps.precheck.outputs.skip != 'true'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: report-failure
           # Prefer the post-agent token if minted; fall back to the pre-agent
@@ -1190,7 +1190,7 @@ jobs:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - id: check
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: check-review-skip
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1264,7 +1264,7 @@ jobs:
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render compliance prompt
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1360,7 +1360,7 @@ jobs:
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render bugs prompt
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1456,7 +1456,7 @@ jobs:
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render security prompt
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1552,7 +1552,7 @@ jobs:
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render smells prompt
         id: prompt
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: render-prompt
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1633,7 +1633,7 @@ jobs:
           private-key: ${{ secrets.shopfloor_github_app_review_private_key }}
       - name: Precheck review preconditions
         id: precheck
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: precheck-stage
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1646,7 +1646,7 @@ jobs:
         run: echo "::notice title=Shopfloor review skipped::${{ steps.precheck.outputs.reason }}"
       - name: Aggregate review
         id: aggregate
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         if: steps.precheck.outputs.skip != 'true'
         with:
           helper: aggregate-review
@@ -1668,7 +1668,7 @@ jobs:
         # crashes propagate via aggregate-review's missing-output handling
         # and surface as a "review-stuck" decision, not a failure.
         if: failure() && steps.aggregate.outcome == 'failure'
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: report-failure
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1712,7 +1712,7 @@ jobs:
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
       - name: Precheck handle-merge preconditions
         id: precheck
-        uses: ./router
+        uses: niranjan94/shopfloor/router@main
         with:
           helper: precheck-stage
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -1722,7 +1722,7 @@ jobs:
       - name: Log precheck skip
         if: steps.precheck.outputs.skip == 'true'
         run: echo "::notice title=Shopfloor handle-merge skipped::${{ steps.precheck.outputs.reason }}"
-      - uses: ./router
+      - uses: niranjan94/shopfloor/router@main
         if: steps.precheck.outputs.skip != 'true'
         with:
           helper: handle-merge
