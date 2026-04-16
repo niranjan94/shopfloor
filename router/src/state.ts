@@ -384,6 +384,28 @@ function resolvePullRequestEvent(payload: PullRequestPayload): RouterDecision {
     return { stage: "none", reason: "pr_closed_not_merged_ignored" };
   }
 
+  // WIP label removal on an impl PR triggers review -- the non-draft
+  // equivalent of ready_for_review. Non-WIP unlabeled events fall
+  // through to the catch-all and return stage: "none".
+  if (
+    payload.action === "unlabeled" &&
+    payload.label?.name === "shopfloor:wip" &&
+    meta.stage === "implement"
+  ) {
+    const labels = prLabelSet(pr);
+    if (labels.has("shopfloor:skip-review")) {
+      return { stage: "none", reason: "skip_review_label_present" };
+    }
+    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
+    return {
+      stage: "review",
+      issueNumber: meta.issueNumber,
+      implPrNumber: pr.number,
+      reviewIteration: meta.reviewIteration,
+    };
+  }
+
   // `synchronize` fires on every push to the impl branch (first impl run and
   // every subsequent revision). `ready_for_review` fires once when the impl
   // job un-drafts the PR after its final post-agent push: the initial

@@ -144,6 +144,61 @@ describe("resolveStage", () => {
     expect(decision.reason).toBe("pr_has_wip_label");
   });
 
+  test("unlabeled shopfloor:wip on impl PR -> review", () => {
+    const decision = resolveStage(
+      ctx("pull_request", "pr-unlabeled-wip-impl"),
+    );
+    expect(decision.stage).toBe("review");
+    expect(decision.issueNumber).toBe(42);
+    expect(decision.implPrNumber).toBe(45);
+    expect(decision.reviewIteration).toBe(0);
+  });
+
+  test("unlabeled shopfloor:wip on draft impl PR -> none", () => {
+    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    (fixture.pull_request as Record<string, unknown>).draft = true;
+    const decision = resolveStage({
+      eventName: "pull_request",
+      payload: fixture as StateContext["payload"],
+    });
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_is_draft");
+  });
+
+  test("unlabeled shopfloor:wip on closed impl PR -> none", () => {
+    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    (fixture.pull_request as Record<string, unknown>).state = "closed";
+    const decision = resolveStage({
+      eventName: "pull_request",
+      payload: fixture as StateContext["payload"],
+    });
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_is_closed");
+  });
+
+  test("unlabeled shopfloor:wip on impl PR with skip-review -> none", () => {
+    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    const pr = fixture.pull_request as Record<string, unknown>;
+    pr.labels = [{ name: "shopfloor:skip-review" }];
+    const decision = resolveStage({
+      eventName: "pull_request",
+      payload: fixture as StateContext["payload"],
+    });
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("skip_review_label_present");
+  });
+
+  test("unlabeled non-wip label on impl PR -> none", () => {
+    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    (fixture as Record<string, unknown>).label = { name: "some-other-label" };
+    const decision = resolveStage({
+      eventName: "pull_request",
+      payload: fixture as StateContext["payload"],
+    });
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_action_unlabeled_on_implement_no_action");
+  });
+
   test("approved review -> none", () => {
     const decision = resolveStage(
       ctx("pull_request_review", "pr-review-approved"),
