@@ -1,4 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { FakeGitHub } from "../fake-github";
 import { ScenarioHarness } from "../harness/scenario-harness";
 import { loadEvent } from "../harness/fixtures";
@@ -126,6 +128,17 @@ describe("spec PR changes requested rework", () => {
       ]),
     });
     await harness.runStage("spec");
+
+    // 5b. Verify the revision context was built correctly. The
+    //     build-revision-context helper writes context.json into the
+    //     harness workspace. The revision_block should be populated
+    //     from spec-revision-fragment.md and contain the review body.
+    const ctxPath = join(harness.workspaceDir, "context.json");
+    const revisionCtx = JSON.parse(readFileSync(ctxPath, "utf-8")) as Record<string, string>;
+    expect(revisionCtx.revision_block).toContain("THIS IS A REVISION RUN");
+    expect(revisionCtx.revision_block).toContain("existing spec PR");
+    expect(revisionCtx.spec_file_path).toBeTruthy();
+    expect(revisionCtx).not.toHaveProperty("previous_spec_contents");
 
     // 6. Same PR number is reused; only one open PR exists for this
     //    head branch; title reflects v2 output.
