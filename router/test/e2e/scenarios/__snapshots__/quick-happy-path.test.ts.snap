@@ -67,6 +67,7 @@ Shopfloor-Slug: add-foo
     "shopfloor:spec-in-review",
     "shopfloor:spec-running",
     "shopfloor:triaging",
+    "shopfloor:wip",
   ],
   "pulls": [
     {

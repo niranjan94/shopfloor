@@ -137,6 +137,12 @@ const LABEL_DEFS: Array<{ name: string; color: string; description: string }> =
       description:
         "Transient marker: an implement stage job is actively running for this issue. Removed automatically when the stage completes. If this label is stuck after a crash, remove it manually to unblock retries.",
     },
+    {
+      name: "shopfloor:wip",
+      color: "fbca04",
+      description:
+        "Implementation in progress. Suppresses review triggers until removed.",
+    },
   ];
 
 export async function bootstrapLabels(

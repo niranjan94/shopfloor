@@ -60,6 +60,7 @@ Shopfloor-Slug: add-github-oauth-login
     "shopfloor:spec-in-review",
     "shopfloor:spec-running",
     "shopfloor:triaging",
+    "shopfloor:wip",
   ],
   "pulls": [
     {

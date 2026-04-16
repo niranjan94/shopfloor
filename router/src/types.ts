@@ -30,7 +30,8 @@ export type ShopfloorLabel =
   | `shopfloor:failed:${"triage" | "spec" | "plan" | "implement" | "review"}`
   | "shopfloor:spec-running"
   | "shopfloor:plan-running"
-  | "shopfloor:implementing";
+  | "shopfloor:implementing"
+  | "shopfloor:wip";
 
 export interface RouterDecision {
   stage: Stage;
