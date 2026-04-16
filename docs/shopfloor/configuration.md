@@ -159,6 +159,30 @@ With that caller, opening a new issue does nothing. When someone applies the `sh
 
 Every Shopfloor branch starts with `branch_prefix`. Specs live at `<artifacts_dir>/specs/<issue>-<slug>.md`, plans at `<artifacts_dir>/plans/<issue>-<slug>.md`. Setting `keep_artifacts_forever` to `false` is reserved for a future auto-cleanup mode and has no effect in v0.1.
 
+## Runners
+
+Customize which GitHub Actions runner each job tier uses. Pass a plain string for standard runners or a JSON array for label-based selection.
+
+| Input           | Default          | Jobs                                                         |
+| --------------- | ---------------- | ------------------------------------------------------------ |
+| `runner_router` | `ubuntu-latest`  | `route`, `review-skip-check`, `review-aggregator`, `handle-merge` |
+| `runner_agent`  | `ubuntu-latest`  | `triage`, `spec`, `plan`, `implement`                        |
+| `runner_review` | `ubuntu-latest`  | `review-compliance`, `review-bugs`, `review-security`, `review-smells` |
+
+**Plain string:**
+
+```yaml
+with:
+  runner_agent: "self-hosted"
+```
+
+**JSON label array:**
+
+```yaml
+with:
+  runner_agent: '["self-hosted", "linux", "x64"]'
+```
+
 ## Provider selection
 
 | Input         | Default | Notes                                                                                  |
@@ -236,5 +260,18 @@ jobs:
       max_review_iterations: 4
       impl_bash_allowlist: "pnpm install,pnpm test:*,pnpm build,pnpm exec tsc,pnpm audit,pnpm licenses"
       ssh_signing_key_enabled: true
+    secrets: inherit
+```
+
+## Full example: self-hosted runners
+
+```yaml
+jobs:
+  shopfloor:
+    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
+    with:
+      runner_router: ubuntu-latest
+      runner_agent: '["self-hosted", "linux", "x64"]'
+      runner_review: '["self-hosted", "linux", "x64"]'
     secrets: inherit
 ```

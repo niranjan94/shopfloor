@@ -67,6 +67,25 @@ on:
           un-drafted when the agent finishes. When false, a shopfloor:wip label
           is used instead to suppress premature reviews. Callers that set this
           to false MUST include 'unlabeled' in their pull_request event types.
+      # Runner labels per job tier. Pass a plain string ("ubuntu-latest",
+      # "self-hosted") or a JSON array ('["self-hosted", "linux", "x64"]').
+      runner_router:
+        type: string
+        default: "ubuntu-latest"
+        description: >-
+          Runner for lightweight routing jobs (route, review-skip-check,
+          review-aggregator, handle-merge).
+      runner_agent:
+        type: string
+        default: "ubuntu-latest"
+        description: >-
+          Runner for Claude agent stages (triage, spec, plan, implement).
+      runner_review:
+        type: string
+        default: "ubuntu-latest"
+        description: >-
+          Runner for review agent jobs (review-compliance, review-bugs,
+          review-security, review-smells).
     secrets:
       anthropic_api_key: { required: false }
       claude_code_oauth_token: { required: false }
@@ -116,7 +135,7 @@ env:
 
 jobs:
   route:
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
     permissions:
       contents: read
       issues: read
@@ -183,7 +202,7 @@ jobs:
     concurrency:
       group: shopfloor-triage-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
     permissions:
       contents: read
@@ -315,7 +334,7 @@ jobs:
     concurrency:
       group: shopfloor-spec-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
     timeout-minutes: ${{ inputs.spec_timeout_minutes }}
     permissions:
       contents: read
@@ -518,7 +537,7 @@ jobs:
     concurrency:
       group: shopfloor-plan-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
     timeout-minutes: ${{ inputs.plan_timeout_minutes }}
     permissions:
       contents: read
@@ -722,7 +741,7 @@ jobs:
     concurrency:
       group: shopfloor-implement-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
     timeout-minutes: ${{ inputs.impl_timeout_minutes }}
     permissions:
       contents: read
@@ -1149,7 +1168,7 @@ jobs:
     # shopfloor_github_app_review_private_key; otherwise impl PRs un-draft
     # and wait for a human reviewer.
     if: needs.route.outputs.stage == 'review' && needs.route.outputs.has_review_app == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
     permissions:
       contents: read
       issues: read
@@ -1187,7 +1206,7 @@ jobs:
     concurrency:
       group: shopfloor-review-compliance-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
       contents: read
@@ -1283,7 +1302,7 @@ jobs:
     concurrency:
       group: shopfloor-review-bugs-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
       contents: read
@@ -1379,7 +1398,7 @@ jobs:
     concurrency:
       group: shopfloor-review-security-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
       contents: read
@@ -1475,7 +1494,7 @@ jobs:
     concurrency:
       group: shopfloor-review-smells-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
     timeout-minutes: ${{ inputs.review_timeout_minutes }}
     permissions:
       contents: read
@@ -1579,7 +1598,7 @@ jobs:
     concurrency:
       group: shopfloor-review-aggregator-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
       cancel-in-progress: true
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
     permissions:
       contents: read
       issues: read
@@ -1664,7 +1683,7 @@ jobs:
     concurrency:
       group: shopfloor-implement-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
     permissions:
       contents: read
       issues: read
