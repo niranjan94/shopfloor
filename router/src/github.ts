@@ -337,7 +337,7 @@ export class GitHubAdapter {
       user: r.user as { login: string } | null,
       body: r.body ?? "",
       commit_id: r.commit_id,
-      state: r.state,
+      state: r.state.toLowerCase(),
       submitted_at: r.submitted_at,
     }));
   }

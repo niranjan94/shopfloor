@@ -199,7 +199,7 @@ describe("GitHubAdapter", () => {
         user: { login: "reviewer" },
         body: "please fix",
         commit_id: "abc",
-        state: "CHANGES_REQUESTED",
+        state: "changes_requested",
         submitted_at: "2026-04-14T12:00:00Z",
       },
       {
@@ -207,7 +207,7 @@ describe("GitHubAdapter", () => {
         user: null,
         body: "",
         commit_id: "abc",
-        state: "COMMENTED",
+        state: "commented",
         submitted_at: null,
       },
     ]);
