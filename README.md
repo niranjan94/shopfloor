@@ -76,7 +76,7 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
      issue_comment:
        types: [created]
      pull_request:
-       types: [opened, synchronize, closed, labeled, unlabeled]
+       types: [opened, synchronize, closed, labeled, unlabeled, ready_for_review]
      pull_request_review:
        types: [submitted]
 
@@ -85,16 +85,26 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
        # SECURITY: @v1 is a moving tag. For production, pin to a 40-char SHA
        # you have audited. See "Before you install" above.
        uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
+       # All writes go through the Shopfloor GitHub App installation token,
+       # so the workflow itself only needs read permissions.
        permissions:
-         contents: write
-         pull-requests: write
-         issues: write
-         id-token: write
-         actions: read
-         statuses: write
-         checks: read
-       secrets: inherit
+         contents: read
+         issues: read
+         pull-requests: read
+       secrets:
+         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+         shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+         shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+         # Optional: enables the automated review matrix.
+         # Requires a second GitHub App so the reviewer identity differs
+         # from the PR author. Omit to skip automated reviews.
+         shopfloor_github_app_review_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
+         shopfloor_github_app_review_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
+         # Optional: signed commits
+         ssh_signing_key: ${{ secrets.SSH_SIGNING_KEY }}
    ```
+
+   > **Note:** Reusable workflows do not support `secrets: inherit` from external callers. You must pass each secret explicitly as shown above. Only `anthropic_api_key` (or one of its provider equivalents) and the two `shopfloor_github_app_*` secrets are required -- the rest can be omitted.
 
 Open an issue and watch it go. The first run bootstraps all `shopfloor:*` labels.
 
@@ -115,7 +125,10 @@ jobs:
       review_confidence_threshold: 85
       # Only enter the pipeline for issues carrying this label.
       trigger_label: shopfloor
-    secrets: inherit
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+      shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
 ```
 
 ## Escape hatches
