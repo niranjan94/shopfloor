@@ -599,7 +599,10 @@ jobGraph["implement-first-run"] = [
       base_branch: { source: "literal", value: "main" },
       pr_title: { source: "literal", value: "wip: impl" },
       pr_body: { source: "literal", value: "Shopfloor is implementing." },
-      draft: { source: "fake", resolve: (ctx) => ctx.useDraftPrs ? "true" : "false" },
+      draft: {
+        source: "fake",
+        resolve: (ctx) => (ctx.useDraftPrs ? "true" : "false"),
+      },
     },
   },
   {

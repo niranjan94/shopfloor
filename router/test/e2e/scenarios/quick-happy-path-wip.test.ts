@@ -90,16 +90,32 @@ describe("quick happy path (WIP mode)", () => {
     );
     harness.queueReviewAgents({
       compliance: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
       bugs: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
       security: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
       smells: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
     });
     await harness.runStage("review");

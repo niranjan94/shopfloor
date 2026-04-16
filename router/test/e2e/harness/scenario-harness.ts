@@ -53,7 +53,11 @@ export class ScenarioHarness {
   private routeOutputs: Record<string, string> = {};
   private seq = 0;
 
-  constructor(opts: { fake: FakeGitHub; workspaceDir?: string; useDraftPrs?: boolean }) {
+  constructor(opts: {
+    fake: FakeGitHub;
+    workspaceDir?: string;
+    useDraftPrs?: boolean;
+  }) {
     this.fake = opts.fake;
     if (opts.workspaceDir) {
       this.workspaceDir = opts.workspaceDir;
