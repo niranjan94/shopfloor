@@ -400,6 +400,7 @@ function resolvePullRequestEvent(payload: PullRequestPayload): RouterDecision {
       return { stage: "none", reason: "skip_review_label_present" };
     }
     if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (labels.has("shopfloor:wip")) return { stage: "none", reason: "pr_has_wip_label" };
     if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
     return {
       stage: "review",

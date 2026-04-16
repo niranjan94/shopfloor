@@ -136,6 +136,14 @@ describe("resolveStage", () => {
     expect(decision.reason).toBe("pr_is_draft");
   });
 
+  test("synchronize on impl PR with shopfloor:wip label -> none", () => {
+    const decision = resolveStage(
+      ctx("pull_request", "pr-synchronize-impl-wip"),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_has_wip_label");
+  });
+
   test("approved review -> none", () => {
     const decision = resolveStage(
       ctx("pull_request_review", "pr-review-approved"),
