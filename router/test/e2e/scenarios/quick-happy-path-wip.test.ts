@@ -70,7 +70,7 @@ describe("quick happy path (WIP mode)", () => {
     expect(fake.labelsOn(42)).toContain("shopfloor:needs-review");
     expect(fake.labelsOn(42)).not.toContain("shopfloor:implementing");
     // WIP label should have been removed after impl
-    expect(implPr!.labels.some((l) => l.name === "shopfloor:wip")).toBe(false);
+    expect(implPr!.labels.some((l) => l === "shopfloor:wip")).toBe(false);
 
     const implPrAfter = fake.pr(implPr!.number);
     expect(implPrAfter.body).toContain("Shopfloor-Issue: #42");

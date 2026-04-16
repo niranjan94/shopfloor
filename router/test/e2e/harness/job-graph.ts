@@ -614,7 +614,7 @@ jobGraph["implement-first-run"] = [
       if (!prNumberStr) return;
       const prNumber = Number(prNumberStr);
       const pr = ctx.fake.pr(prNumber);
-      pr.labels.push({ name: "shopfloor:wip" });
+      pr.labels.push("shopfloor:wip");
     },
   },
   {
@@ -697,7 +697,7 @@ jobGraph["implement-first-run"] = [
         pr.draft = false;
       } else {
         // WIP mode: mirror `gh pr edit --remove-label shopfloor:wip`
-        pr.labels = pr.labels.filter((l) => l.name !== "shopfloor:wip");
+        pr.labels = pr.labels.filter((l) => l !== "shopfloor:wip");
       }
     },
   },
@@ -755,8 +755,8 @@ jobGraph["implement-revision"] = [
       if (!prNumberStr) return;
       const prNumber = Number(prNumberStr);
       const pr = ctx.fake.pr(prNumber);
-      if (!pr.labels.some((l) => l.name === "shopfloor:wip")) {
-        pr.labels.push({ name: "shopfloor:wip" });
+      if (!pr.labels.some((l) => l === "shopfloor:wip")) {
+        pr.labels.push("shopfloor:wip");
       }
     },
   },
@@ -844,7 +844,7 @@ jobGraph["implement-revision"] = [
       if (!prNumberStr) return;
       const prNumber = Number(prNumberStr);
       const pr = ctx.fake.pr(prNumber);
-      pr.labels = pr.labels.filter((l) => l.name !== "shopfloor:wip");
+      pr.labels = pr.labels.filter((l) => l !== "shopfloor:wip");
     },
   },
   {
