@@ -14,7 +14,10 @@
       "ref": "main",
       "sha": "1234567890abcdef1234567890abcdef12345678"
     },
-    "labels": [{ "name": "shopfloor:needs-review" }, { "name": "shopfloor:wip" }]
+    "labels": [
+      { "name": "shopfloor:needs-review" },
+      { "name": "shopfloor:wip" }
+    ]
   },
   "repository": {
     "owner": { "login": "niranjan94" },

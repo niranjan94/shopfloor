@@ -145,9 +145,7 @@ describe("resolveStage", () => {
   });
 
   test("unlabeled shopfloor:wip on impl PR -> review", () => {
-    const decision = resolveStage(
-      ctx("pull_request", "pr-unlabeled-wip-impl"),
-    );
+    const decision = resolveStage(ctx("pull_request", "pr-unlabeled-wip-impl"));
     expect(decision.stage).toBe("review");
     expect(decision.issueNumber).toBe(42);
     expect(decision.implPrNumber).toBe(45);
@@ -155,7 +153,9 @@ describe("resolveStage", () => {
   });
 
   test("unlabeled shopfloor:wip on draft impl PR -> none", () => {
-    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    const fixture = JSON.parse(
+      JSON.stringify(loadFixture("pr-unlabeled-wip-impl")),
+    ) as Record<string, unknown>;
     (fixture.pull_request as Record<string, unknown>).draft = true;
     const decision = resolveStage({
       eventName: "pull_request",
@@ -166,7 +166,9 @@ describe("resolveStage", () => {
   });
 
   test("unlabeled shopfloor:wip on closed impl PR -> none", () => {
-    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    const fixture = JSON.parse(
+      JSON.stringify(loadFixture("pr-unlabeled-wip-impl")),
+    ) as Record<string, unknown>;
     (fixture.pull_request as Record<string, unknown>).state = "closed";
     const decision = resolveStage({
       eventName: "pull_request",
@@ -177,7 +179,9 @@ describe("resolveStage", () => {
   });
 
   test("unlabeled shopfloor:wip on impl PR with skip-review -> none", () => {
-    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    const fixture = JSON.parse(
+      JSON.stringify(loadFixture("pr-unlabeled-wip-impl")),
+    ) as Record<string, unknown>;
     const pr = fixture.pull_request as Record<string, unknown>;
     pr.labels = [{ name: "shopfloor:skip-review" }];
     const decision = resolveStage({
@@ -189,7 +193,9 @@ describe("resolveStage", () => {
   });
 
   test("unlabeled non-wip label on impl PR -> none", () => {
-    const fixture = JSON.parse(JSON.stringify(loadFixture("pr-unlabeled-wip-impl"))) as Record<string, unknown>;
+    const fixture = JSON.parse(
+      JSON.stringify(loadFixture("pr-unlabeled-wip-impl")),
+    ) as Record<string, unknown>;
     (fixture as Record<string, unknown>).label = { name: "some-other-label" };
     const decision = resolveStage({
       eventName: "pull_request",
