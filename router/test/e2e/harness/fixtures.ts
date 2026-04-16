@@ -49,7 +49,10 @@ function patchOverrides(payload: any, ov: LoadEventOverrides | undefined): any {
   }
   if (ov.sha !== undefined) {
     if (next.pull_request) {
-      next.pull_request.head = { ...(next.pull_request.head ?? {}), sha: ov.sha };
+      next.pull_request.head = {
+        ...(next.pull_request.head ?? {}),
+        sha: ov.sha,
+      };
     }
   }
   if (ov.headRef !== undefined) {

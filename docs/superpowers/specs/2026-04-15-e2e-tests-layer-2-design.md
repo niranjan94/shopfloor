@@ -161,14 +161,19 @@ export async function runWorkflow(
 
    ```ts
    const defaultMockSteps: Record<string, MockStep[]> = {
-     triage:            [{ id: "agent", mockWith: 'echo \'{"complexity":"medium"}\' >> $GITHUB_OUTPUT' }],
-     spec:              [{ id: "agent", mockWith: "..." }],
-     plan:              [{ id: "agent", mockWith: "..." }],
-     implement:         [{ id: "agent", mockWith: "..." }],
+     triage: [
+       {
+         id: "agent",
+         mockWith: 'echo \'{"complexity":"medium"}\' >> $GITHUB_OUTPUT',
+       },
+     ],
+     spec: [{ id: "agent", mockWith: "..." }],
+     plan: [{ id: "agent", mockWith: "..." }],
+     implement: [{ id: "agent", mockWith: "..." }],
      "review-compliance": [{ id: "agent", mockWith: "..." }],
-     "review-bugs":       [{ id: "agent", mockWith: "..." }],
-     "review-security":   [{ id: "agent", mockWith: "..." }],
-     "review-smells":     [{ id: "agent", mockWith: "..." }],
+     "review-bugs": [{ id: "agent", mockWith: "..." }],
+     "review-security": [{ id: "agent", mockWith: "..." }],
+     "review-smells": [{ id: "agent", mockWith: "..." }],
    };
    ```
 

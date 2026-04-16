@@ -167,9 +167,7 @@ describe("review stuck after max iterations", () => {
       // After each REQUEST_CHANGES round the label should still be the
       // changes-requested one, and the iteration counter must reflect
       // the round we just ran (body=iteration+1).
-      expect(fake.labelsOn(42)).toContain(
-        "shopfloor:review-requested-changes",
-      );
+      expect(fake.labelsOn(42)).toContain("shopfloor:review-requested-changes");
       expect(fake.labelsOn(42)).not.toContain("shopfloor:review-stuck");
       expect(fake.pr(implPrNumber).body ?? "").toMatch(
         new RegExp(`Shopfloor-Review-Iteration: ${iteration + 1}`),

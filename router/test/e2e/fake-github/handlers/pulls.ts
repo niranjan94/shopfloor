@@ -181,13 +181,13 @@ export interface CreateReviewParams {
   actor: string;
 }
 
-export function createReview(state: FakeState, params: CreateReviewParams): void {
+export function createReview(
+  state: FakeState,
+  params: CreateReviewParams,
+): void {
   const pr = requirePr(state, params.pull_number);
   if (params.event !== "COMMENT" && params.actor === pr.author) {
-    throw new FakeRequestError(
-      422,
-      "Can not approve your own pull request",
-    );
+    throw new FakeRequestError(422, "Can not approve your own pull request");
   }
   const id = state.nextReviewId++;
   state.reviews.set(id, {

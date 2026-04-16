@@ -1,9 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "vitest";
-import {
-  mkdtempSync,
-  rmSync,
-  readFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { makeMockAdapter } from "./_mock-adapter";
@@ -474,7 +470,9 @@ describe("buildRevisionContext", () => {
       string,
       string
     >;
-    expect(written.spec_file_path).toBe("docs/shopfloor/specs/42-spec-issue.md");
+    expect(written.spec_file_path).toBe(
+      "docs/shopfloor/specs/42-spec-issue.md",
+    );
     expect(written.triage_rationale).toBe("");
     expect(written.revision_block).toContain("THIS IS A REVISION RUN");
     expect(written.revision_block).toContain("existing spec PR");
@@ -546,8 +544,12 @@ describe("buildRevisionContext", () => {
       string,
       string
     >;
-    expect(written.plan_file_path).toBe("docs/shopfloor/plans/42-plan-issue.md");
-    expect(written.spec_file_path).toBe("docs/shopfloor/specs/42-plan-issue.md");
+    expect(written.plan_file_path).toBe(
+      "docs/shopfloor/plans/42-plan-issue.md",
+    );
+    expect(written.spec_file_path).toBe(
+      "docs/shopfloor/specs/42-plan-issue.md",
+    );
     expect(written.revision_block).toContain("THIS IS A REVISION RUN");
     expect(written.revision_block).toContain("existing plan PR");
     expect(written.revision_block).toContain("add test step");

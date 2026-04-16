@@ -61,9 +61,7 @@ describe("large happy path", () => {
       pr_title: "spec: add github oauth login",
       pr_body: "Spec for adding GitHub OAuth login.",
       summary_for_issue_comment: "Spec ready.",
-      changed_files: JSON.stringify([
-        "docs/shopfloor/specs/issue-42-spec.md",
-      ]),
+      changed_files: JSON.stringify(["docs/shopfloor/specs/issue-42-spec.md"]),
     });
     await harness.runStage("spec");
     const specPr = fake.openPrs().find((p) => p.head.ref === specBranch);
@@ -102,9 +100,7 @@ describe("large happy path", () => {
       pr_title: "plan: add github oauth login",
       pr_body: "Plan for adding GitHub OAuth login.",
       summary_for_issue_comment: "Plan ready.",
-      changed_files: JSON.stringify([
-        "docs/shopfloor/plans/issue-42-plan.md",
-      ]),
+      changed_files: JSON.stringify(["docs/shopfloor/plans/issue-42-plan.md"]),
     });
     await harness.runStage("plan");
     const planPr = fake.openPrs().find((p) => p.head.ref === planBranch);
@@ -161,16 +157,32 @@ describe("large happy path", () => {
     );
     harness.queueReviewAgents({
       compliance: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
       bugs: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
       security: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
       smells: {
-        output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
       },
     });
     await harness.runStage("review");

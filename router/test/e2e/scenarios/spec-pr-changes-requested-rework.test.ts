@@ -134,7 +134,10 @@ describe("spec PR changes requested rework", () => {
     //     harness workspace. The revision_block should be populated
     //     from spec-revision-fragment.md and contain the review body.
     const ctxPath = join(harness.workspaceDir, "context.json");
-    const revisionCtx = JSON.parse(readFileSync(ctxPath, "utf-8")) as Record<string, string>;
+    const revisionCtx = JSON.parse(readFileSync(ctxPath, "utf-8")) as Record<
+      string,
+      string
+    >;
     expect(revisionCtx.revision_block).toContain("THIS IS A REVISION RUN");
     expect(revisionCtx.revision_block).toContain("existing spec PR");
     expect(revisionCtx.spec_file_path).toBeTruthy();

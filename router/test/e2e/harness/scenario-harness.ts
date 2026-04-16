@@ -91,20 +91,21 @@ export class ScenarioHarness {
     return outputs;
   }
 
-  async runStage(stage: StageKey | "implement" | "spec" | "plan"): Promise<void> {
+  async runStage(
+    stage: StageKey | "implement" | "spec" | "plan",
+  ): Promise<void> {
     let key: StageKey;
     if (stage === "implement") {
-      key = this.routeOutputs.revision_mode === "true"
-        ? "implement-revision"
-        : "implement-first-run";
+      key =
+        this.routeOutputs.revision_mode === "true"
+          ? "implement-revision"
+          : "implement-first-run";
     } else if (stage === "spec") {
-      key = this.routeOutputs.revision_mode === "true"
-        ? "spec-revision"
-        : "spec";
+      key =
+        this.routeOutputs.revision_mode === "true" ? "spec-revision" : "spec";
     } else if (stage === "plan") {
-      key = this.routeOutputs.revision_mode === "true"
-        ? "plan-revision"
-        : "plan";
+      key =
+        this.routeOutputs.revision_mode === "true" ? "plan-revision" : "plan";
     } else {
       key = stage;
     }

@@ -67,15 +67,15 @@ pnpm test router/test/e2e/harness
 
 ## Current scenarios
 
-| File | What it covers |
-|------|----------------|
-| `quick-happy-path` | Triage -> implement -> review approved -> merge -> done |
-| `medium-happy-path` | Triage -> plan -> implement -> review approved -> merge -> done |
-| `large-happy-path` | Triage -> spec -> plan -> implement -> review approved -> merge -> done |
-| `triage-clarification-and-resume` | Triage asks clarifying questions; human answers; triage resumes |
-| `spec-pr-changes-requested-rework` | Spec PR receives changes-requested review; spec reruns |
-| `impl-review-retry-loop` | Review returns changes-requested; implement revision loop; eventual approval |
-| `review-stuck-after-max-iterations` | Review exhausts max iterations; issue labelled stuck |
+| File                                | What it covers                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| `quick-happy-path`                  | Triage -> implement -> review approved -> merge -> done                      |
+| `medium-happy-path`                 | Triage -> plan -> implement -> review approved -> merge -> done              |
+| `large-happy-path`                  | Triage -> spec -> plan -> implement -> review approved -> merge -> done      |
+| `triage-clarification-and-resume`   | Triage asks clarifying questions; human answers; triage resumes              |
+| `spec-pr-changes-requested-rework`  | Spec PR receives changes-requested review; spec reruns                       |
+| `impl-review-retry-loop`            | Review returns changes-requested; implement revision loop; eventual approval |
+| `review-stuck-after-max-iterations` | Review exhausts max iterations; issue labelled stuck                         |
 
 ## Adding a scenario
 
@@ -132,8 +132,12 @@ const routeOutputs = await harness.deliverEvent(
 
 // Queue a non-review agent stub (keys become INPUT_* for downstream helpers)
 harness.queueAgent("triage", {
-  decision_json: JSON.stringify({ status: "classified", complexity: "quick",
-    rationale: "single-file fix", clarifying_questions: [] }),
+  decision_json: JSON.stringify({
+    status: "classified",
+    complexity: "quick",
+    rationale: "single-file fix",
+    clarifying_questions: [],
+  }),
 });
 
 // For implement: seed the branch before runStage so open-stage-pr can resolve it
@@ -153,10 +157,18 @@ For review, use `queueReviewAgents` instead:
 
 ```typescript
 harness.queueReviewAgents({
-  compliance: { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-  bugs:       { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-  security:   { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-  smells:     { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
+  compliance: {
+    output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+  },
+  bugs: {
+    output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+  },
+  security: {
+    output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+  },
+  smells: {
+    output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+  },
 });
 ```
 
@@ -190,14 +202,14 @@ When the YAML changes, find the affected `jobGraph.<stage> = [...]` block and
 update its step list. If a helper gains a new input, add it to the step's `from`
 map using one of the six `InputSource` kinds:
 
-| Kind | Resolves from |
-|------|---------------|
-| `literal` | Hard-coded string value |
-| `route` | Named key from the `route` helper's outputs |
-| `agent` | Named key from the queued non-review agent stub |
-| `agent-role` | Named key from one of the four review agent stubs |
-| `previous` | Named key from a prior step's outputs |
-| `fake` | Inline function receiving `StageContext`; used for live fake state |
+| Kind         | Resolves from                                                      |
+| ------------ | ------------------------------------------------------------------ |
+| `literal`    | Hard-coded string value                                            |
+| `route`      | Named key from the `route` helper's outputs                        |
+| `agent`      | Named key from the queued non-review agent stub                    |
+| `agent-role` | Named key from one of the four review agent stubs                  |
+| `previous`   | Named key from a prior step's outputs                              |
+| `fake`       | Inline function receiving `StageContext`; used for live fake state |
 
 ## Debugging a failing scenario
 

@@ -14,36 +14,36 @@
 
 ## File Structure
 
-| File | Status | Responsibility |
-| --- | --- | --- |
-| `router/src/index.ts` | Modify | Export `main()` so the harness can import and invoke it; preserve auto-run when loaded as a module entrypoint. |
-| `router/test/e2e/setup.ts` | Create | Vitest setup file. Owns the per-test FakeGitHub registry and the global `vi.mock("@actions/github", ...)`. |
-| `router/test/e2e/fake-github/state.ts` | Create | Entity types (`Label`, `Issue`, `Pull`, `Comment`, `Review`, `ReviewComment`, `Status`), `FakeState`, `WriteEvent` discriminated union. Pure types/data. |
-| `router/test/e2e/fake-github/errors.ts` | Create | `FakeRequestError` class shaped like `@octokit/request-error`. |
-| `router/test/e2e/fake-github/handlers/issues.ts` | Create | All `octokit.rest.issues.*` semantics: label registry validation, label uniqueness, comment id allocation, issue body update, listComments pagination. |
-| `router/test/e2e/fake-github/handlers/pulls.ts` | Create | All `octokit.rest.pulls.*` semantics: branch existence check, open-PR-per-head uniqueness, self-review enforcement, listReviews / listReviewComments / listFiles pagination, review row shape including `commit_id`/`state`/`submitted_at`. |
-| `router/test/e2e/fake-github/handlers/repos.ts` | Create | `repos.createCommitStatus` with 140-char description truncation and latest-wins per `(sha, context)`. |
-| `router/test/e2e/fake-github/octokit-shim.ts` | Create | Builds an `OctokitLike` shim around a `FakeGitHub` keyed by an identity, so the same fake serves both primary and review-app tokens. |
-| `router/test/e2e/fake-github/index.ts` | Create | `FakeGitHub` class wiring state + handlers, snapshot/assertion helpers, seed helpers, `asOctokit(identity)`. |
-| `router/test/e2e/fake-github/fake-github.test.ts` | Create | Per-rule unit tests for each semantic rule the fake enforces. |
-| `router/test/e2e/harness/env.ts` | Create | `EnvManager.snapshot()`, `resetCoreState()` (clears `process.exitCode`, GITHUB_OUTPUT delimiter state, `core` failure cache). |
-| `router/test/e2e/harness/parse-output.ts` | Create | Parses the `GITHUB_OUTPUT` delimited file format into a `Record<string, string>`. |
-| `router/test/e2e/harness/agent-stub.ts` | Create | Typed FIFO queue per stage role for the harness agent simulator (`AgentResponse`, `AgentError`, `ReviewAgentBundle`). |
-| `router/test/e2e/harness/fixtures.ts` | Create | `loadEvent(name, overrides)` reading from `router/test/fixtures/events/`, JSON-path patches, attaches event name. |
-| `router/test/e2e/harness/job-graph.ts` | Create | Hand-scripted job graph mirroring `.github/workflows/shopfloor.yml` for every stage. Typed `InputMap`/`InputSource`. |
-| `router/test/e2e/harness/scenario-harness.ts` | Create | `ScenarioHarness` class. `bootstrap()`, `deliverEvent()`, `runStage()`, `invokeHelper()`, `seedFile()`, `dispose()`. Wraps every helper invocation with `ScenarioStepError` to surface `eventLogSummary()`. |
-| `router/test/e2e/harness/scenario-harness.test.ts` | Create | Self-tests: env snapshot/restore, output parsing, agent queue exhaustion, `InputSource` resolution, `resetCoreState` correctness. |
-| `router/test/e2e/scenarios/quick-happy-path.test.ts` | Create | Scenario 1 (commit 9). |
-| `router/test/e2e/scenarios/medium-happy-path.test.ts` | Create | Scenario 2 (commit 10). |
-| `router/test/e2e/scenarios/large-happy-path.test.ts` | Create | Scenario 3 (commit 11). |
-| `router/test/e2e/scenarios/triage-clarification-and-resume.test.ts` | Create | Scenario 4 (commit 12). |
-| `router/test/e2e/scenarios/spec-pr-changes-requested-rework.test.ts` | Create | Scenario 5 (commit 13). |
-| `router/test/e2e/scenarios/impl-review-retry-loop.test.ts` | Create | Scenario 6 (commit 14). Exercises `revision_mode` fork. |
-| `router/test/e2e/scenarios/review-stuck-after-max-iterations.test.ts` | Create | Scenario 7 (commit 15). |
-| `router/test/e2e/scenarios/__snapshots__/*` | Create | Auto-managed by vitest. |
-| `router/test/e2e/README.md` | Create | Developer docs (commit 16). |
-| `vitest.config.ts` | Modify | Add `setupFiles: ["router/test/e2e/setup.ts"]`. The existing `router/test/**/*.test.ts` glob already picks up `e2e/**/*.test.ts`. |
-| `package.json` | Modify | Add `tmp` + `@types/tmp` devDeps and `test:e2e` / `test:e2e:watch` scripts (commit 17). |
+| File                                                                  | Status | Responsibility                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `router/src/index.ts`                                                 | Modify | Export `main()` so the harness can import and invoke it; preserve auto-run when loaded as a module entrypoint.                                                                                                                              |
+| `router/test/e2e/setup.ts`                                            | Create | Vitest setup file. Owns the per-test FakeGitHub registry and the global `vi.mock("@actions/github", ...)`.                                                                                                                                  |
+| `router/test/e2e/fake-github/state.ts`                                | Create | Entity types (`Label`, `Issue`, `Pull`, `Comment`, `Review`, `ReviewComment`, `Status`), `FakeState`, `WriteEvent` discriminated union. Pure types/data.                                                                                    |
+| `router/test/e2e/fake-github/errors.ts`                               | Create | `FakeRequestError` class shaped like `@octokit/request-error`.                                                                                                                                                                              |
+| `router/test/e2e/fake-github/handlers/issues.ts`                      | Create | All `octokit.rest.issues.*` semantics: label registry validation, label uniqueness, comment id allocation, issue body update, listComments pagination.                                                                                      |
+| `router/test/e2e/fake-github/handlers/pulls.ts`                       | Create | All `octokit.rest.pulls.*` semantics: branch existence check, open-PR-per-head uniqueness, self-review enforcement, listReviews / listReviewComments / listFiles pagination, review row shape including `commit_id`/`state`/`submitted_at`. |
+| `router/test/e2e/fake-github/handlers/repos.ts`                       | Create | `repos.createCommitStatus` with 140-char description truncation and latest-wins per `(sha, context)`.                                                                                                                                       |
+| `router/test/e2e/fake-github/octokit-shim.ts`                         | Create | Builds an `OctokitLike` shim around a `FakeGitHub` keyed by an identity, so the same fake serves both primary and review-app tokens.                                                                                                        |
+| `router/test/e2e/fake-github/index.ts`                                | Create | `FakeGitHub` class wiring state + handlers, snapshot/assertion helpers, seed helpers, `asOctokit(identity)`.                                                                                                                                |
+| `router/test/e2e/fake-github/fake-github.test.ts`                     | Create | Per-rule unit tests for each semantic rule the fake enforces.                                                                                                                                                                               |
+| `router/test/e2e/harness/env.ts`                                      | Create | `EnvManager.snapshot()`, `resetCoreState()` (clears `process.exitCode`, GITHUB_OUTPUT delimiter state, `core` failure cache).                                                                                                               |
+| `router/test/e2e/harness/parse-output.ts`                             | Create | Parses the `GITHUB_OUTPUT` delimited file format into a `Record<string, string>`.                                                                                                                                                           |
+| `router/test/e2e/harness/agent-stub.ts`                               | Create | Typed FIFO queue per stage role for the harness agent simulator (`AgentResponse`, `AgentError`, `ReviewAgentBundle`).                                                                                                                       |
+| `router/test/e2e/harness/fixtures.ts`                                 | Create | `loadEvent(name, overrides)` reading from `router/test/fixtures/events/`, JSON-path patches, attaches event name.                                                                                                                           |
+| `router/test/e2e/harness/job-graph.ts`                                | Create | Hand-scripted job graph mirroring `.github/workflows/shopfloor.yml` for every stage. Typed `InputMap`/`InputSource`.                                                                                                                        |
+| `router/test/e2e/harness/scenario-harness.ts`                         | Create | `ScenarioHarness` class. `bootstrap()`, `deliverEvent()`, `runStage()`, `invokeHelper()`, `seedFile()`, `dispose()`. Wraps every helper invocation with `ScenarioStepError` to surface `eventLogSummary()`.                                 |
+| `router/test/e2e/harness/scenario-harness.test.ts`                    | Create | Self-tests: env snapshot/restore, output parsing, agent queue exhaustion, `InputSource` resolution, `resetCoreState` correctness.                                                                                                           |
+| `router/test/e2e/scenarios/quick-happy-path.test.ts`                  | Create | Scenario 1 (commit 9).                                                                                                                                                                                                                      |
+| `router/test/e2e/scenarios/medium-happy-path.test.ts`                 | Create | Scenario 2 (commit 10).                                                                                                                                                                                                                     |
+| `router/test/e2e/scenarios/large-happy-path.test.ts`                  | Create | Scenario 3 (commit 11).                                                                                                                                                                                                                     |
+| `router/test/e2e/scenarios/triage-clarification-and-resume.test.ts`   | Create | Scenario 4 (commit 12).                                                                                                                                                                                                                     |
+| `router/test/e2e/scenarios/spec-pr-changes-requested-rework.test.ts`  | Create | Scenario 5 (commit 13).                                                                                                                                                                                                                     |
+| `router/test/e2e/scenarios/impl-review-retry-loop.test.ts`            | Create | Scenario 6 (commit 14). Exercises `revision_mode` fork.                                                                                                                                                                                     |
+| `router/test/e2e/scenarios/review-stuck-after-max-iterations.test.ts` | Create | Scenario 7 (commit 15).                                                                                                                                                                                                                     |
+| `router/test/e2e/scenarios/__snapshots__/*`                           | Create | Auto-managed by vitest.                                                                                                                                                                                                                     |
+| `router/test/e2e/README.md`                                           | Create | Developer docs (commit 16).                                                                                                                                                                                                                 |
+| `vitest.config.ts`                                                    | Modify | Add `setupFiles: ["router/test/e2e/setup.ts"]`. The existing `router/test/**/*.test.ts` glob already picks up `e2e/**/*.test.ts`.                                                                                                           |
+| `package.json`                                                        | Modify | Add `tmp` + `@types/tmp` devDeps and `test:e2e` / `test:e2e:watch` scripts (commit 17).                                                                                                                                                     |
 
 **Mapping to the spec's 17-commit conventional-commits plan:** Phase 0 prep (Tasks 0a, 0b) is unscheduled fixup that does not get its own headline commit and lands as part of Task 1's commit (state model). Phase 1 (Tasks 1-4) maps 1:1 to commits 1-4. Phase 2 (Tasks 5-8) maps to commits 5-8. Phase 3 (Tasks 9-15) maps to commits 9-15. Phase 4 (Tasks 16-17) maps to commits 16-17. If a scenario task uncovers a missing harness capability, slot a `test(e2e): extend harness for X` commit between the relevant scenario commits rather than batching changes.
 
@@ -56,6 +56,7 @@ These items are research and refactor that must happen before the FakeGitHub wor
 ### Task 0a: Export `main()` from `router/src/index.ts`
 
 **Files:**
+
 - Modify: `router/src/index.ts`
 
 The harness needs to `import { main } from "../../../src/index"` and call it once per helper invocation. Currently `main` is a private function and is auto-invoked at module load time. We need to export it AND make sure the auto-invoke still happens when the file is loaded by the action runtime (which loads `dist/index.cjs`, not the TS source).
@@ -127,6 +128,7 @@ Expected: a handful of files (`core.js`, `command.js`, `file-command.js`, `summa
 - [ ] **Step 2: Identify the mutable state**
 
 Open `router/node_modules/@actions/core/lib/core.js` and `file-command.js`. Look for:
+
 - Module-level variables (none for `core.js` proper — it reads env vars on demand)
 - `process.exitCode` writes (in `setFailed`)
 - The GITHUB_OUTPUT delimiter state. `file-command.js` writes via `fs.appendFileSync` and uses a `prepareKeyValueMessage(key, value)` helper that generates a fresh delimiter per call. There is NO module-level cache.
@@ -139,6 +141,7 @@ Look for any `process.env.STATE_*` or `process.env.INPUT_*` writes via `exportVa
 - [ ] **Step 4: Write down the reset list**
 
 Based on the inspection, the reset list is:
+
 1. `process.exitCode = undefined` (cleared between invocations so a `setFailed` does not leak).
 2. Truncate the file at `process.env.GITHUB_OUTPUT` to length 0 before each invocation (the harness already creates a fresh file per invocation, so this is automatic — no explicit truncation needed, but document it).
 3. Truncate `process.env.GITHUB_STATE` and `process.env.GITHUB_ENV` similarly if they ever get set (currently none of the router helpers use them; document this assumption in `env.ts` and add a runtime check that throws if either var is set at the start of a helper invocation, so a future helper that starts using them gets caught).
@@ -158,6 +161,7 @@ Write a comment block at the top of the eventual `harness/env.ts` (added in Task
 Maps to commit 1: `test(e2e): scaffold fake-github state model and errors`.
 
 **Files:**
+
 - Modify: `router/src/index.ts` (the Task 0a edit lands here)
 - Create: `router/test/e2e/fake-github/state.ts`
 - Create: `router/test/e2e/fake-github/errors.ts`
@@ -388,6 +392,7 @@ EOF
 Maps to commit 2: `test(e2e): implement fake-github issues handler with semantic rules`.
 
 **Files:**
+
 - Create: `router/test/e2e/fake-github/handlers/issues.ts`
 - Create: `router/test/e2e/fake-github/fake-github.test.ts`
 
@@ -488,10 +493,18 @@ Append to the same `describe`:
 ```ts
 test("is idempotent — adding the same label twice is a no-op", () => {
   const state = newFakeState({ owner: "o", repo: "r" });
-  state.labels.set("shopfloor:triaging", { name: "shopfloor:triaging", color: "ededed" });
+  state.labels.set("shopfloor:triaging", {
+    name: "shopfloor:triaging",
+    color: "ededed",
+  });
   state.issues.set(1, {
-    number: 1, title: "x", body: null, state: "open", labels: [],
-    author: "a", createdAt: "2026-04-15T00:00:00Z",
+    number: 1,
+    title: "x",
+    body: null,
+    state: "open",
+    labels: [],
+    author: "a",
+    createdAt: "2026-04-15T00:00:00Z",
   });
   addLabels(state, { issue_number: 1, labels: ["shopfloor:triaging"] });
   addLabels(state, { issue_number: 1, labels: ["shopfloor:triaging"] });
@@ -510,13 +523,22 @@ import { removeLabel } from "./handlers/issues";
 describe("issues.removeLabel", () => {
   test("throws 404 when label is not on the issue", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:foo", { name: "shopfloor:foo", color: "ededed" });
-    state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+    state.labels.set("shopfloor:foo", {
+      name: "shopfloor:foo",
+      color: "ededed",
     });
-    expect(() => removeLabel(state, { issue_number: 1, name: "shopfloor:foo" }))
-      .toThrow(FakeRequestError);
+    state.issues.set(1, {
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
+    });
+    expect(() =>
+      removeLabel(state, { issue_number: 1, name: "shopfloor:foo" }),
+    ).toThrow(FakeRequestError);
     try {
       removeLabel(state, { issue_number: 1, name: "shopfloor:foo" });
     } catch (err) {
@@ -525,10 +547,18 @@ describe("issues.removeLabel", () => {
   });
   test("removes the label when present", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:foo", { name: "shopfloor:foo", color: "ededed" });
+    state.labels.set("shopfloor:foo", {
+      name: "shopfloor:foo",
+      color: "ededed",
+    });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: ["shopfloor:foo"],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: ["shopfloor:foo"],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     removeLabel(state, { issue_number: 1, name: "shopfloor:foo" });
     expect(state.issues.get(1)!.labels).toEqual([]);
@@ -546,7 +576,10 @@ export function removeLabel(
   const issue = requireIssue(state, params.issue_number);
   const idx = issue.labels.indexOf(params.name);
   if (idx === -1) {
-    throw new FakeRequestError(404, `Label not found on issue #${params.issue_number}`);
+    throw new FakeRequestError(
+      404,
+      `Label not found on issue #${params.issue_number}`,
+    );
   }
   issue.labels.splice(idx, 1);
   state.eventLog.push({
@@ -571,8 +604,13 @@ describe("issues.createComment", () => {
   test("allocates a fresh id and returns it", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     const a = createComment(state, { issue_number: 1, body: "hello" });
     const b = createComment(state, { issue_number: 1, body: "world" });
@@ -619,8 +657,9 @@ import { updateComment } from "./handlers/issues";
 describe("issues.updateComment", () => {
   test("404 if comment id unknown", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    expect(() => updateComment(state, { comment_id: 999, body: "x" }))
-      .toThrow(FakeRequestError);
+    expect(() => updateComment(state, { comment_id: 999, body: "x" })).toThrow(
+      FakeRequestError,
+    );
   });
   test("updates the body", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
@@ -639,7 +678,8 @@ export function updateComment(
   params: { comment_id: number; body: string },
 ): void {
   const c = state.comments.get(params.comment_id);
-  if (!c) throw new FakeRequestError(404, `Comment #${params.comment_id} not found`);
+  if (!c)
+    throw new FakeRequestError(404, `Comment #${params.comment_id} not found`);
   c.body = params.body;
   state.eventLog.push({ kind: "updateComment", id: c.id, t: nextTick(state) });
 }
@@ -659,8 +699,9 @@ describe("issues.createLabel", () => {
   test("throws 422 when label already exists", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     createLabel(state, { name: "shopfloor:foo", color: "ededed" });
-    expect(() => createLabel(state, { name: "shopfloor:foo", color: "ededed" }))
-      .toThrow(FakeRequestError);
+    expect(() =>
+      createLabel(state, { name: "shopfloor:foo", color: "ededed" }),
+    ).toThrow(FakeRequestError);
   });
 });
 ```
@@ -680,7 +721,11 @@ export function createLabel(
     color: params.color,
     description: params.description,
   });
-  state.eventLog.push({ kind: "createLabel", name: params.name, t: nextTick(state) });
+  state.eventLog.push({
+    kind: "createLabel",
+    name: params.name,
+    t: nextTick(state),
+  });
 }
 ```
 
@@ -694,8 +739,11 @@ describe("issues.listLabelsForRepo", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.labels.set("a", { name: "a", color: "ededed" });
     state.labels.set("b", { name: "b", color: "ededed" });
-    expect(listLabelsForRepo(state, { per_page: 100 }).map((l) => l.name).sort())
-      .toEqual(["a", "b"]);
+    expect(
+      listLabelsForRepo(state, { per_page: 100 })
+        .map((l) => l.name)
+        .sort(),
+    ).toEqual(["a", "b"]);
   });
 });
 ```
@@ -725,8 +773,13 @@ describe("issues.update", () => {
   test("closes an open issue and logs", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: "b", state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: "b",
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     updateIssue(state, { issue_number: 1, state: "closed" });
     expect(state.issues.get(1)!.state).toBe("closed");
@@ -735,8 +788,13 @@ describe("issues.update", () => {
   test("updates the body without changing state", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: "old", state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: "old",
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     updateIssue(state, { issue_number: 1, body: "new" });
     expect(state.issues.get(1)!.body).toBe("new");
@@ -779,10 +837,18 @@ import { getIssue } from "./handlers/issues";
 describe("issues.get", () => {
   test("returns labels reshaped to [{name}]", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:triaging", { name: "shopfloor:triaging", color: "ededed" });
+    state.labels.set("shopfloor:triaging", {
+      name: "shopfloor:triaging",
+      color: "ededed",
+    });
     state.issues.set(1, {
-      number: 1, title: "x", body: "b", state: "open", labels: ["shopfloor:triaging"],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: "b",
+      state: "open",
+      labels: ["shopfloor:triaging"],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     const data = getIssue(state, { issue_number: 1 });
     expect(data.labels).toEqual([{ name: "shopfloor:triaging" }]);
@@ -824,12 +890,31 @@ describe("issues.listComments", () => {
   test("returns comments for the issue", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
-    state.comments.set(1, { id: 1, issueNumber: 1, body: "hi", author: "alice" });
-    state.comments.set(2, { id: 2, issueNumber: 99, body: "elsewhere", author: "bob" });
-    const out = listComments(state, { issue_number: 1, per_page: 100, page: 1 });
+    state.comments.set(1, {
+      id: 1,
+      issueNumber: 1,
+      body: "hi",
+      author: "alice",
+    });
+    state.comments.set(2, {
+      id: 2,
+      issueNumber: 99,
+      body: "elsewhere",
+      author: "bob",
+    });
+    const out = listComments(state, {
+      issue_number: 1,
+      per_page: 100,
+      page: 1,
+    });
     expect(out).toHaveLength(1);
     expect(out[0].body).toBe("hi");
     expect(out[0].user).toEqual({ login: "alice" });
@@ -898,6 +983,7 @@ EOF
 Maps to commit 3: `test(e2e): implement fake-github pulls handler with semantic rules`.
 
 **Files:**
+
 - Create: `router/test/e2e/fake-github/handlers/pulls.ts`
 - Modify: `router/test/e2e/fake-github/fake-github.test.ts` (append more describes)
 
@@ -1014,9 +1100,19 @@ test("open-PR-per-head uniqueness: second open PR for same head is rejected", ()
   const state = newFakeState({ owner: "o", repo: "r" });
   state.branches.set("main", "sha-main-0");
   state.branches.set("shopfloor/42-foo", "sha-foo-0");
-  createPr(state, { base: "main", head: "shopfloor/42-foo", title: "T", body: "B" });
+  createPr(state, {
+    base: "main",
+    head: "shopfloor/42-foo",
+    title: "T",
+    body: "B",
+  });
   expect(() =>
-    createPr(state, { base: "main", head: "shopfloor/42-foo", title: "T2", body: "B2" }),
+    createPr(state, {
+      base: "main",
+      head: "shopfloor/42-foo",
+      title: "T2",
+      body: "B2",
+    }),
   ).toThrow(/already exists/);
 });
 ```
@@ -1034,9 +1130,22 @@ describe("pulls.list", () => {
     state.branches.set("main", "sha-main-0");
     state.branches.set("shopfloor/42-foo", "sha-foo-0");
     state.branches.set("shopfloor/43-bar", "sha-bar-0");
-    createPr(state, { base: "main", head: "shopfloor/42-foo", title: "A", body: "" });
-    createPr(state, { base: "main", head: "shopfloor/43-bar", title: "B", body: "" });
-    const result = listPrs(state, { head: "o:shopfloor/42-foo", state: "open" });
+    createPr(state, {
+      base: "main",
+      head: "shopfloor/42-foo",
+      title: "A",
+      body: "",
+    });
+    createPr(state, {
+      base: "main",
+      head: "shopfloor/43-bar",
+      title: "B",
+      body: "",
+    });
+    const result = listPrs(state, {
+      head: "o:shopfloor/42-foo",
+      state: "open",
+    });
     expect(result).toHaveLength(1);
     expect(result[0].number).toBe(1);
   });
@@ -1128,7 +1237,9 @@ describe("pulls.get", () => {
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
     const data = getPr(state, { pull_number: 1 });
-    expect(data.head).toEqual(expect.objectContaining({ ref: "h", sha: "sha-h-0" }));
+    expect(data.head).toEqual(
+      expect.objectContaining({ ref: "h", sha: "sha-h-0" }),
+    );
     expect(data.state).toBe("open");
     expect(data.draft).toBe(false);
     expect(data.merged).toBe(false);
@@ -1208,7 +1319,8 @@ import { createReview } from "./handlers/pulls";
 describe("pulls.createReview", () => {
   test("rejects REQUEST_CHANGES when reviewer matches PR author", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
     });
     state.branches.set("main", "sha-main-0");
@@ -1227,7 +1339,8 @@ describe("pulls.createReview", () => {
   });
   test("allows REQUEST_CHANGES from a distinct identity", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -1249,7 +1362,11 @@ describe("pulls.createReview", () => {
     expect(review.user.login).toBe("shopfloor-review[bot]");
   });
   test("allows COMMENT review even from PR author", () => {
-    const state = newFakeState({ owner: "o", repo: "r", authIdentity: "shopfloor[bot]" });
+    const state = newFakeState({
+      owner: "o",
+      repo: "r",
+      authIdentity: "shopfloor[bot]",
+    });
     state.branches.set("main", "sha-main-0");
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
@@ -1296,13 +1413,13 @@ export interface CreateReviewParams {
   actor: string;
 }
 
-export function createReview(state: FakeState, params: CreateReviewParams): void {
+export function createReview(
+  state: FakeState,
+  params: CreateReviewParams,
+): void {
   const pr = requirePr(state, params.pull_number);
   if (params.event !== "COMMENT" && params.actor === pr.author) {
-    throw new FakeRequestError(
-      422,
-      "Can not approve your own pull request",
-    );
+    throw new FakeRequestError(422, "Can not approve your own pull request");
   }
   const id = state.nextReviewId++;
   state.reviews.set(id, {
@@ -1359,7 +1476,8 @@ import { listReviews } from "./handlers/pulls";
 describe("pulls.listReviews", () => {
   test("returns rows with commit_id, state, and submitted_at", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -1367,8 +1485,12 @@ describe("pulls.listReviews", () => {
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
     createReview(state, {
-      pull_number: 1, commit_id: "sha-1", event: "REQUEST_CHANGES",
-      body: "fix", comments: [], actor: "shopfloor-review[bot]",
+      pull_number: 1,
+      commit_id: "sha-1",
+      event: "REQUEST_CHANGES",
+      body: "fix",
+      comments: [],
+      actor: "shopfloor-review[bot]",
     });
     const rows = listReviews(state, { pull_number: 1 });
     expect(rows).toHaveLength(1);
@@ -1423,7 +1545,8 @@ import { listReviewComments } from "./handlers/pulls";
 describe("pulls.listReviewComments", () => {
   test("returns inline comments with pull_request_review_id and path/line/side/body", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -1431,13 +1554,18 @@ describe("pulls.listReviewComments", () => {
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
     createReview(state, {
-      pull_number: 1, commit_id: "sha-1", event: "REQUEST_CHANGES",
-      body: "fix", comments: [
-        { path: "src/a.ts", line: 5, side: "RIGHT", body: "rename" },
-      ],
+      pull_number: 1,
+      commit_id: "sha-1",
+      event: "REQUEST_CHANGES",
+      body: "fix",
+      comments: [{ path: "src/a.ts", line: 5, side: "RIGHT", body: "rename" }],
       actor: "shopfloor-review[bot]",
     });
-    const out = listReviewComments(state, { pull_number: 1, per_page: 100, page: 1 });
+    const out = listReviewComments(state, {
+      pull_number: 1,
+      per_page: 100,
+      page: 1,
+    });
     expect(out).toHaveLength(1);
     expect(out[0]).toEqual(
       expect.objectContaining({
@@ -1525,6 +1653,7 @@ EOF
 Maps to commit 4: `test(e2e): implement fake-github repos handler and snapshot helpers`.
 
 **Files:**
+
 - Create: `router/test/e2e/fake-github/handlers/repos.ts`
 - Create: `router/test/e2e/fake-github/octokit-shim.ts`
 - Create: `router/test/e2e/fake-github/index.ts`
@@ -1553,15 +1682,23 @@ describe("repos.createCommitStatus", () => {
   test("latest-wins per (sha, context)", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     createCommitStatus(state, {
-      sha: "abc", state: "pending",
-      context: "shopfloor/review", description: "first",
+      sha: "abc",
+      state: "pending",
+      context: "shopfloor/review",
+      description: "first",
     });
     createCommitStatus(state, {
-      sha: "abc", state: "success",
-      context: "shopfloor/review", description: "second",
+      sha: "abc",
+      state: "success",
+      context: "shopfloor/review",
+      description: "second",
     });
-    expect(state.statuses.get("abc")!.get("shopfloor/review")!.state).toBe("success");
-    expect(state.statuses.get("abc")!.get("shopfloor/review")!.description).toBe("second");
+    expect(state.statuses.get("abc")!.get("shopfloor/review")!.state).toBe(
+      "success",
+    );
+    expect(
+      state.statuses.get("abc")!.get("shopfloor/review")!.description,
+    ).toBe("second");
   });
 });
 ```
@@ -1686,7 +1823,11 @@ export function buildOctokitShim(opts: ShimOptions): OctokitLike {
           return envelope(pulls.listFiles(state, p));
         },
         async createReview(p) {
-          pulls.createReview(state, { ...p, actor, comments: p.comments ?? [] });
+          pulls.createReview(state, {
+            ...p,
+            actor,
+            comments: p.comments ?? [],
+          });
           return envelope({});
         },
         async listReviews(p) {
@@ -1760,7 +1901,9 @@ export class FakeGitHub {
   }
 
   // ── Seeding ────────────────────────────────────────────────────
-  seedLabels(labels: Array<{ name: string; color: string; description?: string }>): void {
+  seedLabels(
+    labels: Array<{ name: string; color: string; description?: string }>,
+  ): void {
     for (const l of labels) {
       this.state.labels.set(l.name, l);
     }
@@ -1844,7 +1987,9 @@ export class FakeGitHub {
     return this.state.statuses.get(sha)?.get(context);
   }
   openPrs(): Pull[] {
-    return Array.from(this.state.pulls.values()).filter((p) => p.state === "open");
+    return Array.from(this.state.pulls.values()).filter(
+      (p) => p.state === "open",
+    );
   }
   eventLog(): WriteEvent[] {
     return this.state.eventLog.slice();
@@ -1920,7 +2065,10 @@ describe("FakeGitHub.asOctokit", () => {
     fake.seedIssue({ number: 1, title: "x", body: null, author: "a" });
     const oct = fake.asOctokit("shopfloor[bot]");
     await oct.rest.issues.addLabels({
-      owner: "o", repo: "r", issue_number: 1, labels: ["shopfloor:trigger"],
+      owner: "o",
+      repo: "r",
+      issue_number: 1,
+      labels: ["shopfloor:trigger"],
     });
     expect(fake.labelsOn(1)).toEqual(["shopfloor:trigger"]);
   });
@@ -1978,6 +2126,7 @@ EOF
 Maps to commit 5: `test(e2e): scaffold scenario harness with env lifecycle and output parsing`.
 
 **Files:**
+
 - Create: `router/test/e2e/harness/env.ts`
 - Create: `router/test/e2e/harness/parse-output.ts`
 - Create: `router/test/e2e/harness/scenario-harness.test.ts`
@@ -2007,9 +2156,7 @@ describe("parseGithubOutput", () => {
     expect(parseGithubOutput(raw)).toEqual({ stage: "plan" });
   });
   test("parses multiple key/values", () => {
-    const raw =
-      "stage<<d1\nplan\nd1\n" +
-      "issue_number<<d2\n42\nd2\n";
+    const raw = "stage<<d1\nplan\nd1\n" + "issue_number<<d2\n42\nd2\n";
     expect(parseGithubOutput(raw)).toEqual({
       stage: "plan",
       issue_number: "42",
@@ -2222,6 +2369,7 @@ EOF
 Maps to commit 6: `test(e2e): add agent stub queue and event fixture loader`.
 
 **Files:**
+
 - Create: `router/test/e2e/harness/agent-stub.ts`
 - Create: `router/test/e2e/harness/fixtures.ts`
 - Modify: `router/test/e2e/harness/scenario-harness.test.ts` (append)
@@ -2358,7 +2506,9 @@ import { loadEvent } from "./fixtures";
 
 describe("loadEvent", () => {
   test("loads issue-labeled-trigger and applies issueNumber override", () => {
-    const ev = loadEvent("issue-labeled-trigger-label-added.json", { issueNumber: 99 });
+    const ev = loadEvent("issue-labeled-trigger-label-added.json", {
+      issueNumber: 99,
+    });
     expect(ev.eventName).toBe("issues");
     expect((ev.payload as { issue: { number: number } }).issue.number).toBe(99);
   });
@@ -2412,7 +2562,10 @@ function patchOverrides(payload: any, ov: LoadEventOverrides | undefined): any {
   }
   if (ov.sha !== undefined) {
     if (next.pull_request) {
-      next.pull_request.head = { ...(next.pull_request.head ?? {}), sha: ov.sha };
+      next.pull_request.head = {
+        ...(next.pull_request.head ?? {}),
+        sha: ov.sha,
+      };
     }
   }
   return next;
@@ -2466,6 +2619,7 @@ EOF
 Maps to commit 7: `test(e2e): hand-script job graph and runStage dispatch`.
 
 **Files:**
+
 - Create: `router/test/e2e/harness/job-graph.ts`
 - Create: `router/test/e2e/harness/scenario-harness.ts`
 - Modify: `router/test/e2e/harness/scenario-harness.test.ts` (append)
@@ -2529,7 +2683,11 @@ export interface ContextArtifact {
 export type GraphStep =
   | { kind: "helper"; id?: string; helper: HelperName; from: InputMap }
   | { kind: "agent"; stage: StageName }
-  | { kind: "context"; id: string; build: (ctx: StageContext) => ContextArtifact }
+  | {
+      kind: "context";
+      id: string;
+      build: (ctx: StageContext) => ContextArtifact;
+    }
   | { kind: "if"; when: (ctx: StageContext) => boolean; then: GraphStep[] };
 
 export type StageKey =
@@ -2628,6 +2786,7 @@ Read `shopfloor.yml:495-650` and translate. Same shape as spec but with stage=pl
 - [ ] **Step 5: Encode `implement-first-run`**
 
 Read `shopfloor.yml:670-1056`. The first-run path:
+
 1. `precheck-stage` (stage=implement)
 2. `advance-state` (to=`shopfloor:implementing`)
 3. (workflow shell: `git checkout -b` — no-op in fake)
@@ -2677,7 +2836,9 @@ jobGraph["implement-first-run"] = [
     kind: "helper",
     id: "progress",
     helper: "create-progress-comment",
-    from: { pr_number: { source: "previous", helper: "open_pr", key: "pr_number" } },
+    from: {
+      pr_number: { source: "previous", helper: "open_pr", key: "pr_number" },
+    },
   },
   {
     kind: "context",
@@ -2758,6 +2919,7 @@ jobGraph["implement-first-run"] = [
 - [ ] **Step 6: Encode `implement-revision`**
 
 Read `shopfloor.yml:711-1056` again, this time focusing on the `revision_mode == 'true'` branches. The revision path:
+
 1. `precheck-stage`
 2. `advance-state`
 3. (workflow: `git fetch` — no-op)
@@ -2804,11 +2966,18 @@ jobGraph["implement-revision"] = [
       branch_name: { source: "route", key: "branch_name" },
       spec_file_path: { source: "route", key: "spec_file_path" },
       plan_file_path: { source: "route", key: "plan_file_path" },
-      progress_comment_id: { source: "previous", helper: "progress", key: "comment_id" },
+      progress_comment_id: {
+        source: "previous",
+        helper: "progress",
+        key: "comment_id",
+      },
       bash_allowlist: { source: "literal", value: "pnpm test:*" },
       repo_owner: { source: "fake", resolve: (ctx) => ctx.fake.owner },
       repo_name: { source: "fake", resolve: (ctx) => ctx.fake.repo },
-      output_path: { source: "fake", resolve: (ctx) => `${ctx.workspaceDir}/context.json` },
+      output_path: {
+        source: "fake",
+        resolve: (ctx) => `${ctx.workspaceDir}/context.json`,
+      },
     },
   },
   {
@@ -2849,6 +3018,7 @@ jobGraph["implement-revision"] = [
 - [ ] **Step 7: Encode the review stage**
 
 Read `shopfloor.yml:1058-1576`. The review stage runs four parallel reviewer agents whose outputs feed `aggregate-review`. The graph is:
+
 1. `check-review-skip` (sets `skip` output)
 2. Four parallel agent dispatches (modeled as a single `kind: "agent"; stage: "review"` step that the harness expands into the four-role bundle)
 3. `precheck-stage` (stage=review-aggregator)
@@ -2872,7 +3042,8 @@ jobGraph.review = [
       pr_number: { source: "route", key: "impl_pr_number" },
       analysed_sha: {
         source: "fake",
-        resolve: (ctx) => ctx.fake.pr(Number(ctx.routeOutputs.impl_pr_number)).head.sha,
+        resolve: (ctx) =>
+          ctx.fake.pr(Number(ctx.routeOutputs.impl_pr_number)).head.sha,
       },
     },
   },
@@ -2884,13 +3055,22 @@ jobGraph.review = [
       pr_number: { source: "route", key: "impl_pr_number" },
       confidence_threshold: { source: "literal", value: "80" },
       max_iterations: { source: "literal", value: "3" },
-      compliance_output: { source: "agent-role", role: "compliance", key: "output" },
+      compliance_output: {
+        source: "agent-role",
+        role: "compliance",
+        key: "output",
+      },
       bugs_output: { source: "agent-role", role: "bugs", key: "output" },
-      security_output: { source: "agent-role", role: "security", key: "output" },
+      security_output: {
+        source: "agent-role",
+        role: "security",
+        key: "output",
+      },
       smells_output: { source: "agent-role", role: "smells", key: "output" },
       analysed_sha: {
         source: "fake",
-        resolve: (ctx) => ctx.fake.pr(Number(ctx.routeOutputs.impl_pr_number)).head.sha,
+        resolve: (ctx) =>
+          ctx.fake.pr(Number(ctx.routeOutputs.impl_pr_number)).head.sha,
       },
     },
   },
@@ -2977,7 +3157,12 @@ import type { OctokitLike } from "../../../src/types";
 import { FakeGitHub } from "../fake-github";
 import { snapshotEnv, resetCoreState } from "./env";
 import { parseGithubOutput } from "./parse-output";
-import { AgentStub, type NonReviewStage, type AgentResponse, type ReviewAgentBundle } from "./agent-stub";
+import {
+  AgentStub,
+  type NonReviewStage,
+  type AgentResponse,
+  type ReviewAgentBundle,
+} from "./agent-stub";
 import {
   jobGraph,
   type GraphStep,
@@ -3003,7 +3188,10 @@ export class ScenarioHarness {
     this.fake = opts.fake;
     if (opts.workspaceDir) {
       this.workspaceDir = opts.workspaceDir;
-      this.tmpHandle = { name: opts.workspaceDir, removeCallback: () => {} } as never;
+      this.tmpHandle = {
+        name: opts.workspaceDir,
+        removeCallback: () => {},
+      } as never;
     } else {
       this.tmpHandle = tmp.dirSync({ unsafeCleanup: true });
       this.workspaceDir = this.tmpHandle.name;
@@ -3136,7 +3324,9 @@ export class ScenarioHarness {
     inputs: Record<string, string>,
   ): Promise<Record<string, string>> {
     if (!this.currentEvent) {
-      throw new Error("invokeHelper: no event delivered yet — call deliverEvent first");
+      throw new Error(
+        "invokeHelper: no event delivered yet — call deliverEvent first",
+      );
     }
     const restoreEnv = snapshotEnv();
     const seq = ++this.seq;
@@ -3189,7 +3379,9 @@ export class ScenarioHarness {
   }
 }
 
-function serializeReviewBundle(bundle: ReviewAgentBundle): Record<string, string> {
+function serializeReviewBundle(
+  bundle: ReviewAgentBundle,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const role of ["compliance", "bugs", "security", "smells"] as const) {
     const r = bundle[role];
@@ -3262,19 +3454,28 @@ Append to `scenario-harness.test.ts`:
 import { vi as vitest } from "vitest";
 
 vitest.mock("@actions/github", async () => {
-  const actual = await vitest.importActual<typeof import("@actions/github")>("@actions/github");
+  const actual =
+    await vitest.importActual<typeof import("@actions/github")>(
+      "@actions/github",
+    );
   return {
     ...actual,
     getOctokit: vitest.fn(),
     context: {
-      get eventName() { return process.env.GITHUB_EVENT_NAME ?? ""; },
+      get eventName() {
+        return process.env.GITHUB_EVENT_NAME ?? "";
+      },
       get payload() {
         const p = process.env.GITHUB_EVENT_PATH;
         return p ? JSON.parse(require("fs").readFileSync(p, "utf8")) : {};
       },
       repo: {
-        get owner() { return process.env.GITHUB_REPOSITORY?.split("/")[0] ?? ""; },
-        get repo() { return process.env.GITHUB_REPOSITORY?.split("/")[1] ?? ""; },
+        get owner() {
+          return process.env.GITHUB_REPOSITORY?.split("/")[0] ?? "";
+        },
+        get repo() {
+          return process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
+        },
       },
     },
   };
@@ -3287,7 +3488,8 @@ import { loadEvent } from "./fixtures";
 describe("ScenarioHarness end-to-end smoke", () => {
   test("triage stage runs without throwing on a freshly seeded issue", async () => {
     const fake = new FakeGitHub({
-      owner: "acme", repo: "widgets",
+      owner: "acme",
+      repo: "widgets",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -3295,9 +3497,16 @@ describe("ScenarioHarness end-to-end smoke", () => {
     try {
       await harness.bootstrap();
       fake.seedBranch("main", "sha-main-0");
-      fake.seedIssue({ number: 42, title: "Add foo", body: "Need foo", author: "alice" });
+      fake.seedIssue({
+        number: 42,
+        title: "Add foo",
+        body: "Need foo",
+        author: "alice",
+      });
       await harness.deliverEvent(
-        loadEvent("issue-labeled-trigger-label-added.json", { issueNumber: 42 }),
+        loadEvent("issue-labeled-trigger-label-added.json", {
+          issueNumber: 42,
+        }),
       );
       harness.queueAgent("triage", {
         decision_json: JSON.stringify({
@@ -3365,6 +3574,7 @@ EOF
 Maps to commit 8: `test(e2e): wire @actions/github mock via vitest setup file`.
 
 **Files:**
+
 - Create: `router/test/e2e/setup.ts`
 - Modify: `vitest.config.ts`
 - Modify: `router/test/e2e/harness/scenario-harness.test.ts` (remove the inline `vi.mock` from Task 7)
@@ -3384,7 +3594,8 @@ import { readFileSync } from "node:fs";
 // any accidental access at the call site rather than letting it slip
 // through with stub data.
 vi.mock("@actions/github", async () => {
-  const actual = await vi.importActual<typeof import("@actions/github")>("@actions/github");
+  const actual =
+    await vi.importActual<typeof import("@actions/github")>("@actions/github");
   return {
     ...actual,
     getOctokit: vi.fn(),
@@ -3498,6 +3709,7 @@ Each scenario should run in **under 100ms**. Whole suite should add **<1s** to `
 Maps to commit 9: `test(e2e): scenario - quick happy path`.
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/quick-happy-path.test.ts`
 
 The simplest possible end-to-end. If this breaks, everything is on fire. Path: triage (quick) → implement → review approved → merge → done. Skips spec, plan.
@@ -3517,14 +3729,20 @@ describe("quick happy path", () => {
 
   beforeEach(async () => {
     fake = new FakeGitHub({
-      owner: "acme", repo: "widgets",
+      owner: "acme",
+      repo: "widgets",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
     harness = new ScenarioHarness({ fake });
     await harness.bootstrap();
     fake.seedBranch("main", "sha-main-0");
-    fake.seedIssue({ number: 42, title: "Add foo", body: "Need foo.", author: "alice" });
+    fake.seedIssue({
+      number: 42,
+      title: "Add foo",
+      body: "Need foo.",
+      author: "alice",
+    });
   });
   afterEach(async () => harness.dispose());
 
@@ -3557,19 +3775,48 @@ describe("quick happy path", () => {
       changed_files: JSON.stringify(["src/foo.ts"]),
     });
     await harness.runStage("implement");
-    const implPr = fake.openPrs().find((p) => p.head.ref.startsWith("shopfloor/42"));
+    const implPr = fake
+      .openPrs()
+      .find((p) => p.head.ref.startsWith("shopfloor/42"));
     expect(implPr).toBeDefined();
     expect(fake.labelsOn(42)).toContain("shopfloor:needs-review");
 
     // 3. ready_for_review triggers review.
     await harness.deliverEvent(
-      loadEvent("pr-ready-for-review-impl.json", { issueNumber: 42, prNumber: implPr!.number }),
+      loadEvent("pr-ready-for-review-impl.json", {
+        issueNumber: 42,
+        prNumber: implPr!.number,
+      }),
     );
     harness.queueReviewAgents({
-      compliance: { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-      bugs:       { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-      security:   { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-      smells:     { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
+      compliance: {
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
+      },
+      bugs: {
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
+      },
+      security: {
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
+      },
+      smells: {
+        output: JSON.stringify({
+          verdict: "clean",
+          summary: "ok",
+          comments: [],
+        }),
+      },
     });
     await harness.runStage("review");
     expect(fake.labelsOn(42)).toContain("shopfloor:review-approved");
@@ -3577,7 +3824,10 @@ describe("quick happy path", () => {
     // 4. Merge the impl PR (the production handler closes the issue here).
     fake.mergePr(implPr!.number, "sha-impl-0");
     await harness.deliverEvent(
-      loadEvent("pr-closed-merged-spec.json", { issueNumber: 42, prNumber: implPr!.number }),
+      loadEvent("pr-closed-merged-spec.json", {
+        issueNumber: 42,
+        prNumber: implPr!.number,
+      }),
     );
     await harness.runStage("handle-merge");
     expect(fake.issue(42).state).toBe("closed");
@@ -3627,6 +3877,7 @@ git commit -m "test(e2e): add issue-labeled-needs-impl fixture for scenario harn
 Run: `pnpm test router/test/e2e/scenarios/quick-happy-path.test.ts`
 
 Likely first failures and what to do about each:
+
 - `route` returning `stage='none'` because the trigger fixture's label name does not match: pass `trigger_label` input to the route helper via a literal in the job graph, or add a `triggerLabel` constructor option to the harness that bakes in `INPUT_TRIGGER_LABEL`.
 - Branch slug mismatch: the scenario hard-codes `shopfloor/42-add-foo` but `branchSlug("Add foo")` may produce `shopfloor/42-add-foo` or something different. Check `router/src/state.ts` → `branchSlug`. If it differs, read the actual route output and use `routeOutputs.branch_name` to seed the branch.
 - `apply-impl-postwork` checking `shopfloor:implementing` but the implement-first-run path forgets to keep it during the workflow snapshot: re-read `apply-impl-postwork.ts` and fix the order in the job-graph step list.
@@ -3667,6 +3918,7 @@ EOF
 Maps to commit 10. Path: triage (medium) → plan → implement → review approved → merge.
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/medium-happy-path.test.ts`
 
 - [ ] **Step 1: Write the scenario** following the same shape as Task 9, with these additions:
@@ -3689,6 +3941,7 @@ git commit -m "test(e2e): scenario - medium happy path"
 Maps to commit 11.
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/large-happy-path.test.ts`
 
 - [ ] **Step 1: Write the scenario.** Same shape as Task 10 but with a spec stage in front. Triage classifies as `large`. Run `harness.runStage("spec")` with a queued `spec` agent response. Spec PR opens, gets merged, `handle-merge` flips to `needs-plan`. Then plan, implement, review, merge.
@@ -3706,6 +3959,7 @@ git commit -m "test(e2e): scenario - large happy path with spec"
 Maps to commit 12.
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/triage-clarification-and-resume.test.ts`
 
 - [ ] **Step 1: Write the scenario.**
@@ -3728,6 +3982,7 @@ git commit -m "test(e2e): scenario - triage clarification and resume"
 Maps to commit 13.
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/spec-pr-changes-requested-rework.test.ts`
 
 - [ ] **Step 1: Write the scenario.**
@@ -3749,6 +4004,7 @@ git commit -m "test(e2e): scenario - spec PR changes requested rework"
 Maps to commit 14. **This is the scenario the whole project might be worth doing.**
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/impl-review-retry-loop.test.ts`
 
 - [ ] **Step 1: Pre-seed spec/plan files**
@@ -3763,22 +4019,47 @@ test("impl revision retry loop: revision_mode flips, same PR reused, build-revis
   // 2. First implement run (revision_mode=false).
   await harness.deliverEvent(/* needs-impl event */);
   expect((await harness.routeOutputsSnapshot()).revision_mode).toBe("false"); // helper for clarity
-  harness.queueAgent("implement", { /* ... */ });
+  harness.queueAgent("implement", {
+    /* ... */
+  });
   await harness.runStage("implement");
   const implPr = fake.openPrs().find((p) => p.head.ref.includes("impl"))!;
   expect(implPr.body).toMatch(/Shopfloor-Review-Iteration: 0/);
   const firstRunPrNumber = implPr.number;
 
   // 3. Review iteration 0: REQUEST_CHANGES.
-  await harness.deliverEvent(loadEvent("pr-ready-for-review-impl.json",
-    { issueNumber: 42, prNumber: firstRunPrNumber }));
+  await harness.deliverEvent(
+    loadEvent("pr-ready-for-review-impl.json", {
+      issueNumber: 42,
+      prNumber: firstRunPrNumber,
+    }),
+  );
   harness.queueReviewAgents({
-    compliance: { output: JSON.stringify({ verdict: "issues_found", summary: "fix",
-      comments: [{ path: "src/foo.ts", line: 1, side: "RIGHT", body: "rename",
-        confidence: 95, category: "compliance" }] }) },
-    bugs:     { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-    security: { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-    smells:   { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
+    compliance: {
+      output: JSON.stringify({
+        verdict: "issues_found",
+        summary: "fix",
+        comments: [
+          {
+            path: "src/foo.ts",
+            line: 1,
+            side: "RIGHT",
+            body: "rename",
+            confidence: 95,
+            category: "compliance",
+          },
+        ],
+      }),
+    },
+    bugs: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
+    security: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
+    smells: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
   });
   await harness.runStage("review");
   expect(fake.labelsOn(42)).toContain("shopfloor:review-requested-changes");
@@ -3787,8 +4068,10 @@ test("impl revision retry loop: revision_mode flips, same PR reused, build-revis
   // 4. Second implement run (revision_mode=true). Route should output
   //    revision_mode=true and impl_pr_number=firstRunPrNumber.
   await harness.deliverEvent(
-    loadEvent("pr-review-submitted-changes-requested.json",
-      { issueNumber: 42, prNumber: firstRunPrNumber }),
+    loadEvent("pr-review-submitted-changes-requested.json", {
+      issueNumber: 42,
+      prNumber: firstRunPrNumber,
+    }),
   );
   harness.queueAgent("implement", {
     pr_title: "feat: add foo (revised)",
@@ -3798,20 +4081,32 @@ test("impl revision retry loop: revision_mode flips, same PR reused, build-revis
   });
   await harness.runStage("implement");
   // Same PR number — no new PR opened.
-  expect(fake.openPrs().filter((p) => p.head.ref.includes("impl"))).toHaveLength(1);
+  expect(
+    fake.openPrs().filter((p) => p.head.ref.includes("impl")),
+  ).toHaveLength(1);
   const revisedPr = fake.pr(firstRunPrNumber);
   expect(revisedPr.body).toMatch(/Shopfloor-Review-Iteration: 1/);
 
   // 5. Review iteration 1: APPROVE.
   await harness.deliverEvent(
-    loadEvent("pr-ready-for-review-impl.json",
-      { issueNumber: 42, prNumber: firstRunPrNumber }),
+    loadEvent("pr-ready-for-review-impl.json", {
+      issueNumber: 42,
+      prNumber: firstRunPrNumber,
+    }),
   );
   harness.queueReviewAgents({
-    compliance: { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-    bugs:       { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-    security:   { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
-    smells:     { output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }) },
+    compliance: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
+    bugs: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
+    security: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
+    smells: {
+      output: JSON.stringify({ verdict: "clean", summary: "ok", comments: [] }),
+    },
   });
   await harness.runStage("review");
   expect(fake.labelsOn(42)).toContain("shopfloor:review-approved");
@@ -3856,6 +4151,7 @@ EOF
 Maps to commit 15.
 
 **Files:**
+
 - Create: `router/test/e2e/scenarios/review-stuck-after-max-iterations.test.ts`
 
 - [ ] **Step 1: Write the scenario.** Same shape as Task 14 but the review fan-out requests changes for three iterations in a row. After the third REQUEST_CHANGES, `aggregate-review` should label the issue `shopfloor:review-stuck` and stop the loop. Assertions:
@@ -3878,6 +4174,7 @@ git commit -m "test(e2e): scenario - review stuck after max iterations"
 Maps to commit 16: `docs(e2e): add README for layer 1 e2e tests`.
 
 **Files:**
+
 - Create: `router/test/e2e/README.md`
 
 - [ ] **Step 1: Draft the README** covering:
@@ -3902,6 +4199,7 @@ git commit -m "docs(e2e): add README for layer 1 e2e tests"
 Maps to commit 17: `chore(test): add pnpm test:e2e and test:e2e:watch scripts`.
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 1: Add scripts**
@@ -3999,25 +4297,25 @@ Per-scenario should be **< 100ms**. If any single scenario crosses 200ms, debug 
 
 18 commits — the spec's 17-commit conventional-commits plan plus one fixture-add commit slotted into Task 9 (the `issue-labeled-needs-impl.json` fixture):
 
-| # | Commit subject |
-| --- | --- |
-| 1 | `test(e2e): scaffold fake-github state model and errors` |
-| 2 | `test(e2e): implement fake-github issues handler with semantic rules` |
-| 3 | `test(e2e): implement fake-github pulls handler with semantic rules` |
-| 4 | `test(e2e): implement fake-github repos handler and snapshot helpers` |
-| 5 | `test(e2e): scaffold scenario harness with env lifecycle and output parsing` |
-| 6 | `test(e2e): add agent stub queue and event fixture loader` |
-| 7 | `test(e2e): hand-script job graph and runStage dispatch` |
-| 8 | `test(e2e): wire @actions/github mock via vitest setup file` |
-| 8b | `test(e2e): add issue-labeled-needs-impl fixture for scenario harness` |
-| 9 | `test(e2e): scenario - quick happy path` |
-| 10 | `test(e2e): scenario - medium happy path` |
-| 11 | `test(e2e): scenario - large happy path with spec` |
-| 12 | `test(e2e): scenario - triage clarification and resume` |
-| 13 | `test(e2e): scenario - spec PR changes requested rework` |
-| 14 | `test(e2e): scenario - impl review retry loop` |
-| 15 | `test(e2e): scenario - review stuck after max iterations` |
-| 16 | `docs(e2e): add README for layer 1 e2e tests` |
-| 17 | `chore(test): add pnpm test:e2e and test:e2e:watch scripts` |
+| #   | Commit subject                                                               |
+| --- | ---------------------------------------------------------------------------- |
+| 1   | `test(e2e): scaffold fake-github state model and errors`                     |
+| 2   | `test(e2e): implement fake-github issues handler with semantic rules`        |
+| 3   | `test(e2e): implement fake-github pulls handler with semantic rules`         |
+| 4   | `test(e2e): implement fake-github repos handler and snapshot helpers`        |
+| 5   | `test(e2e): scaffold scenario harness with env lifecycle and output parsing` |
+| 6   | `test(e2e): add agent stub queue and event fixture loader`                   |
+| 7   | `test(e2e): hand-script job graph and runStage dispatch`                     |
+| 8   | `test(e2e): wire @actions/github mock via vitest setup file`                 |
+| 8b  | `test(e2e): add issue-labeled-needs-impl fixture for scenario harness`       |
+| 9   | `test(e2e): scenario - quick happy path`                                     |
+| 10  | `test(e2e): scenario - medium happy path`                                    |
+| 11  | `test(e2e): scenario - large happy path with spec`                           |
+| 12  | `test(e2e): scenario - triage clarification and resume`                      |
+| 13  | `test(e2e): scenario - spec PR changes requested rework`                     |
+| 14  | `test(e2e): scenario - impl review retry loop`                               |
+| 15  | `test(e2e): scenario - review stuck after max iterations`                    |
+| 16  | `docs(e2e): add README for layer 1 e2e tests`                                |
+| 17  | `chore(test): add pnpm test:e2e and test:e2e:watch scripts`                  |
 
 Plus an unknown number of `test(e2e): extend harness for X` commits that may slot in between scenarios as gaps surface during Phase 3. These are expected and acceptable.

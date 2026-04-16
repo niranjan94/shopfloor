@@ -52,7 +52,10 @@ export function removeLabel(
   const issue = requireIssue(state, params.issue_number);
   const idx = issue.labels.indexOf(params.name);
   if (idx === -1) {
-    throw new FakeRequestError(404, `Label not found on issue #${params.issue_number}`);
+    throw new FakeRequestError(
+      404,
+      `Label not found on issue #${params.issue_number}`,
+    );
   }
   issue.labels.splice(idx, 1);
   state.eventLog.push({
@@ -70,11 +73,11 @@ export function createComment(
   // Accept either a real Issue or a PR (which GitHub treats as an Issue
   // for the comments endpoint). Apply-impl-postwork creates progress
   // comments addressed to the impl PR number, and those must resolve.
-  if (!state.issues.has(params.issue_number) && !isKnownPr(state, params.issue_number)) {
-    throw new FakeRequestError(
-      404,
-      `Issue #${params.issue_number} not found`,
-    );
+  if (
+    !state.issues.has(params.issue_number) &&
+    !isKnownPr(state, params.issue_number)
+  ) {
+    throw new FakeRequestError(404, `Issue #${params.issue_number} not found`);
   }
   const id = state.nextCommentId++;
   state.comments.set(id, {
@@ -97,7 +100,8 @@ export function updateComment(
   params: { comment_id: number; body: string },
 ): void {
   const c = state.comments.get(params.comment_id);
-  if (!c) throw new FakeRequestError(404, `Comment #${params.comment_id} not found`);
+  if (!c)
+    throw new FakeRequestError(404, `Comment #${params.comment_id} not found`);
   c.body = params.body;
   state.eventLog.push({ kind: "updateComment", id: c.id, t: nextTick(state) });
 }
@@ -114,7 +118,11 @@ export function createLabel(
     color: params.color,
     description: params.description,
   });
-  state.eventLog.push({ kind: "createLabel", name: params.name, t: nextTick(state) });
+  state.eventLog.push({
+    kind: "createLabel",
+    name: params.name,
+    t: nextTick(state),
+  });
 }
 
 export function listLabelsForRepo(

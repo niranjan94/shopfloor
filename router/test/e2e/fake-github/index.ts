@@ -47,7 +47,9 @@ export class FakeGitHub {
   }
 
   // Seeding
-  seedLabels(labels: Array<{ name: string; color: string; description?: string }>): void {
+  seedLabels(
+    labels: Array<{ name: string; color: string; description?: string }>,
+  ): void {
     for (const l of labels) {
       this.state.labels.set(l.name, l);
     }
@@ -158,7 +160,9 @@ export class FakeGitHub {
     return this.state.statuses.get(sha)?.get(context);
   }
   openPrs(): Pull[] {
-    return Array.from(this.state.pulls.values()).filter((p) => p.state === "open");
+    return Array.from(this.state.pulls.values()).filter(
+      (p) => p.state === "open",
+    );
   }
   eventLog(): WriteEvent[] {
     return this.state.eventLog.slice();

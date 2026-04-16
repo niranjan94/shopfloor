@@ -14,19 +14,19 @@
 
 ## File Structure
 
-| File | Status | Responsibility |
-| --- | --- | --- |
-| `prompts/spec.md` | Modify | Replace `<previous_spec>{{previous_spec_contents}}</previous_spec>` + `<review_feedback>` + `<revision_handling>` with `{{revision_block}}`. |
-| `prompts/plan.md` | Modify | Replace `{{spec_source}}` with `@{{spec_file_path}}` ref. Replace `<previous_plan>` + `<review_feedback>` + `<revision_handling>` with `{{revision_block}}`. |
-| `prompts/implement.md` | Modify | Replace `{{spec_source}}` with `@{{spec_file_path}}` ref. Replace `<plan_file_contents>{{plan_file_contents}}</plan_file_contents>` with `@{{plan_file_path}}` ref. |
-| `prompts/spec-revision-fragment.md` | Create | Revision instructions for spec agent + `{{review_comments_json}}` + `@{{spec_file_path}}` ref to read previous version. |
-| `prompts/plan-revision-fragment.md` | Create | Revision instructions for plan agent + `{{review_comments_json}}` + `@{{plan_file_path}}` ref + `@{{spec_file_path}}` ref. |
-| `router/src/helpers/build-revision-context.ts` | Modify | Accept `stage` input (spec/plan/implement). For all stages: stop reading full file contents, pass paths. For spec/plan: render the new fragment, output `revision_block`. |
-| `.github/workflows/shopfloor.yml` | Modify | Spec job: split branch checkout + context builder on `revision_mode`. Plan job: same. Implement job first-run: stop embedding full contents, pass paths. |
-| `router/test/helpers/build-revision-context.test.ts` | Modify | Add spec/plan stage test coverage. |
-| `router/test/e2e/harness/job-graph.ts` | Modify | Add spec-revision and plan-revision stage keys. Update implement context builders to use paths. |
-| `router/test/e2e/scenarios/spec-pr-changes-requested-rework.test.ts` | Modify | Assert `revision_block` is populated during the rework run. |
-| `router/dist/index.cjs` | Rebuild | Standard dist rebuild after router changes. |
+| File                                                                 | Status  | Responsibility                                                                                                                                                            |
+| -------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prompts/spec.md`                                                    | Modify  | Replace `<previous_spec>{{previous_spec_contents}}</previous_spec>` + `<review_feedback>` + `<revision_handling>` with `{{revision_block}}`.                              |
+| `prompts/plan.md`                                                    | Modify  | Replace `{{spec_source}}` with `@{{spec_file_path}}` ref. Replace `<previous_plan>` + `<review_feedback>` + `<revision_handling>` with `{{revision_block}}`.              |
+| `prompts/implement.md`                                               | Modify  | Replace `{{spec_source}}` with `@{{spec_file_path}}` ref. Replace `<plan_file_contents>{{plan_file_contents}}</plan_file_contents>` with `@{{plan_file_path}}` ref.       |
+| `prompts/spec-revision-fragment.md`                                  | Create  | Revision instructions for spec agent + `{{review_comments_json}}` + `@{{spec_file_path}}` ref to read previous version.                                                   |
+| `prompts/plan-revision-fragment.md`                                  | Create  | Revision instructions for plan agent + `{{review_comments_json}}` + `@{{plan_file_path}}` ref + `@{{spec_file_path}}` ref.                                                |
+| `router/src/helpers/build-revision-context.ts`                       | Modify  | Accept `stage` input (spec/plan/implement). For all stages: stop reading full file contents, pass paths. For spec/plan: render the new fragment, output `revision_block`. |
+| `.github/workflows/shopfloor.yml`                                    | Modify  | Spec job: split branch checkout + context builder on `revision_mode`. Plan job: same. Implement job first-run: stop embedding full contents, pass paths.                  |
+| `router/test/helpers/build-revision-context.test.ts`                 | Modify  | Add spec/plan stage test coverage.                                                                                                                                        |
+| `router/test/e2e/harness/job-graph.ts`                               | Modify  | Add spec-revision and plan-revision stage keys. Update implement context builders to use paths.                                                                           |
+| `router/test/e2e/scenarios/spec-pr-changes-requested-rework.test.ts` | Modify  | Assert `revision_block` is populated during the rework run.                                                                                                               |
+| `router/dist/index.cjs`                                              | Rebuild | Standard dist rebuild after router changes.                                                                                                                               |
 
 ---
 
@@ -35,6 +35,7 @@
 ### Task 1: Create revision fragments for spec and plan
 
 **Files:**
+
 - Create: `prompts/spec-revision-fragment.md`
 - Create: `prompts/plan-revision-fragment.md`
 
@@ -93,6 +94,7 @@ git commit -m "feat(prompts): add spec and plan revision fragments"
 ### Task 2: Update prompt templates to use @path refs and {{revision_block}}
 
 **Files:**
+
 - Modify: `prompts/spec.md`
 - Modify: `prompts/plan.md`
 - Modify: `prompts/implement.md`
@@ -162,12 +164,14 @@ git commit -m "feat(prompts): replace inline spec/plan content with @path refs a
 ### Task 3: Extend build-revision-context for spec/plan stages
 
 **Files:**
+
 - Modify: `router/src/helpers/build-revision-context.ts`
 - Modify: `router/test/helpers/build-revision-context.test.ts`
 
 - [ ] **Step 1: Read the current `build-revision-context.ts`**
 
 The helper currently:
+
 1. Fetches issue, PR, and reviews from the adapter
 2. Finds the latest REQUEST_CHANGES review
 3. Fetches line-level review comments for that review
@@ -176,6 +180,7 @@ The helper currently:
 6. Writes a context JSON with all fields implement.md needs
 
 For spec/plan stages, the helper needs to:
+
 1. Same: fetch issue, PR, reviews
 2. Same: find latest REQUEST_CHANGES review + comments
 3. Different: do NOT read full spec/plan contents from disk -- just pass paths
@@ -267,6 +272,7 @@ This is done in Task 5 (YAML changes). Here in the helper we only change the rev
 - [ ] **Step 6: Add tests for spec and plan stages**
 
 In `router/test/helpers/build-revision-context.test.ts`, add test cases that:
+
 - Call with `stage: "spec"`, verify `revision_block` is populated from `spec-revision-fragment.md`
 - Call with `stage: "plan"`, verify `revision_block` is populated from `plan-revision-fragment.md`
 - Call with `stage: "spec"`, verify `spec_source` and `plan_file_contents` are NOT in the output
@@ -291,6 +297,7 @@ git commit -m "feat(router): extend build-revision-context for spec and plan sta
 ### Task 4: Update first-run inline context builders to use @path refs
 
 **Files:**
+
 - Modify: `router/src/helpers/build-revision-context.ts` (remove `composeSpecSource` and `readPlanContents` dead code)
 
 After Task 3, the revision path no longer uses `composeSpecSource` or `readPlanContents`. However, these functions are still used by the IMPLEMENT first-run inline builder in the YAML (which reads spec/plan contents and passes them to the context JSON). Since we're moving all prompts to @path references, the YAML first-run builders also need to stop embedding contents.
@@ -321,6 +328,7 @@ git commit -m "refactor(router): remove dead composeSpecSource and readPlanConte
 ### Task 5: Add revision-mode conditionals to spec job
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml` (spec job, lines ~304-468)
 
 Mirror the implement job's pattern. The spec job currently has a straight-line execution path. Add `revision_mode` conditionals.
@@ -330,26 +338,27 @@ Mirror the implement job's pattern. The spec job currently has a straight-line e
 Replace the single "Create spec branch" step (line 359-364) with two steps:
 
 ```yaml
-      - name: Create spec branch
-        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "${{ needs.route.outputs.branch_name }}"
-      - name: Checkout existing spec branch
-        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
-        env:
-          BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin "${BRANCH_NAME}"
-          git checkout -B "${BRANCH_NAME}" FETCH_HEAD
+- name: Create spec branch
+  if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode != 'true'
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    git checkout -b "${{ needs.route.outputs.branch_name }}"
+- name: Checkout existing spec branch
+  if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
+  env:
+    BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    git fetch origin "${BRANCH_NAME}"
+    git checkout -B "${BRANCH_NAME}" FETCH_HEAD
 ```
 
 - [ ] **Step 2: Update first-run context builder to use @path refs**
 
 The current "Build spec context" step (lines 365-396) embeds `previous_spec_contents: ""` and `review_comments_json: "[]"`. Update to:
+
 - Add `revision_mode != 'true'` condition
 - Remove `previous_spec_contents` and `review_comments_json` fields (no longer in prompt)
 - Add `revision_block: ""` (empty on first run)
@@ -360,24 +369,24 @@ The current "Build spec context" step (lines 365-396) embeds `previous_spec_cont
 After the first-run context builder, add:
 
 ```yaml
-      - name: Build spec revision context
-        id: ctx_revision
-        if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
-        uses: ./router
-        with:
-          helper: build-revision-context
-          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
-          stage: spec
-          issue_number: ${{ needs.route.outputs.issue_number }}
-          pr_number: ${{ needs.route.outputs.impl_pr_number }}
-          branch_name: ${{ needs.route.outputs.branch_name }}
-          spec_file_path: ${{ needs.route.outputs.spec_file_path }}
-          plan_file_path: ""
-          progress_comment_id: ""
-          bash_allowlist: ""
-          repo_owner: ${{ github.repository_owner }}
-          repo_name: ${{ github.event.repository.name }}
-          output_path: ${{ runner.temp }}/context.json
+- name: Build spec revision context
+  id: ctx_revision
+  if: steps.precheck.outputs.skip != 'true' && needs.route.outputs.revision_mode == 'true'
+  uses: ./router
+  with:
+    helper: build-revision-context
+    github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+    stage: spec
+    issue_number: ${{ needs.route.outputs.issue_number }}
+    pr_number: ${{ needs.route.outputs.impl_pr_number }}
+    branch_name: ${{ needs.route.outputs.branch_name }}
+    spec_file_path: ${{ needs.route.outputs.spec_file_path }}
+    plan_file_path: ""
+    progress_comment_id: ""
+    bash_allowlist: ""
+    repo_owner: ${{ github.repository_owner }}
+    repo_name: ${{ github.event.repository.name }}
+    output_path: ${{ runner.temp }}/context.json
 ```
 
 NOTE: For spec revision, we need the PR number. The route now emits `branchName` but not a `specPrNumber`. However, `build-revision-context` currently takes `pr_number` as input. We need to either:
@@ -391,18 +400,18 @@ For the YAML, pass `pr_number` from the route output. If the route doesn't emit 
 - [ ] **Step 4: Add a unified context path resolver**
 
 ```yaml
-      - name: Resolve spec context path
-        id: ctx_path
-        if: steps.precheck.outputs.skip != 'true'
-        env:
-          FROM_FIRST_RUN: ${{ steps.ctx.outputs.path }}
-          FROM_REVISION: ${{ steps.ctx_revision.outputs.path }}
-        run: |
-          if [ -n "$FROM_FIRST_RUN" ]; then
-            echo "path=$FROM_FIRST_RUN" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=$FROM_REVISION" >> "$GITHUB_OUTPUT"
-          fi
+- name: Resolve spec context path
+  id: ctx_path
+  if: steps.precheck.outputs.skip != 'true'
+  env:
+    FROM_FIRST_RUN: ${{ steps.ctx.outputs.path }}
+    FROM_REVISION: ${{ steps.ctx_revision.outputs.path }}
+  run: |
+    if [ -n "$FROM_FIRST_RUN" ]; then
+      echo "path=$FROM_FIRST_RUN" >> "$GITHUB_OUTPUT"
+    else
+      echo "path=$FROM_REVISION" >> "$GITHUB_OUTPUT"
+    fi
 ```
 
 Update the "Render spec prompt" step to use `${{ steps.ctx_path.outputs.path }}` instead of `${{ steps.ctx.outputs.path }}`.
@@ -419,6 +428,7 @@ git commit -m "feat(workflow): add spec job revision-mode branch checkout and co
 ### Task 6: Add revision-mode conditionals to plan job
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml` (plan job, lines ~469-643)
 
 Same pattern as Task 5 but for the plan job.
@@ -439,6 +449,7 @@ git commit -m "feat(workflow): add plan job revision-mode branch checkout and co
 ### Task 7: Update implement job first-run context builder to use @path refs
 
 **Files:**
+
 - Modify: `.github/workflows/shopfloor.yml` (implement job first-run context builder, lines ~829-882)
 
 The implement job's first-run inline `jq` builder currently reads spec/plan files from disk and embeds their contents. Update to pass paths instead.
@@ -446,17 +457,20 @@ The implement job's first-run inline `jq` builder currently reads spec/plan file
 - [ ] **Step 1: In the "Build implement context" step, replace spec_source and plan_file_contents**
 
 Replace:
+
 ```bash
 SPEC_SOURCE=$(printf '<spec_file_contents>\n%s\n</spec_file_contents>' "$(cat "$SPEC_FILE_PATH")")
 ```
 
 With:
+
 ```bash
 # Prompts now use @path references -- just pass the path, not the contents.
 ```
 
 In the `jq` call:
-- Remove `--arg spec_source "$SPEC_SOURCE"` and `--arg plan_file_contents "$(cat ...)"` 
+
+- Remove `--arg spec_source "$SPEC_SOURCE"` and `--arg plan_file_contents "$(cat ...)"`
 - Add `--arg spec_file_path "$SPEC_FILE_PATH"` and `--arg plan_file_path "$PLAN_FILE_PATH"`
 - Keep `revision_block: ""`
 
@@ -474,6 +488,7 @@ git commit -m "feat(workflow): replace inline spec/plan content with @path refs 
 ### Task 8: Emit stage PR number from route for spec/plan revisions
 
 **Files:**
+
 - Modify: `router/src/state.ts` (resolvePullRequestReviewEvent, spec/plan branch)
 - Modify: `router/src/helpers/route.ts` (add output)
 - Modify: `router/src/types.ts` (add `stagePrNumber` to `RouterDecision` if needed)
@@ -519,6 +534,7 @@ git commit -m "chore(router): rebuild dist with spec/plan revision context suppo
 ### Task 9: Update job-graph.ts for spec/plan revision paths
 
 **Files:**
+
 - Modify: `router/test/e2e/harness/job-graph.ts`
 
 Add `spec-revision` and `plan-revision` stage keys (or extend existing spec/plan stages with revision_mode branching). Mirror the YAML changes from Tasks 5-6.
@@ -557,6 +573,7 @@ git commit -m "test(e2e): mirror spec/plan revision-mode paths in job graph"
 ### Task 10: Update spec-rework scenario to verify revision context
 
 **Files:**
+
 - Modify: `router/test/e2e/scenarios/spec-pr-changes-requested-rework.test.ts`
 
 - [ ] **Step 1: Assert that the revision run populates `revision_block`**
@@ -628,17 +645,17 @@ If dist changed, commit it.
 
 ## Commit summary
 
-| # | Commit message |
-| --- | --- |
-| 1 | `feat(prompts): add spec and plan revision fragments` |
-| 2 | `feat(prompts): replace inline spec/plan content with @path refs and revision_block` |
-| 3 | `feat(router): extend build-revision-context for spec and plan stages` |
-| 4 | `refactor(router): remove dead composeSpecSource and readPlanContents` |
-| 5 | `feat(workflow): add spec job revision-mode branch checkout and context builder` |
-| 6 | `feat(workflow): add plan job revision-mode branch checkout and context builder` |
-| 7 | `feat(workflow): replace inline spec/plan content with @path refs in implement context` |
-| 8 | `chore(router): rebuild dist with spec/plan revision context support` |
-| 9 | `test(e2e): mirror spec/plan revision-mode paths in job graph` |
-| 10 | `test(e2e): assert revision_block is populated during spec rework` |
+| #   | Commit message                                                                          |
+| --- | --------------------------------------------------------------------------------------- |
+| 1   | `feat(prompts): add spec and plan revision fragments`                                   |
+| 2   | `feat(prompts): replace inline spec/plan content with @path refs and revision_block`    |
+| 3   | `feat(router): extend build-revision-context for spec and plan stages`                  |
+| 4   | `refactor(router): remove dead composeSpecSource and readPlanContents`                  |
+| 5   | `feat(workflow): add spec job revision-mode branch checkout and context builder`        |
+| 6   | `feat(workflow): add plan job revision-mode branch checkout and context builder`        |
+| 7   | `feat(workflow): replace inline spec/plan content with @path refs in implement context` |
+| 8   | `chore(router): rebuild dist with spec/plan revision context support`                   |
+| 9   | `test(e2e): mirror spec/plan revision-mode paths in job graph`                          |
+| 10  | `test(e2e): assert revision_block is populated during spec rework`                      |
 
 Plus any fixup commits that surface during iteration.

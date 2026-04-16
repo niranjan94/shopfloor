@@ -29,8 +29,13 @@ describe("issues.addLabels", () => {
   test("rejects unknown label with 422", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "alice", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "alice",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     expect(() =>
       addLabels(state, { issue_number: 1, labels: ["never-bootstrapped"] }),
@@ -44,10 +49,18 @@ describe("issues.addLabels", () => {
 
   test("is idempotent -- adding the same label twice is a no-op", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:triaging", { name: "shopfloor:triaging", color: "ededed" });
+    state.labels.set("shopfloor:triaging", {
+      name: "shopfloor:triaging",
+      color: "ededed",
+    });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     addLabels(state, { issue_number: 1, labels: ["shopfloor:triaging"] });
     addLabels(state, { issue_number: 1, labels: ["shopfloor:triaging"] });
@@ -59,13 +72,22 @@ describe("issues.addLabels", () => {
 describe("issues.removeLabel", () => {
   test("throws 404 when label is not on the issue", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:foo", { name: "shopfloor:foo", color: "ededed" });
-    state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+    state.labels.set("shopfloor:foo", {
+      name: "shopfloor:foo",
+      color: "ededed",
     });
-    expect(() => removeLabel(state, { issue_number: 1, name: "shopfloor:foo" }))
-      .toThrow(FakeRequestError);
+    state.issues.set(1, {
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
+    });
+    expect(() =>
+      removeLabel(state, { issue_number: 1, name: "shopfloor:foo" }),
+    ).toThrow(FakeRequestError);
     try {
       removeLabel(state, { issue_number: 1, name: "shopfloor:foo" });
     } catch (err) {
@@ -74,10 +96,18 @@ describe("issues.removeLabel", () => {
   });
   test("removes the label when present", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:foo", { name: "shopfloor:foo", color: "ededed" });
+    state.labels.set("shopfloor:foo", {
+      name: "shopfloor:foo",
+      color: "ededed",
+    });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: ["shopfloor:foo"],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: ["shopfloor:foo"],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     removeLabel(state, { issue_number: 1, name: "shopfloor:foo" });
     expect(state.issues.get(1)!.labels).toEqual([]);
@@ -88,8 +118,13 @@ describe("issues.createComment", () => {
   test("allocates a fresh id and returns it", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     const a = createComment(state, { issue_number: 1, body: "hello" });
     const b = createComment(state, { issue_number: 1, body: "world" });
@@ -103,8 +138,9 @@ describe("issues.createComment", () => {
 describe("issues.updateComment", () => {
   test("404 if comment id unknown", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    expect(() => updateComment(state, { comment_id: 999, body: "x" }))
-      .toThrow(FakeRequestError);
+    expect(() => updateComment(state, { comment_id: 999, body: "x" })).toThrow(
+      FakeRequestError,
+    );
   });
   test("updates the body", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
@@ -123,8 +159,9 @@ describe("issues.createLabel", () => {
   test("throws 422 when label already exists", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     createLabel(state, { name: "shopfloor:foo", color: "ededed" });
-    expect(() => createLabel(state, { name: "shopfloor:foo", color: "ededed" }))
-      .toThrow(FakeRequestError);
+    expect(() =>
+      createLabel(state, { name: "shopfloor:foo", color: "ededed" }),
+    ).toThrow(FakeRequestError);
   });
 });
 
@@ -133,8 +170,11 @@ describe("issues.listLabelsForRepo", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.labels.set("a", { name: "a", color: "ededed" });
     state.labels.set("b", { name: "b", color: "ededed" });
-    expect(listLabelsForRepo(state, { per_page: 100 }).map((l) => l.name).sort())
-      .toEqual(["a", "b"]);
+    expect(
+      listLabelsForRepo(state, { per_page: 100 })
+        .map((l) => l.name)
+        .sort(),
+    ).toEqual(["a", "b"]);
   });
 });
 
@@ -142,8 +182,13 @@ describe("issues.update", () => {
   test("closes an open issue and logs", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: "b", state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: "b",
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     updateIssue(state, { issue_number: 1, state: "closed" });
     expect(state.issues.get(1)!.state).toBe("closed");
@@ -152,8 +197,13 @@ describe("issues.update", () => {
   test("updates the body without changing state", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: "old", state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: "old",
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     updateIssue(state, { issue_number: 1, body: "new" });
     expect(state.issues.get(1)!.body).toBe("new");
@@ -163,10 +213,18 @@ describe("issues.update", () => {
 describe("issues.get", () => {
   test("returns labels reshaped to [{name}]", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
-    state.labels.set("shopfloor:triaging", { name: "shopfloor:triaging", color: "ededed" });
+    state.labels.set("shopfloor:triaging", {
+      name: "shopfloor:triaging",
+      color: "ededed",
+    });
     state.issues.set(1, {
-      number: 1, title: "x", body: "b", state: "open", labels: ["shopfloor:triaging"],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: "b",
+      state: "open",
+      labels: ["shopfloor:triaging"],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
     const data = getIssue(state, { issue_number: 1 });
     expect(data.labels).toEqual([{ name: "shopfloor:triaging" }]);
@@ -180,12 +238,31 @@ describe("issues.listComments", () => {
   test("returns comments for the issue", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.issues.set(1, {
-      number: 1, title: "x", body: null, state: "open", labels: [],
-      author: "a", createdAt: "2026-04-15T00:00:00Z",
+      number: 1,
+      title: "x",
+      body: null,
+      state: "open",
+      labels: [],
+      author: "a",
+      createdAt: "2026-04-15T00:00:00Z",
     });
-    state.comments.set(1, { id: 1, issueNumber: 1, body: "hi", author: "alice" });
-    state.comments.set(2, { id: 2, issueNumber: 99, body: "elsewhere", author: "bob" });
-    const out = listComments(state, { issue_number: 1, per_page: 100, page: 1 });
+    state.comments.set(1, {
+      id: 1,
+      issueNumber: 1,
+      body: "hi",
+      author: "alice",
+    });
+    state.comments.set(2, {
+      id: 2,
+      issueNumber: 99,
+      body: "elsewhere",
+      author: "bob",
+    });
+    const out = listComments(state, {
+      issue_number: 1,
+      per_page: 100,
+      page: 1,
+    });
     expect(out).toHaveLength(1);
     expect(out[0].body).toBe("hi");
     expect(out[0].user).toEqual({ login: "alice" });
@@ -211,9 +288,19 @@ describe("pulls.create", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     state.branches.set("main", "sha-main-0");
     state.branches.set("shopfloor/42-foo", "sha-foo-0");
-    createPr(state, { base: "main", head: "shopfloor/42-foo", title: "T", body: "B" });
+    createPr(state, {
+      base: "main",
+      head: "shopfloor/42-foo",
+      title: "T",
+      body: "B",
+    });
     expect(() =>
-      createPr(state, { base: "main", head: "shopfloor/42-foo", title: "T2", body: "B2" }),
+      createPr(state, {
+        base: "main",
+        head: "shopfloor/42-foo",
+        title: "T2",
+        body: "B2",
+      }),
     ).toThrow(/already exists/);
   });
 });
@@ -224,9 +311,22 @@ describe("pulls.list", () => {
     state.branches.set("main", "sha-main-0");
     state.branches.set("shopfloor/42-foo", "sha-foo-0");
     state.branches.set("shopfloor/43-bar", "sha-bar-0");
-    createPr(state, { base: "main", head: "shopfloor/42-foo", title: "A", body: "" });
-    createPr(state, { base: "main", head: "shopfloor/43-bar", title: "B", body: "" });
-    const result = listPrs(state, { head: "o:shopfloor/42-foo", state: "open" });
+    createPr(state, {
+      base: "main",
+      head: "shopfloor/42-foo",
+      title: "A",
+      body: "",
+    });
+    createPr(state, {
+      base: "main",
+      head: "shopfloor/43-bar",
+      title: "B",
+      body: "",
+    });
+    const result = listPrs(state, {
+      head: "o:shopfloor/42-foo",
+      state: "open",
+    });
     expect(result).toHaveLength(1);
     expect(result[0].number).toBe(1);
   });
@@ -251,7 +351,9 @@ describe("pulls.get", () => {
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
     const data = getPr(state, { pull_number: 1 });
-    expect(data.head).toEqual(expect.objectContaining({ ref: "h", sha: "sha-h-0" }));
+    expect(data.head).toEqual(
+      expect.objectContaining({ ref: "h", sha: "sha-h-0" }),
+    );
     expect(data.state).toBe("open");
     expect(data.draft).toBe(false);
     expect(data.merged).toBe(false);
@@ -273,7 +375,8 @@ describe("pulls.listFiles", () => {
 describe("pulls.createReview", () => {
   test("rejects REQUEST_CHANGES when reviewer matches PR author", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
     });
     state.branches.set("main", "sha-main-0");
@@ -293,7 +396,8 @@ describe("pulls.createReview", () => {
 
   test("allows REQUEST_CHANGES from a distinct identity", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -316,7 +420,11 @@ describe("pulls.createReview", () => {
   });
 
   test("allows COMMENT review even from PR author", () => {
-    const state = newFakeState({ owner: "o", repo: "r", authIdentity: "shopfloor[bot]" });
+    const state = newFakeState({
+      owner: "o",
+      repo: "r",
+      authIdentity: "shopfloor[bot]",
+    });
     state.branches.set("main", "sha-main-0");
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
@@ -335,7 +443,8 @@ describe("pulls.createReview", () => {
 describe("pulls.listReviews", () => {
   test("returns rows with commit_id, state, and submitted_at", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -343,8 +452,12 @@ describe("pulls.listReviews", () => {
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
     createReview(state, {
-      pull_number: 1, commit_id: "sha-1", event: "REQUEST_CHANGES",
-      body: "fix", comments: [], actor: "shopfloor-review[bot]",
+      pull_number: 1,
+      commit_id: "sha-1",
+      event: "REQUEST_CHANGES",
+      body: "fix",
+      comments: [],
+      actor: "shopfloor-review[bot]",
     });
     const rows = listReviews(state, { pull_number: 1 });
     expect(rows).toHaveLength(1);
@@ -363,7 +476,8 @@ describe("pulls.listReviews", () => {
 describe("pulls.listReviewComments", () => {
   test("returns inline comments with pull_request_review_id and path/line/side/body", () => {
     const state = newFakeState({
-      owner: "o", repo: "r",
+      owner: "o",
+      repo: "r",
       authIdentity: "shopfloor[bot]",
       reviewAuthIdentity: "shopfloor-review[bot]",
     });
@@ -371,13 +485,18 @@ describe("pulls.listReviewComments", () => {
     state.branches.set("h", "sha-h-0");
     createPr(state, { base: "main", head: "h", title: "T", body: "B" });
     createReview(state, {
-      pull_number: 1, commit_id: "sha-1", event: "REQUEST_CHANGES",
-      body: "fix", comments: [
-        { path: "src/a.ts", line: 5, side: "RIGHT", body: "rename" },
-      ],
+      pull_number: 1,
+      commit_id: "sha-1",
+      event: "REQUEST_CHANGES",
+      body: "fix",
+      comments: [{ path: "src/a.ts", line: 5, side: "RIGHT", body: "rename" }],
       actor: "shopfloor-review[bot]",
     });
-    const out = listReviewComments(state, { pull_number: 1, per_page: 100, page: 1 });
+    const out = listReviewComments(state, {
+      pull_number: 1,
+      per_page: 100,
+      page: 1,
+    });
     expect(out).toHaveLength(1);
     expect(out[0]).toEqual(
       expect.objectContaining({
@@ -407,15 +526,23 @@ describe("repos.createCommitStatus", () => {
   test("latest-wins per (sha, context)", () => {
     const state = newFakeState({ owner: "o", repo: "r" });
     createCommitStatus(state, {
-      sha: "abc", state: "pending",
-      context: "shopfloor/review", description: "first",
+      sha: "abc",
+      state: "pending",
+      context: "shopfloor/review",
+      description: "first",
     });
     createCommitStatus(state, {
-      sha: "abc", state: "success",
-      context: "shopfloor/review", description: "second",
+      sha: "abc",
+      state: "success",
+      context: "shopfloor/review",
+      description: "second",
     });
-    expect(state.statuses.get("abc")!.get("shopfloor/review")!.state).toBe("success");
-    expect(state.statuses.get("abc")!.get("shopfloor/review")!.description).toBe("second");
+    expect(state.statuses.get("abc")!.get("shopfloor/review")!.state).toBe(
+      "success",
+    );
+    expect(
+      state.statuses.get("abc")!.get("shopfloor/review")!.description,
+    ).toBe("second");
   });
 });
 
@@ -426,7 +553,10 @@ describe("FakeGitHub.asOctokit", () => {
     fake.seedIssue({ number: 1, title: "x", body: null, author: "a" });
     const oct = fake.asOctokit("shopfloor[bot]");
     await oct.rest.issues.addLabels({
-      owner: "o", repo: "r", issue_number: 1, labels: ["shopfloor:trigger"],
+      owner: "o",
+      repo: "r",
+      issue_number: 1,
+      labels: ["shopfloor:trigger"],
     });
     expect(fake.labelsOn(1)).toEqual(["shopfloor:trigger"]);
   });
