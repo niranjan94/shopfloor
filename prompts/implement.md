@@ -50,11 +50,13 @@ Progress comment id (informational; the MCP tool reads it from env): {{progress_
 {{issue_body}}
 </issue_body>
 
-{{spec_source}}
+<spec_reference>
+Read the design spec at @{{spec_file_path}} if one exists. If no spec file is present, this is the medium-complexity flow -- the plan below is your sole source of truth.
+</spec_reference>
 
-<plan_file_contents>
-{{plan_file_contents}}
-</plan_file_contents>
+<plan_reference>
+Read the implementation plan at @{{plan_file_path}}.
+</plan_reference>
 
 {{revision_block}}
 </context>

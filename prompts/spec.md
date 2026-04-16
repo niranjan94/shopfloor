@@ -47,20 +47,8 @@ Target spec file path: {{spec_file_path}}
 {{triage_rationale}}
 </triage_rationale>
 
-<previous_spec>
-{{previous_spec_contents}}
-</previous_spec>
-
-<review_feedback>
-{{review_comments_json}}
-</review_feedback>
+{{revision_block}}
 </context>
-
-<revision_handling>
-If `<previous_spec>` is non-empty, you are revising an existing spec based on `<review_feedback>`. Preserve structure and decisions that were not criticized, and address every review comment by name in your revision. Do NOT rewrite from scratch.
-
-If `<previous_spec>` is empty, this is the first-time write. Ignore the revision instructions above.
-</revision_handling>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema. No prose before or after.

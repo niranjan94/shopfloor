@@ -45,20 +45,12 @@ Target plan file path: {{plan_file_path}}
 {{issue_comments}}
 </issue_comments>
 
-{{spec_source}}
+<spec_reference>
+Read the design spec at @{{spec_file_path}} for the decisions this plan must implement. If no spec exists (medium-complexity flow), derive the design directly from the <issue_body> and <issue_comments> above.
+</spec_reference>
 
-<previous_plan>
-{{previous_plan_contents}}
-</previous_plan>
-
-<review_feedback>
-{{review_comments_json}}
-</review_feedback>
+{{revision_block}}
 </context>
-
-<revision_handling>
-If `<previous_plan>` is non-empty, you are revising based on `<review_feedback>`. Preserve structure and decisions that were not criticized, and address every review comment by name. Do NOT rewrite from scratch.
-</revision_handling>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
