@@ -91,13 +91,23 @@ export class ScenarioHarness {
     return outputs;
   }
 
-  async runStage(stage: StageKey | "implement"): Promise<void> {
-    const key: StageKey =
-      stage === "implement"
-        ? this.routeOutputs.revision_mode === "true"
-          ? "implement-revision"
-          : "implement-first-run"
-        : stage;
+  async runStage(stage: StageKey | "implement" | "spec" | "plan"): Promise<void> {
+    let key: StageKey;
+    if (stage === "implement") {
+      key = this.routeOutputs.revision_mode === "true"
+        ? "implement-revision"
+        : "implement-first-run";
+    } else if (stage === "spec") {
+      key = this.routeOutputs.revision_mode === "true"
+        ? "spec-revision"
+        : "spec";
+    } else if (stage === "plan") {
+      key = this.routeOutputs.revision_mode === "true"
+        ? "plan-revision"
+        : "plan";
+    } else {
+      key = stage;
+    }
     const steps = jobGraph[key];
     if (!steps || steps.length === 0) {
       throw new Error(`runStage: no graph for '${key}'`);

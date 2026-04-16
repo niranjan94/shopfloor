@@ -94,7 +94,9 @@ export type GraphStep =
 export type StageKey =
   | "triage"
   | "spec"
+  | "spec-revision"
   | "plan"
+  | "plan-revision"
   | "implement-first-run"
   | "implement-revision"
   | "review"
@@ -103,7 +105,9 @@ export type StageKey =
 export const jobGraph: Record<StageKey, GraphStep[]> = {
   triage: [],
   spec: [],
+  "spec-revision": [],
   plan: [],
+  "plan-revision": [],
   "implement-first-run": [],
   "implement-revision": [],
   review: [],
@@ -222,8 +226,7 @@ jobGraph.spec = [
           spec_file_path: ctx.routeOutputs.spec_file_path ?? "",
           repo_owner: ctx.fake.owner,
           repo_name: ctx.fake.repo,
-          previous_spec_contents: "",
-          review_comments_json: "[]",
+          revision_block: "",
         },
       };
     },
@@ -234,6 +237,112 @@ jobGraph.spec = [
     from: {
       prompt_file: { source: "literal", value: "prompts/spec.md" },
       context_file: { source: "previous", helper: "ctx", key: "path" },
+      base_allowed_tools: {
+        source: "literal",
+        value: "Read,Glob,Grep,Edit,Write,WebFetch",
+      },
+    },
+  },
+  { kind: "agent", stage: "spec" },
+  {
+    kind: "helper",
+    id: "open_pr",
+    helper: "open-stage-pr",
+    from: {
+      issue_number: { source: "route", key: "issue_number" },
+      stage: { source: "literal", value: "spec" },
+      branch_name: { source: "route", key: "branch_name" },
+      base_branch: { source: "literal", value: "main" },
+      pr_title: { source: "agent", key: "pr_title" },
+      pr_body: { source: "agent", key: "pr_body" },
+    },
+  },
+  {
+    kind: "helper",
+    helper: "advance-state",
+    from: {
+      issue_number: { source: "route", key: "issue_number" },
+      from_labels: {
+        source: "literal",
+        value: "shopfloor:needs-spec,shopfloor:triaging,shopfloor:spec-running",
+      },
+      to_labels: { source: "literal", value: "shopfloor:spec-in-review" },
+    },
+  },
+];
+
+// -----------------------------------------------------------------------
+// spec stage (revision)
+// shopfloor.yml: jobs.spec with revision_mode == 'true'
+// -----------------------------------------------------------------------
+
+jobGraph["spec-revision"] = [
+  {
+    kind: "helper",
+    helper: "precheck-stage",
+    from: {
+      stage: { source: "literal", value: "spec" },
+      issue_number: { source: "route", key: "issue_number" },
+    },
+  },
+  {
+    kind: "helper",
+    helper: "advance-state",
+    from: {
+      issue_number: { source: "route", key: "issue_number" },
+      from_labels: { source: "literal", value: "" },
+      to_labels: { source: "literal", value: "shopfloor:spec-running" },
+    },
+  },
+  {
+    kind: "helper",
+    id: "ctx_revision",
+    helper: "build-revision-context",
+    from: {
+      stage: { source: "literal", value: "spec" },
+      issue_number: { source: "route", key: "issue_number" },
+      pr_number: {
+        source: "fake",
+        resolve: (ctx) => {
+          // On a revision run the PR number comes from the event payload
+          // (pull_request_review event), same as the YAML's
+          // github.event.pull_request.number. The harness stashes the
+          // event, so we can resolve it from the route outputs where the
+          // spec-rework scenario stores it, or fall back to finding the
+          // open PR by branch.
+          const ev = ctx.currentEvent?.payload as
+            | { pull_request?: { number?: number } }
+            | undefined;
+          if (ev?.pull_request?.number) return String(ev.pull_request.number);
+          // Fallback: find the open spec PR by branch
+          const branch = ctx.routeOutputs.branch_name;
+          const pr = ctx.fake.openPrs().find((p) => p.head.ref === branch);
+          return pr ? String(pr.number) : "0";
+        },
+      },
+      branch_name: { source: "route", key: "branch_name" },
+      spec_file_path: { source: "route", key: "spec_file_path" },
+      plan_file_path: { source: "literal", value: "" },
+      progress_comment_id: { source: "literal", value: "" },
+      bash_allowlist: { source: "literal", value: "" },
+      repo_owner: { source: "fake", resolve: (ctx) => ctx.fake.owner },
+      repo_name: { source: "fake", resolve: (ctx) => ctx.fake.repo },
+      output_path: {
+        source: "fake",
+        resolve: (ctx) => `${ctx.workspaceDir}/context.json`,
+      },
+    },
+  },
+  {
+    kind: "helper",
+    helper: "render-prompt",
+    from: {
+      prompt_file: { source: "literal", value: "prompts/spec.md" },
+      context_file: {
+        source: "previous",
+        helper: "ctx_revision",
+        key: "path",
+      },
       base_allowed_tools: {
         source: "literal",
         value: "Read,Glob,Grep,Edit,Write,WebFetch",
@@ -294,25 +403,8 @@ jobGraph.plan = [
     kind: "context",
     id: "ctx",
     build: (ctx) => {
-      const fs = require("node:fs") as typeof import("node:fs");
-      const path = require("node:path") as typeof import("node:path");
       const issueNumber = Number(ctx.routeOutputs.issue_number);
       const issue = ctx.fake.issue(issueNumber);
-      const specFilePath = ctx.routeOutputs.spec_file_path ?? "";
-      const resolveSeeded = (p: string): string | null => {
-        if (!p) return null;
-        const abs = path.isAbsolute(p) ? p : path.join(ctx.workspaceDir, p);
-        if (fs.existsSync(abs)) return fs.readFileSync(abs, "utf-8");
-        // Fall back to cwd so plan-stage tests can seed files via the
-        // real filesystem if they want to.
-        if (fs.existsSync(p)) return fs.readFileSync(p, "utf-8");
-        return null;
-      };
-      const specBody = resolveSeeded(specFilePath);
-      const specSource =
-        specBody !== null
-          ? `<spec_file_contents>\n${specBody}\n</spec_file_contents>`
-          : `<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. Derive the design directly from the <issue_body> and <issue_comments> above, then write the plan as usual.\n</spec_source>`;
       return {
         json: {
           issue_number: String(issueNumber),
@@ -324,11 +416,10 @@ jobGraph.plan = [
             .join("\n\n---\n\n"),
           branch_name: ctx.routeOutputs.branch_name ?? "",
           plan_file_path: ctx.routeOutputs.plan_file_path ?? "",
+          spec_file_path: ctx.routeOutputs.spec_file_path ?? "",
           repo_owner: ctx.fake.owner,
           repo_name: ctx.fake.repo,
-          spec_source: specSource,
-          previous_plan_contents: "",
-          review_comments_json: "[]",
+          revision_block: "",
         },
       };
     },
@@ -339,6 +430,105 @@ jobGraph.plan = [
     from: {
       prompt_file: { source: "literal", value: "prompts/plan.md" },
       context_file: { source: "previous", helper: "ctx", key: "path" },
+      base_allowed_tools: {
+        source: "literal",
+        value: "Read,Glob,Grep,Edit,Write,WebFetch",
+      },
+    },
+  },
+  { kind: "agent", stage: "plan" },
+  {
+    kind: "helper",
+    id: "open_pr",
+    helper: "open-stage-pr",
+    from: {
+      issue_number: { source: "route", key: "issue_number" },
+      stage: { source: "literal", value: "plan" },
+      branch_name: { source: "route", key: "branch_name" },
+      base_branch: { source: "literal", value: "main" },
+      pr_title: { source: "agent", key: "pr_title" },
+      pr_body: { source: "agent", key: "pr_body" },
+    },
+  },
+  {
+    kind: "helper",
+    helper: "advance-state",
+    from: {
+      issue_number: { source: "route", key: "issue_number" },
+      from_labels: {
+        source: "literal",
+        value: "shopfloor:needs-plan,shopfloor:plan-running",
+      },
+      to_labels: { source: "literal", value: "shopfloor:plan-in-review" },
+    },
+  },
+];
+
+// -----------------------------------------------------------------------
+// plan stage (revision)
+// shopfloor.yml: jobs.plan with revision_mode == 'true'
+// -----------------------------------------------------------------------
+
+jobGraph["plan-revision"] = [
+  {
+    kind: "helper",
+    helper: "precheck-stage",
+    from: {
+      stage: { source: "literal", value: "plan" },
+      issue_number: { source: "route", key: "issue_number" },
+    },
+  },
+  {
+    kind: "helper",
+    helper: "advance-state",
+    from: {
+      issue_number: { source: "route", key: "issue_number" },
+      from_labels: { source: "literal", value: "" },
+      to_labels: { source: "literal", value: "shopfloor:plan-running" },
+    },
+  },
+  {
+    kind: "helper",
+    id: "ctx_revision",
+    helper: "build-revision-context",
+    from: {
+      stage: { source: "literal", value: "plan" },
+      issue_number: { source: "route", key: "issue_number" },
+      pr_number: {
+        source: "fake",
+        resolve: (ctx) => {
+          const ev = ctx.currentEvent?.payload as
+            | { pull_request?: { number?: number } }
+            | undefined;
+          if (ev?.pull_request?.number) return String(ev.pull_request.number);
+          const branch = ctx.routeOutputs.branch_name;
+          const pr = ctx.fake.openPrs().find((p) => p.head.ref === branch);
+          return pr ? String(pr.number) : "0";
+        },
+      },
+      branch_name: { source: "route", key: "branch_name" },
+      spec_file_path: { source: "route", key: "spec_file_path" },
+      plan_file_path: { source: "route", key: "plan_file_path" },
+      progress_comment_id: { source: "literal", value: "" },
+      bash_allowlist: { source: "literal", value: "" },
+      repo_owner: { source: "fake", resolve: (ctx) => ctx.fake.owner },
+      repo_name: { source: "fake", resolve: (ctx) => ctx.fake.repo },
+      output_path: {
+        source: "fake",
+        resolve: (ctx) => `${ctx.workspaceDir}/context.json`,
+      },
+    },
+  },
+  {
+    kind: "helper",
+    helper: "render-prompt",
+    from: {
+      prompt_file: { source: "literal", value: "prompts/plan.md" },
+      context_file: {
+        source: "previous",
+        helper: "ctx_revision",
+        key: "path",
+      },
       base_allowed_tools: {
         source: "literal",
         value: "Read,Glob,Grep,Edit,Write,WebFetch",
@@ -422,31 +612,16 @@ jobGraph["implement-first-run"] = [
     kind: "context",
     id: "ctx",
     build: (ctx) => {
-      const fs = require("node:fs") as typeof import("node:fs");
-      const path = require("node:path") as typeof import("node:path");
       const issueNumber = Number(ctx.routeOutputs.issue_number);
       const issue = ctx.fake.issue(issueNumber);
-      const resolveSeeded = (p: string | undefined): string | null => {
-        if (!p) return null;
-        const abs = path.isAbsolute(p) ? p : path.join(ctx.workspaceDir, p);
-        if (fs.existsSync(abs)) return fs.readFileSync(abs, "utf-8");
-        if (fs.existsSync(p)) return fs.readFileSync(p, "utf-8");
-        return null;
-      };
-      const specBody = resolveSeeded(ctx.routeOutputs.spec_file_path);
-      const planBody = resolveSeeded(ctx.routeOutputs.plan_file_path) ?? "";
-      const specSource =
-        specBody !== null
-          ? `<spec_file_contents>\n${specBody}\n</spec_file_contents>`
-          : `<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.\n</spec_source>`;
       return {
         json: {
           issue_number: String(issueNumber),
           issue_title: issue.title,
           issue_body: issue.body ?? "",
           issue_comments: "",
-          spec_source: specSource,
-          plan_file_contents: planBody,
+          spec_file_path: ctx.routeOutputs.spec_file_path ?? "",
+          plan_file_path: ctx.routeOutputs.plan_file_path ?? "",
           branch_name: ctx.routeOutputs.branch_name ?? "",
           progress_comment_id: ctx.previous.progress?.comment_id ?? "",
           revision_block: "",
