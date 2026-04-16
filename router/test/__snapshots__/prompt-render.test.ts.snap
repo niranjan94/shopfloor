@@ -53,13 +53,13 @@ Progress comment id (informational; the MCP tool reads it from env): 999
 Users want to log in with GitHub.
 </issue_body>
 
-<spec_file_contents>
-# Spec
-</spec_file_contents>
+<spec_reference>
+Read the design spec at @docs/shopfloor/specs/42-add-github-oauth.md if one exists. If no spec file is present, this is the medium-complexity flow -- the plan below is your sole source of truth.
+</spec_reference>
 
-<plan_file_contents>
-# Plan
-</plan_file_contents>
+<plan_reference>
+Read the implementation plan at @docs/shopfloor/plans/42-add-github-oauth.md.
+</plan_reference>
 
 
 </context>
@@ -237,23 +237,12 @@ Users want to log in with GitHub.
 
 </issue_comments>
 
-<spec_file_contents>
-# Spec
-Details here.
-</spec_file_contents>
+<spec_reference>
+Read the design spec at @docs/shopfloor/specs/42-add-github-oauth.md for the decisions this plan must implement. If no spec exists (medium-complexity flow), derive the design directly from the <issue_body> and <issue_comments> above.
+</spec_reference>
 
-<previous_plan>
 
-</previous_plan>
-
-<review_feedback>
-[]
-</review_feedback>
 </context>
-
-<revision_handling>
-If \`<previous_plan>\` is non-empty, you are revising based on \`<review_feedback>\`. Preserve structure and decisions that were not criticized, and address every review comment by name. Do NOT rewrite from scratch.
-</revision_handling>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
@@ -320,22 +309,12 @@ Expose /health returning 200 OK.
 
 </issue_comments>
 
-<spec_source>
-There is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. Derive the design directly from the <issue_body> and <issue_comments> above, then write the plan as usual.
-</spec_source>
+<spec_reference>
+Read the design spec at @ for the decisions this plan must implement. If no spec exists (medium-complexity flow), derive the design directly from the <issue_body> and <issue_comments> above.
+</spec_reference>
 
-<previous_plan>
 
-</previous_plan>
-
-<review_feedback>
-[]
-</review_feedback>
 </context>
-
-<revision_handling>
-If \`<previous_plan>\` is non-empty, you are revising based on \`<review_feedback>\`. Preserve structure and decisions that were not criticized, and address every review comment by name. Do NOT rewrite from scratch.
-</revision_handling>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema.
@@ -841,20 +820,8 @@ Users want to log in with GitHub.
 Large feature; auth touches multiple modules.
 </triage_rationale>
 
-<previous_spec>
 
-</previous_spec>
-
-<review_feedback>
-[]
-</review_feedback>
 </context>
-
-<revision_handling>
-If \`<previous_spec>\` is non-empty, you are revising an existing spec based on \`<review_feedback>\`. Preserve structure and decisions that were not criticized, and address every review comment by name in your revision. Do NOT rewrite from scratch.
-
-If \`<previous_spec>\` is empty, this is the first-time write. Ignore the revision instructions above.
-</revision_handling>
 
 <output_format>
 Your entire final message MUST be a single valid JSON object matching this schema. No prose before or after.

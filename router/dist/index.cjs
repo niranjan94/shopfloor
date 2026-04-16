@@ -25581,21 +25581,6 @@ function parseIterationFromBody3(body) {
   const m = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
   return m ? Number(m[1]) : 0;
 }
-function composeSpecSource(specFilePath) {
-  if ((0, import_node_fs3.existsSync)(specFilePath)) {
-    const contents = (0, import_node_fs3.readFileSync)(specFilePath, "utf-8");
-    return `<spec_file_contents>
-${contents}
-</spec_file_contents>`;
-  }
-  return `<spec_source>
-There is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.
-</spec_source>`;
-}
-function readPlanContents(planFilePath) {
-  if (!(0, import_node_fs3.existsSync)(planFilePath)) return "";
-  return (0, import_node_fs3.readFileSync)(planFilePath, "utf-8");
-}
 function formatIssueComments(comments) {
   if (comments.length === 0) return "";
   return comments.map(
@@ -25639,45 +25624,70 @@ async function buildRevisionContext(adapter, params) {
   }
   const iterationCount = parseIterationFromBody3(pr.body);
   const reviewCommentsJson = JSON.stringify(filtered);
-  const fragmentPath = resolvePromptFile(params.promptFragmentPath);
-  const revisionBlock = renderPrompt(fragmentPath, {
+  const fragmentVars = {
+    review_comments_json: reviewCommentsJson,
     iteration_count: String(iterationCount),
-    review_comments_json: reviewCommentsJson
-  });
-  const specSource = composeSpecSource(params.specFilePath);
-  const planFileContents = readPlanContents(params.planFilePath);
-  const contextOut = {
+    spec_file_path: params.specFilePath,
+    plan_file_path: params.planFilePath
+  };
+  const fragmentPath = resolvePromptFile(params.promptFragmentPath);
+  const revisionBlock = renderPrompt(fragmentPath, fragmentVars);
+  const common = {
     issue_number: String(params.issueNumber),
     issue_title: issue.title,
     issue_body: issue.body ?? "",
     issue_comments: issueComments,
-    spec_source: specSource,
-    plan_file_contents: planFileContents,
     branch_name: params.branchName,
-    progress_comment_id: params.progressCommentId,
-    review_comments_json: reviewCommentsJson,
-    iteration_count: String(iterationCount),
-    bash_allowlist: params.bashAllowlist,
     repo_owner: params.repoOwner,
     repo_name: params.repoName,
     revision_block: revisionBlock
   };
+  let contextOut;
+  switch (params.stage) {
+    case "spec":
+      contextOut = {
+        ...common,
+        triage_rationale: "",
+        spec_file_path: params.specFilePath
+      };
+      break;
+    case "plan":
+      contextOut = {
+        ...common,
+        plan_file_path: params.planFilePath,
+        spec_file_path: params.specFilePath
+      };
+      break;
+    case "implement":
+      contextOut = {
+        ...common,
+        spec_file_path: params.specFilePath,
+        plan_file_path: params.planFilePath,
+        progress_comment_id: params.progressCommentId,
+        review_comments_json: reviewCommentsJson,
+        iteration_count: String(iterationCount),
+        bash_allowlist: params.bashAllowlist
+      };
+      break;
+  }
   (0, import_node_fs3.writeFileSync)(params.outputPath, JSON.stringify(contextOut));
   core14.setOutput("path", params.outputPath);
 }
 async function runBuildRevisionContext(adapter) {
+  const stage = core14.getInput("stage") || "implement";
   await buildRevisionContext(adapter, {
+    stage,
     issueNumber: Number(core14.getInput("issue_number", { required: true })),
     prNumber: Number(core14.getInput("pr_number", { required: true })),
     branchName: core14.getInput("branch_name", { required: true }),
-    specFilePath: core14.getInput("spec_file_path", { required: true }),
-    planFilePath: core14.getInput("plan_file_path", { required: true }),
-    progressCommentId: core14.getInput("progress_comment_id", { required: true }),
-    bashAllowlist: core14.getInput("bash_allowlist", { required: true }),
+    specFilePath: core14.getInput("spec_file_path") || "",
+    planFilePath: core14.getInput("plan_file_path") || "",
+    progressCommentId: core14.getInput("progress_comment_id") || "",
+    bashAllowlist: core14.getInput("bash_allowlist") || "",
     repoOwner: core14.getInput("repo_owner", { required: true }),
     repoName: core14.getInput("repo_name", { required: true }),
     outputPath: core14.getInput("output_path", { required: true }),
-    promptFragmentPath: core14.getInput("prompt_fragment_path") || "prompts/implement-revision-fragment.md"
+    promptFragmentPath: core14.getInput("prompt_fragment_path") || `prompts/${stage}-revision-fragment.md`
   });
 }
 

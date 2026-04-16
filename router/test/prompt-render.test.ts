@@ -44,8 +44,7 @@ test("spec prompt renders with fixture context", () => {
     spec_file_path: "docs/shopfloor/specs/42-add-github-oauth.md",
     repo_owner: "niranjan94",
     repo_name: "shopfloor",
-    previous_spec_contents: "",
-    review_comments_json: "[]",
+    revision_block: "",
   });
   expect(rendered).toMatchSnapshot();
   expect(rendered).not.toContain("{{MISSING");
@@ -59,12 +58,10 @@ test("plan prompt renders with fixture context (large flow: spec present)", () =
     issue_comments: "",
     branch_name: "shopfloor/plan/42-add-github-oauth",
     plan_file_path: "docs/shopfloor/plans/42-add-github-oauth.md",
+    spec_file_path: "docs/shopfloor/specs/42-add-github-oauth.md",
     repo_owner: "niranjan94",
     repo_name: "shopfloor",
-    spec_source:
-      "<spec_file_contents>\n# Spec\nDetails here.\n</spec_file_contents>",
-    previous_plan_contents: "",
-    review_comments_json: "[]",
+    revision_block: "",
   });
   expect(rendered).toMatchSnapshot();
   expect(rendered).not.toContain("{{MISSING");
@@ -78,12 +75,10 @@ test("plan prompt renders with fixture context (medium flow: no spec)", () => {
     issue_comments: "",
     branch_name: "shopfloor/plan/42-add-health-endpoint",
     plan_file_path: "docs/shopfloor/plans/42-add-health-endpoint.md",
+    spec_file_path: "",
     repo_owner: "niranjan94",
     repo_name: "shopfloor",
-    spec_source:
-      "<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. Derive the design directly from the <issue_body> and <issue_comments> above, then write the plan as usual.\n</spec_source>",
-    previous_plan_contents: "",
-    review_comments_json: "[]",
+    revision_block: "",
   });
   expect(rendered).toMatchSnapshot();
   expect(rendered).not.toContain("{{MISSING");
@@ -95,8 +90,8 @@ test("implement prompt renders with fixture context", () => {
     issue_title: "Add GitHub OAuth",
     issue_body: "Users want to log in with GitHub.",
     issue_comments: "",
-    spec_source: "<spec_file_contents>\n# Spec\n</spec_file_contents>",
-    plan_file_contents: "# Plan",
+    spec_file_path: "docs/shopfloor/specs/42-add-github-oauth.md",
+    plan_file_path: "docs/shopfloor/plans/42-add-github-oauth.md",
     branch_name: "shopfloor/impl/42-add-github-oauth",
     progress_comment_id: "999",
     revision_block: "",
