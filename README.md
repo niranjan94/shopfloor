@@ -1,5 +1,7 @@
 # Shopfloor
 
+> **Early alpha -- under active development.** APIs, workflow inputs, label conventions, and prompt templates may change without notice between commits. Pin to a specific commit SHA if you use this today, and expect breaking changes. Bug reports and feedback are welcome via [Issues](https://github.com/niranjan94/shopfloor/issues).
+
 A reusable GitHub Actions workflow that turns `anthropics/claude-code-action` into a staged, human-gated AI delivery pipeline. Drop it into a repository and every new issue is routed through **triage → spec → plan → implement → review**, with a human approving each stage by merging the pull request it produces.
 
 Shopfloor is deliberately boring where it counts: a pure TypeScript state machine owns every label flip, comment, and PR mutation. Agents only emit structured JSON. That keeps GitHub state predictable, stage behaviour auditable, and the blast radius of a confused model small.
