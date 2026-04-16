@@ -24294,6 +24294,11 @@ var LABEL_DEFS = [
     name: "shopfloor:implementing",
     color: "fbca04",
     description: "Transient marker: an implement stage job is actively running for this issue. Removed automatically when the stage completes. If this label is stuck after a crash, remove it manually to unblock retries."
+  },
+  {
+    name: "shopfloor:wip",
+    color: "fbca04",
+    description: "Implementation in progress. Suppresses review triggers until removed."
   }
 ];
 async function bootstrapLabels(adapter) {
@@ -24542,6 +24547,9 @@ async function checkReviewSkip(adapter, prNumber) {
   const pr = await adapter.getPr(prNumber);
   if (pr.state === "closed") return { skip: true, reason: "pr_closed" };
   if (pr.draft) return { skip: true, reason: "pr_draft" };
+  if (pr.labels.some((l) => l.name === "shopfloor:wip")) {
+    return { skip: true, reason: "pr_wip_label" };
+  }
   if (pr.labels.some((l) => l.name === "shopfloor:skip-review")) {
     return { skip: true, reason: "skip_review_label_pr" };
   }
@@ -25142,12 +25150,28 @@ function resolvePullRequestEvent(payload) {
   if (payload.action === "closed") {
     return { stage: "none", reason: "pr_closed_not_merged_ignored" };
   }
+  if (payload.action === "unlabeled" && payload.label?.name === "shopfloor:wip" && meta.stage === "implement") {
+    const labels = prLabelSet(pr);
+    if (labels.has("shopfloor:skip-review")) {
+      return { stage: "none", reason: "skip_review_label_present" };
+    }
+    if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
+    return {
+      stage: "review",
+      issueNumber: meta.issueNumber,
+      implPrNumber: pr.number,
+      reviewIteration: meta.reviewIteration
+    };
+  }
   if ((payload.action === "synchronize" || payload.action === "ready_for_review") && meta.stage === "implement") {
     const labels = prLabelSet(pr);
     if (labels.has("shopfloor:skip-review")) {
       return { stage: "none", reason: "skip_review_label_present" };
     }
     if (pr.draft) return { stage: "none", reason: "pr_is_draft" };
+    if (labels.has("shopfloor:wip"))
+      return { stage: "none", reason: "pr_has_wip_label" };
     if (pr.state === "closed") return { stage: "none", reason: "pr_is_closed" };
     return {
       stage: "review",
