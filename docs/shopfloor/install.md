@@ -215,6 +215,28 @@ Because the reviewer is still an App (not `GITHUB_TOKEN`), the resulting `pull_r
 
 When both secrets are present, Shopfloor gates the entire review pipeline (skip-check + 4 matrix reviewers + aggregator) on their presence. Leave them unset and the review pipeline is silently skipped; impl PRs un-draft and wait for a human.
 
+## Disabling draft PRs
+
+By default, Shopfloor opens implementation PRs as drafts and un-drafts them when the agent finishes. If your organization disallows or prefers not to use draft PRs, set `use_draft_prs: false`:
+
+```yaml
+jobs:
+  shopfloor:
+    uses: your-org/shopfloor/.github/workflows/shopfloor.yml@main
+    with:
+      use_draft_prs: false
+```
+
+When disabled, Shopfloor applies a `shopfloor:wip` label to the impl PR during agent work and removes it when done. The label suppresses premature reviews the same way draft status does.
+
+**Required:** your caller workflow must subscribe to `pull_request` `unlabeled` events, or the review pipeline will never trigger:
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, closed, unlabeled, ready_for_review]
+```
+
 ## Troubleshooting
 
 See [troubleshooting.md](troubleshooting.md) for common first-run issues, including branch protection, CODEOWNERS conflicts, and signed-commit requirements.

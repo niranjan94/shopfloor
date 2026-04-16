@@ -60,6 +60,10 @@ Three ways, each appropriate for a different situation:
 - **Pause manually at any stage:** close the issue. Every event arriving for a closed issue resolves to `stage=none`, so nothing runs. Reopen to resume.
 - **Pause one PR without touching the issue:** convert the PR to draft. `check-review-skip` treats drafts as "do nothing", so the review stage will not fire until you mark it ready for review again.
 
+## Can I use regular (non-draft) PRs instead of drafts?
+
+Yes. Set `use_draft_prs: false` in your caller workflow's `with:` block. Shopfloor will use a `shopfloor:wip` label to suppress reviews during agent work instead of draft status. Make sure your caller workflow subscribes to `pull_request: types: [unlabeled]` or the review pipeline will not trigger after implementation completes. See [install.md](install.md#disabling-draft-prs) for details.
+
 ## What happens if the agent ignores the plan?
 
 The review matrix catches it. The compliance reviewer checks against CLAUDE.md/AGENTS.md/CONTRIBUTING.md. The bugs reviewer compares the diff to the spec and plan and flags missed requirements. The security reviewer looks for concrete exploits. The smells reviewer watches for obvious quality regressions.
