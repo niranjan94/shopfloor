@@ -58,6 +58,14 @@ describe("checkReviewSkip", () => {
     expect(result.reason).toBe("skip_review_label_pr");
   });
 
+  test("skip=true when PR has shopfloor:wip label", async () => {
+    const bundle = makeMockAdapter();
+    primePrFixture(bundle, { labels: [{ name: "shopfloor:wip" }] });
+    const result = await checkReviewSkip(bundle.adapter, 45);
+    expect(result.skip).toBe(true);
+    expect(result.reason).toBe("pr_wip_label");
+  });
+
   test("skip=true when PR changed files are all in docs/shopfloor/", async () => {
     const bundle = makeMockAdapter();
     primePrFixture(bundle, { changedFiles: ["docs/shopfloor/specs/42-x.md"] });

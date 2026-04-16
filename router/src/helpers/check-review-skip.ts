@@ -19,6 +19,9 @@ export async function checkReviewSkip(
   const pr = await adapter.getPr(prNumber);
   if (pr.state === "closed") return { skip: true, reason: "pr_closed" };
   if (pr.draft) return { skip: true, reason: "pr_draft" };
+  if (pr.labels.some((l) => l.name === "shopfloor:wip")) {
+    return { skip: true, reason: "pr_wip_label" };
+  }
   if (pr.labels.some((l) => l.name === "shopfloor:skip-review")) {
     return { skip: true, reason: "skip_review_label_pr" };
   }
