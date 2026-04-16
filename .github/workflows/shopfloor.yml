@@ -913,37 +913,22 @@ jobs:
             echo "Warning: failed to fetch issue comments for #$ISSUE_NUMBER" >&2
             ISSUE_COMMENTS=""
           fi
-          # Compose the spec_source slot that implement.md renders verbatim.
-          # Large flow: wrap the real spec file in <spec_file_contents>. Medium
-          # flow: emit a concrete "no spec in this flow" statement so the agent
-          # treats the plan as the sole source of truth. Quick flow never
-          # references spec_source because implement-quick.md has no such slot,
-          # so the value we set here is harmless for quick.
-          if [ -f "$SPEC_FILE_PATH" ]; then
-            SPEC_SOURCE=$(printf '<spec_file_contents>\n%s\n</spec_file_contents>' "$(cat "$SPEC_FILE_PATH")")
-          else
-            SPEC_SOURCE=$'<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.\n</spec_source>'
-          fi
-          # revision_block is empty on first runs. The parent implement.md
-          # references {{revision_block}}; the renderer emits {{MISSING:key}}
-          # if a placeholder is absent from the context, so we must pass an
-          # empty string rather than omit the key. Revision runs take a
-          # different code path (build-revision-context helper) that fills
-          # revision_block with the rendered fragment.
+          # Prompts now use @path references to read spec/plan files on
+          # demand. Pass paths, not contents.
           jq -n \
             --arg issue_number "$ISSUE_NUMBER" \
             --arg issue_title "$ISSUE_TITLE" \
             --arg issue_body "${ISSUE_BODY:-}" \
             --arg issue_comments "$ISSUE_COMMENTS" \
-            --arg spec_source "$SPEC_SOURCE" \
-            --arg plan_file_contents "$(test -f "$PLAN_FILE_PATH" && cat "$PLAN_FILE_PATH" || echo '')" \
+            --arg spec_file_path "$SPEC_FILE_PATH" \
+            --arg plan_file_path "$PLAN_FILE_PATH" \
             --arg branch_name "$BRANCH_NAME" \
             --arg progress_comment_id "$PROGRESS_COMMENT_ID" \
             --arg revision_block "" \
             --arg bash_allowlist "$BASH_ALLOWLIST" \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
-            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, spec_source: $spec_source, plan_file_contents: $plan_file_contents, branch_name: $branch_name, progress_comment_id: $progress_comment_id, revision_block: $revision_block, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
+            '{issue_number: $issue_number, issue_title: $issue_title, issue_body: $issue_body, issue_comments: $issue_comments, spec_file_path: $spec_file_path, plan_file_path: $plan_file_path, branch_name: $branch_name, progress_comment_id: $progress_comment_id, revision_block: $revision_block, bash_allowlist: $bash_allowlist, repo_owner: $repo_owner, repo_name: $repo_name}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       # Revision runs build the implement context via a dedicated helper
