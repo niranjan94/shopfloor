@@ -24816,11 +24816,25 @@ function resolvePromptFile(promptFile) {
   if ((0, import_node_fs2.existsSync)(promptFile)) return promptFile;
   const actionPath = process.env.GITHUB_ACTION_PATH;
   if (actionPath) {
+    core10.info(
+      `resolvePromptFile: GITHUB_ACTION_PATH=${actionPath}, trying sibling and self paths`
+    );
     const fromActionSibling = (0, import_node_path.join)(actionPath, "..", promptFile);
+    core10.info(
+      `resolvePromptFile: sibling=${fromActionSibling} exists=${(0, import_node_fs2.existsSync)(fromActionSibling)}`
+    );
     if ((0, import_node_fs2.existsSync)(fromActionSibling)) return fromActionSibling;
     const fromActionSelf = (0, import_node_path.join)(actionPath, promptFile);
+    core10.info(
+      `resolvePromptFile: self=${fromActionSelf} exists=${(0, import_node_fs2.existsSync)(fromActionSelf)}`
+    );
     if ((0, import_node_fs2.existsSync)(fromActionSelf)) return fromActionSelf;
+  } else {
+    core10.info("resolvePromptFile: GITHUB_ACTION_PATH is not set");
   }
+  core10.warning(
+    `resolvePromptFile: could not find ${promptFile} in any search path, returning as-is`
+  );
   return promptFile;
 }
 function parseContextJson(raw) {

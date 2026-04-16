@@ -15,11 +15,25 @@ export function resolvePromptFile(promptFile: string): string {
   if (existsSync(promptFile)) return promptFile;
   const actionPath = process.env.GITHUB_ACTION_PATH;
   if (actionPath) {
+    core.info(
+      `resolvePromptFile: GITHUB_ACTION_PATH=${actionPath}, trying sibling and self paths`,
+    );
     const fromActionSibling = join(actionPath, "..", promptFile);
+    core.info(
+      `resolvePromptFile: sibling=${fromActionSibling} exists=${existsSync(fromActionSibling)}`,
+    );
     if (existsSync(fromActionSibling)) return fromActionSibling;
     const fromActionSelf = join(actionPath, promptFile);
+    core.info(
+      `resolvePromptFile: self=${fromActionSelf} exists=${existsSync(fromActionSelf)}`,
+    );
     if (existsSync(fromActionSelf)) return fromActionSelf;
+  } else {
+    core.info("resolvePromptFile: GITHUB_ACTION_PATH is not set");
   }
+  core.warning(
+    `resolvePromptFile: could not find ${promptFile} in any search path, returning as-is`,
+  );
   return promptFile;
 }
 
