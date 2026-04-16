@@ -1,10 +1,13 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import * as core from "@actions/core";
 import type { GitHubAdapter } from "../github";
 import { renderPrompt } from "../prompt-render";
 import { resolvePromptFile } from "./render-prompt";
 
+export type RevisionStage = "spec" | "plan" | "implement";
+
 export interface BuildRevisionContextParams {
+  stage: RevisionStage;
   issueNumber: number;
   prNumber: number;
   branchName: string;
@@ -22,19 +25,6 @@ function parseIterationFromBody(body: string | null): number {
   if (!body) return 0;
   const m = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
   return m ? Number(m[1]) : 0;
-}
-
-function composeSpecSource(specFilePath: string): string {
-  if (existsSync(specFilePath)) {
-    const contents = readFileSync(specFilePath, "utf-8");
-    return `<spec_file_contents>\n${contents}\n</spec_file_contents>`;
-  }
-  return `<spec_source>\nThere is no spec for this issue. This is the medium-complexity flow, which skips the spec stage by design. The <plan_file_contents> below is your sole source of truth for the design.\n</spec_source>`;
-}
-
-function readPlanContents(planFilePath: string): string {
-  if (!existsSync(planFilePath)) return "";
-  return readFileSync(planFilePath, "utf-8");
 }
 
 function formatIssueComments(
@@ -105,31 +95,55 @@ export async function buildRevisionContext(
   const iterationCount = parseIterationFromBody(pr.body);
   const reviewCommentsJson = JSON.stringify(filtered);
 
-  const fragmentPath = resolvePromptFile(params.promptFragmentPath);
-  const revisionBlock = renderPrompt(fragmentPath, {
-    iteration_count: String(iterationCount),
+  const fragmentVars: Record<string, string> = {
     review_comments_json: reviewCommentsJson,
-  });
+    iteration_count: String(iterationCount),
+    spec_file_path: params.specFilePath,
+    plan_file_path: params.planFilePath,
+  };
 
-  const specSource = composeSpecSource(params.specFilePath);
-  const planFileContents = readPlanContents(params.planFilePath);
+  const fragmentPath = resolvePromptFile(params.promptFragmentPath);
+  const revisionBlock = renderPrompt(fragmentPath, fragmentVars);
 
-  const contextOut: Record<string, string> = {
+  const common: Record<string, string> = {
     issue_number: String(params.issueNumber),
     issue_title: issue.title,
     issue_body: issue.body ?? "",
     issue_comments: issueComments,
-    spec_source: specSource,
-    plan_file_contents: planFileContents,
     branch_name: params.branchName,
-    progress_comment_id: params.progressCommentId,
-    review_comments_json: reviewCommentsJson,
-    iteration_count: String(iterationCount),
-    bash_allowlist: params.bashAllowlist,
     repo_owner: params.repoOwner,
     repo_name: params.repoName,
     revision_block: revisionBlock,
   };
+
+  let contextOut: Record<string, string>;
+  switch (params.stage) {
+    case "spec":
+      contextOut = {
+        ...common,
+        triage_rationale: "",
+        spec_file_path: params.specFilePath,
+      };
+      break;
+    case "plan":
+      contextOut = {
+        ...common,
+        plan_file_path: params.planFilePath,
+        spec_file_path: params.specFilePath,
+      };
+      break;
+    case "implement":
+      contextOut = {
+        ...common,
+        spec_file_path: params.specFilePath,
+        plan_file_path: params.planFilePath,
+        progress_comment_id: params.progressCommentId,
+        review_comments_json: reviewCommentsJson,
+        iteration_count: String(iterationCount),
+        bash_allowlist: params.bashAllowlist,
+      };
+      break;
+  }
 
   writeFileSync(params.outputPath, JSON.stringify(contextOut));
   core.setOutput("path", params.outputPath);
@@ -138,19 +152,21 @@ export async function buildRevisionContext(
 export async function runBuildRevisionContext(
   adapter: GitHubAdapter,
 ): Promise<void> {
+  const stage = (core.getInput("stage") || "implement") as RevisionStage;
   await buildRevisionContext(adapter, {
+    stage,
     issueNumber: Number(core.getInput("issue_number", { required: true })),
     prNumber: Number(core.getInput("pr_number", { required: true })),
     branchName: core.getInput("branch_name", { required: true }),
-    specFilePath: core.getInput("spec_file_path", { required: true }),
-    planFilePath: core.getInput("plan_file_path", { required: true }),
-    progressCommentId: core.getInput("progress_comment_id", { required: true }),
-    bashAllowlist: core.getInput("bash_allowlist", { required: true }),
+    specFilePath: core.getInput("spec_file_path") || "",
+    planFilePath: core.getInput("plan_file_path") || "",
+    progressCommentId: core.getInput("progress_comment_id") || "",
+    bashAllowlist: core.getInput("bash_allowlist") || "",
     repoOwner: core.getInput("repo_owner", { required: true }),
     repoName: core.getInput("repo_name", { required: true }),
     outputPath: core.getInput("output_path", { required: true }),
     promptFragmentPath:
       core.getInput("prompt_fragment_path") ||
-      "prompts/implement-revision-fragment.md",
+      `prompts/${stage}-revision-fragment.md`,
   });
 }

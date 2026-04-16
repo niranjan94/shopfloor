@@ -3,8 +3,6 @@ import {
   mkdtempSync,
   rmSync,
   readFileSync,
-  writeFileSync,
-  mkdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -101,6 +99,7 @@ describe("buildRevisionContext", () => {
     mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
 
     await buildRevisionContext(adapter, {
+      stage: "implement",
       issueNumber: 42,
       prNumber: 45,
       branchName: "shopfloor/impl/42-add-oauth",
@@ -245,6 +244,7 @@ describe("buildRevisionContext", () => {
     mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
 
     await buildRevisionContext(adapter, {
+      stage: "implement",
       issueNumber: 42,
       prNumber: 45,
       branchName: "shopfloor/impl/42-x",
@@ -332,6 +332,7 @@ describe("buildRevisionContext", () => {
     mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
 
     await buildRevisionContext(adapter, {
+      stage: "implement",
       issueNumber: 42,
       prNumber: 45,
       branchName: "shopfloor/impl/42-x",
@@ -356,13 +357,8 @@ describe("buildRevisionContext", () => {
     expect(reviewComments[0].path).toBe("src/new.ts");
   });
 
-  test("composes spec_source from filesystem when spec file exists", async () => {
+  test("implement stage passes paths, not full contents", async () => {
     const { adapter, mocks } = makeMockAdapter();
-    const specDir = join(tempDir, "docs/shopfloor/specs");
-    mkdirSync(specDir, { recursive: true });
-    const specPath = join(specDir, "42-add-oauth.md");
-    writeFileSync(specPath, "# Spec content");
-
     mocks.getIssue.mockResolvedValueOnce({
       data: { labels: [], state: "open", title: "t", body: "b" },
     });
@@ -392,11 +388,12 @@ describe("buildRevisionContext", () => {
     mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
 
     await buildRevisionContext(adapter, {
+      stage: "implement",
       issueNumber: 42,
       prNumber: 45,
       branchName: "shopfloor/impl/42-add-oauth",
-      specFilePath: specPath,
-      planFilePath: join(tempDir, "no-plan.md"),
+      specFilePath: "docs/shopfloor/specs/42-add-oauth.md",
+      planFilePath: "docs/shopfloor/plans/42-add-oauth.md",
       progressCommentId: "0",
       bashAllowlist: "",
       repoOwner: "o",
@@ -409,8 +406,153 @@ describe("buildRevisionContext", () => {
       string,
       string
     >;
-    expect(written.spec_source).toContain("<spec_file_contents>");
-    expect(written.spec_source).toContain("# Spec content");
-    expect(written.plan_file_contents).toBe("");
+    expect(written.spec_file_path).toBe("docs/shopfloor/specs/42-add-oauth.md");
+    expect(written.plan_file_path).toBe("docs/shopfloor/plans/42-add-oauth.md");
+    expect(written).not.toHaveProperty("spec_source");
+    expect(written).not.toHaveProperty("plan_file_contents");
+  });
+
+  test("spec stage renders spec-revision-fragment and outputs spec context shape", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open", title: "Spec issue", body: "body" },
+    });
+    mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "x" },
+        body: "Shopfloor-Review-Iteration: 0",
+      },
+    });
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 50,
+          user: { login: "reviewer" },
+          body: "fix it",
+          commit_id: "sha1",
+          state: "changes_requested",
+          submitted_at: "2026-04-15T10:00:00Z",
+        },
+      ],
+    });
+    mocks.listReviewComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          pull_request_review_id: 50,
+          path: "docs/spec.md",
+          line: 5,
+          side: "RIGHT",
+          start_line: null,
+          start_side: null,
+          body: "expand this section",
+        },
+      ],
+    });
+    mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
+
+    await buildRevisionContext(adapter, {
+      stage: "spec",
+      issueNumber: 42,
+      prNumber: 45,
+      branchName: "shopfloor/spec/42-spec-issue",
+      specFilePath: "docs/shopfloor/specs/42-spec-issue.md",
+      planFilePath: "",
+      progressCommentId: "",
+      bashAllowlist: "",
+      repoOwner: "o",
+      repoName: "r",
+      outputPath,
+      promptFragmentPath: "prompts/spec-revision-fragment.md",
+    });
+
+    const written = JSON.parse(readFileSync(outputPath, "utf-8")) as Record<
+      string,
+      string
+    >;
+    expect(written.spec_file_path).toBe("docs/shopfloor/specs/42-spec-issue.md");
+    expect(written.triage_rationale).toBe("");
+    expect(written.revision_block).toContain("THIS IS A REVISION RUN");
+    expect(written.revision_block).toContain("existing spec PR");
+    expect(written.revision_block).toContain("expand this section");
+    expect(written).not.toHaveProperty("plan_file_path");
+    expect(written).not.toHaveProperty("progress_comment_id");
+    expect(written).not.toHaveProperty("bash_allowlist");
+  });
+
+  test("plan stage renders plan-revision-fragment and outputs plan context shape", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open", title: "Plan issue", body: "body" },
+    });
+    mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "x" },
+        body: "Shopfloor-Review-Iteration: 0",
+      },
+    });
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 60,
+          user: { login: "reviewer" },
+          body: "revise",
+          commit_id: "sha1",
+          state: "changes_requested",
+          submitted_at: "2026-04-15T10:00:00Z",
+        },
+      ],
+    });
+    mocks.listReviewComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          pull_request_review_id: 60,
+          path: "docs/plan.md",
+          line: 3,
+          side: "RIGHT",
+          start_line: null,
+          start_side: null,
+          body: "add test step",
+        },
+      ],
+    });
+    mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
+
+    await buildRevisionContext(adapter, {
+      stage: "plan",
+      issueNumber: 42,
+      prNumber: 45,
+      branchName: "shopfloor/plan/42-plan-issue",
+      specFilePath: "docs/shopfloor/specs/42-plan-issue.md",
+      planFilePath: "docs/shopfloor/plans/42-plan-issue.md",
+      progressCommentId: "",
+      bashAllowlist: "",
+      repoOwner: "o",
+      repoName: "r",
+      outputPath,
+      promptFragmentPath: "prompts/plan-revision-fragment.md",
+    });
+
+    const written = JSON.parse(readFileSync(outputPath, "utf-8")) as Record<
+      string,
+      string
+    >;
+    expect(written.plan_file_path).toBe("docs/shopfloor/plans/42-plan-issue.md");
+    expect(written.spec_file_path).toBe("docs/shopfloor/specs/42-plan-issue.md");
+    expect(written.revision_block).toContain("THIS IS A REVISION RUN");
+    expect(written.revision_block).toContain("existing plan PR");
+    expect(written.revision_block).toContain("add test step");
+    expect(written).not.toHaveProperty("progress_comment_id");
+    expect(written).not.toHaveProperty("bash_allowlist");
+    expect(written).not.toHaveProperty("triage_rationale");
   });
 });
