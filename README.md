@@ -109,6 +109,14 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
 
 Open an issue and watch it go. The first run bootstraps all `shopfloor:*` labels.
 
+4. **Exclude the spec and plan directories from your linters, formatters, and test runners.** Shopfloor writes spec and plan markdown to `docs/shopfloor/specs/` and `docs/shopfloor/plans/`, and opens a pull request containing only that one file. The spec and plan agents are design-only stages with no shell access, so they cannot run project formatters over what they produce. If your repository runs Prettier, markdownlint, Vale, `cspell`, or similar on CI, add both paths to each tool's ignore list so the spec/plan PRs do not fail checks on stylistic differences. Examples:
+   - `.prettierignore`: `docs/shopfloor/specs/` and `docs/shopfloor/plans/`
+   - `.markdownlintignore` (or `ignores` in `.markdownlint.json`): same two paths
+   - Vale `StylesPath` / `[*.md]` block: exclude the two paths
+   - Any custom "docs lint" job in CI: skip the two paths
+
+   You do **not** need to exclude them from the implementation stage's tests -- implementation PRs include real code changes that should run the full suite. This exclusion is for the spec and plan PRs only.
+
 ## Configuration
 
 Every stage's model, effort, turn budget, timeout, tool allowlist, review confidence threshold, and iteration cap is exposed as an input on the reusable workflow. The full reference lives in [`docs/shopfloor/configuration.md`](docs/shopfloor/configuration.md).
