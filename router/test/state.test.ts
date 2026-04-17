@@ -238,6 +238,12 @@ describe("resolveStage", () => {
     );
     expect(decision.stage).toBe("plan");
     expect(decision.branchName).toBe("shopfloor/plan/42-fix-can-t-log-in");
+    expect(decision.specFilePath).toBe(
+      "docs/shopfloor/specs/42-fix-can-t-log-in.md",
+    );
+    expect(decision.planFilePath).toBe(
+      "docs/shopfloor/plans/42-fix-can-t-log-in.md",
+    );
   });
 
   test("trigger_label set, new issue without it -> none (trigger_label_absent)", () => {
