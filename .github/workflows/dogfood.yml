@@ -22,4 +22,5 @@ jobs:
       pull-requests: read
     secrets: inherit
     with:
+      artifacts_dir: 'docs/superpowers/'
       trigger_label: "shopfloor:trigger"
