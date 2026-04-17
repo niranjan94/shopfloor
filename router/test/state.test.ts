@@ -39,7 +39,9 @@ describe("resolveStage", () => {
     const decision = resolveStage(ctx("issues", "issue-labeled-needs-spec"));
     expect(decision.stage).toBe("spec");
     expect(decision.issueNumber).toBe(42);
-    expect(decision.branchName).toBe("shopfloor/spec/42-add-github-oauth-login");
+    expect(decision.branchName).toBe(
+      "shopfloor/spec/42-add-github-oauth-login",
+    );
     expect(decision.specFilePath).toBe(
       "docs/shopfloor/specs/42-add-github-oauth-login.md",
     );
