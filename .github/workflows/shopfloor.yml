@@ -492,6 +492,18 @@ jobs:
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"file_path":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"}},"required":["file_path","pr_title","pr_body","summary_for_issue_comment"]}'
+      # claude-code-action plants a GITHUB_TOKEN-based git credential during
+      # its run that overrides the x-access-token embedded in origin's URL.
+      # That credential only has contents:read, so the push below would 403
+      # as github-actions[bot]. Re-set the remote with the App token to win
+      # back auth before pushing. Mirrors the post-agent reconfigure in impl.
+      - name: Reconfigure git remote with App token for push
+        if: ${{ success() && steps.app_token.outputs.token != '' && steps.precheck.outputs.skip != 'true' }}
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Commit and push spec
         if: success() && steps.precheck.outputs.skip != 'true'
         run: |
@@ -696,6 +708,18 @@ jobs:
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"file_path":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"}},"required":["file_path","pr_title","pr_body","summary_for_issue_comment"]}'
+      # claude-code-action plants a GITHUB_TOKEN-based git credential during
+      # its run that overrides the x-access-token embedded in origin's URL.
+      # That credential only has contents:read, so the push below would 403
+      # as github-actions[bot]. Re-set the remote with the App token to win
+      # back auth before pushing. Mirrors the post-agent reconfigure in impl.
+      - name: Reconfigure git remote with App token for push
+        if: ${{ success() && steps.app_token.outputs.token != '' && steps.precheck.outputs.skip != 'true' }}
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPO_SLUG}.git"
       - name: Commit and push plan
         if: success() && steps.precheck.outputs.skip != 'true'
         run: |
