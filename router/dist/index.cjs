@@ -25037,7 +25037,8 @@ function computeStageFromLabels(labels, issue) {
       stage: "spec",
       issueNumber,
       complexity: complexityOf(labels),
-      branchName: `shopfloor/spec/${issueNumber}-${slug}`
+      branchName: `shopfloor/spec/${issueNumber}-${slug}`,
+      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`
     };
   }
   if (labels.has("shopfloor:needs-plan")) {
