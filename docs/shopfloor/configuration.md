@@ -57,8 +57,8 @@ Turn budgets cap how many message rounds each agent can take before Shopfloor ab
 | Input                         | Default |
 | ----------------------------- | ------- |
 | `triage_max_turns`            | `10`    |
-| `spec_max_turns`              | `10`    |
-| `plan_max_turns`              | `15`    |
+| `spec_max_turns`              | `50`    |
+| `plan_max_turns`              | `50`    |
 | `review_compliance_max_turns` | `15`    |
 | `review_bugs_max_turns`       | `15`    |
 | `review_security_max_turns`   | `15`    |

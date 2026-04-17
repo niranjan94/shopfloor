@@ -76,7 +76,8 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
      issue_comment:
        types: [created]
      pull_request:
-       types: [opened, synchronize, closed, labeled, unlabeled, ready_for_review]
+       types:
+         [opened, synchronize, closed, labeled, unlabeled, ready_for_review]
      pull_request_review:
        types: [submitted]
 
