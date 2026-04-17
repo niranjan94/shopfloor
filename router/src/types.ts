@@ -210,8 +210,14 @@ export interface OctokitLike {
         head?: string;
         state?: "open" | "closed" | "all";
         per_page?: number;
+        page?: number;
       }): Promise<{
-        data: Array<{ number: number; html_url: string }>;
+        data: Array<{
+          number: number;
+          html_url: string;
+          body?: string | null;
+          head?: { ref: string };
+        }>;
       }>;
       update(params: {
         owner: string;

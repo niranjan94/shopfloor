@@ -79,7 +79,7 @@ function complexityOf(labels: Set<string>): Complexity | undefined {
   return undefined;
 }
 
-function parsePrMetadata(body: string | null): PrMetadata | null {
+export function parsePrMetadata(body: string | null): PrMetadata | null {
   if (!body) return null;
   const issueMatch = body.match(/Shopfloor-Issue:\s*#(\d+)/);
   const stageMatch = body.match(

@@ -135,29 +135,29 @@ In the full pipeline, `pull_request_review.submitted` with `changes_requested` t
 
 ## State tracking summary
 
-| Concern | Full pipeline | Review-only |
-|---|---|---|
+| Concern           | Full pipeline                                                               | Review-only                                                         |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Iteration counter | `Shopfloor-Review-Iteration` in PR body (inserted by `apply-impl-postwork`) | Same field, inserted by `aggregate-review` on first REQUEST_CHANGES |
-| Label state | On the origin issue | On the PR itself (GitHub treats PRs as issues for label API) |
-| Revision trigger | `pull_request_review.submitted` → implement agent | `pull_request.synchronize` from human push |
-| Review identity | Requires secondary review App (primary App authored the PR) | Secondary review App optional (primary App did not author the PR) |
+| Label state       | On the origin issue                                                         | On the PR itself (GitHub treats PRs as issues for label API)        |
+| Revision trigger  | `pull_request_review.submitted` → implement agent                           | `pull_request.synchronize` from human push                          |
+| Review identity   | Requires secondary review App (primary App authored the PR)                 | Secondary review App optional (primary App did not author the PR)   |
 
 ## Files to change
 
-| File | Change |
-|---|---|
-| `.github/workflows/shopfloor-review.yml` | **New file.** Reusable workflow with route, skip-check, four reviewer jobs, aggregator. |
-| `router/src/state.ts` | Add `resolveReviewOnly` function. |
-| `router/src/helpers/route.ts` | Read `review_only` input; dispatch to `resolveReviewOnly` when set. |
-| `router/src/helpers/aggregate-review.ts` | Make `issueNumber` optional, add `labelTarget` fallback, change `writeIterationToBody` to insert-on-missing. |
-| `router/src/helpers/check-review-skip.ts` | Confirm null-issue path works (add test). |
-| `router/src/helpers/precheck-stage.ts` | No code change needed if review-only workflow passes `issueNumber = prNumber`. |
-| `router/action.yml` | Add `review_only` input. |
-| `router/dist/index.cjs` | Rebuilt from source. |
-| `router/test/state.test.ts` | Add tests for `resolveReviewOnly`. |
-| `router/test/aggregate-review.test.ts` | Add tests for optional `issueNumber` and insert-on-missing iteration footer. |
-| `router/test/check-review-skip.test.ts` | Add test for null origin issue. |
-| `docs/shopfloor/configuration.md` | Document the review-only workflow and its inputs. |
+| File                                      | Change                                                                                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `.github/workflows/shopfloor-review.yml`  | **New file.** Reusable workflow with route, skip-check, four reviewer jobs, aggregator.                      |
+| `router/src/state.ts`                     | Add `resolveReviewOnly` function.                                                                            |
+| `router/src/helpers/route.ts`             | Read `review_only` input; dispatch to `resolveReviewOnly` when set.                                          |
+| `router/src/helpers/aggregate-review.ts`  | Make `issueNumber` optional, add `labelTarget` fallback, change `writeIterationToBody` to insert-on-missing. |
+| `router/src/helpers/check-review-skip.ts` | Confirm null-issue path works (add test).                                                                    |
+| `router/src/helpers/precheck-stage.ts`    | No code change needed if review-only workflow passes `issueNumber = prNumber`.                               |
+| `router/action.yml`                       | Add `review_only` input.                                                                                     |
+| `router/dist/index.cjs`                   | Rebuilt from source.                                                                                         |
+| `router/test/state.test.ts`               | Add tests for `resolveReviewOnly`.                                                                           |
+| `router/test/aggregate-review.test.ts`    | Add tests for optional `issueNumber` and insert-on-missing iteration footer.                                 |
+| `router/test/check-review-skip.test.ts`   | Add test for null origin issue.                                                                              |
+| `docs/shopfloor/configuration.md`         | Document the review-only workflow and its inputs.                                                            |
 
 ## Trade-offs
 

@@ -6,9 +6,20 @@ on:
       spec_model: { type: string, default: opus }
       plan_model: { type: string, default: opus }
       impl_model: { type: string, default: opus }
-      triage_max_turns: { type: number, default: 10 }
-      spec_max_turns: { type: number, default: 50 }
-      plan_max_turns: { type: number, default: 50 }
+      # Turn budgets. Empty string (default) means no --max-turns flag is
+      # passed to claude-code-action, which leaves the agent uncapped and
+      # bounded only by the corresponding *_timeout_minutes wall-clock.
+      triage_max_turns: { type: string, default: "" }
+      spec_max_turns: { type: string, default: "" }
+      plan_max_turns: { type: string, default: "" }
+      impl_max_turns: { type: string, default: "" }
+      # Dollar budget per agent run. Empty string (default) means no
+      # --max-budget-usd flag is passed. Set to a numeric string (e.g. "2.50")
+      # to cap the spend of an individual agent invocation.
+      triage_max_budget_usd: { type: string, default: "" }
+      spec_max_budget_usd: { type: string, default: "" }
+      plan_max_budget_usd: { type: string, default: "" }
+      impl_max_budget_usd: { type: string, default: "" }
       triage_timeout_minutes: { type: number, default: 10 }
       spec_timeout_minutes: { type: number, default: 20 }
       plan_timeout_minutes: { type: number, default: 30 }
@@ -23,10 +34,14 @@ on:
       review_bugs_model: { type: string, default: opus }
       review_security_model: { type: string, default: opus }
       review_smells_model: { type: string, default: opus }
-      review_compliance_max_turns: { type: number, default: 15 }
-      review_bugs_max_turns: { type: number, default: 15 }
-      review_security_max_turns: { type: number, default: 15 }
-      review_smells_max_turns: { type: number, default: 15 }
+      review_compliance_max_turns: { type: string, default: "" }
+      review_bugs_max_turns: { type: string, default: "" }
+      review_security_max_turns: { type: string, default: "" }
+      review_smells_max_turns: { type: string, default: "" }
+      review_compliance_max_budget_usd: { type: string, default: "" }
+      review_bugs_max_budget_usd: { type: string, default: "" }
+      review_security_max_budget_usd: { type: string, default: "" }
+      review_smells_max_budget_usd: { type: string, default: "" }
       review_compliance_enabled: { type: boolean, default: true }
       review_bugs_enabled: { type: boolean, default: true }
       review_security_enabled: { type: boolean, default: true }
@@ -306,7 +321,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.triage_model }}
             --effort ${{ inputs.triage_effort }}
-            --max-turns ${{ inputs.triage_max_turns }}
+            ${{ inputs.triage_max_turns != '' && format('--max-turns {0}', inputs.triage_max_turns) || '' }}
+            ${{ inputs.triage_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.triage_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status","complexity","rationale","clarifying_questions"]}'
@@ -488,7 +504,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.spec_model }}
             --effort ${{ inputs.spec_effort }}
-            --max-turns ${{ inputs.spec_max_turns }}
+            ${{ inputs.spec_max_turns != '' && format('--max-turns {0}', inputs.spec_max_turns) || '' }}
+            ${{ inputs.spec_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.spec_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"file_path":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"}},"required":["file_path","pr_title","pr_body","summary_for_issue_comment"]}'
@@ -704,7 +721,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.plan_model }}
             --effort ${{ inputs.plan_effort }}
-            --max-turns ${{ inputs.plan_max_turns }}
+            ${{ inputs.plan_max_turns != '' && format('--max-turns {0}', inputs.plan_max_turns) || '' }}
+            ${{ inputs.plan_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.plan_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"file_path":{"type":"string"},"pr_title":{"type":"string"},"pr_body":{"type":"string"},"summary_for_issue_comment":{"type":"string"}},"required":["file_path","pr_title","pr_body","summary_for_issue_comment"]}'
@@ -1084,6 +1102,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.impl_model }}
             --effort ${{ inputs.impl_effort }}
+            ${{ inputs.impl_max_turns != '' && format('--max-turns {0}', inputs.impl_max_turns) || '' }}
+            ${{ inputs.impl_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.impl_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --mcp-config ${{ steps.mcp_config.outputs.path }}
@@ -1311,7 +1331,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.review_compliance_model }}
             --effort ${{ inputs.review_compliance_effort }}
-            --max-turns ${{ inputs.review_compliance_max_turns }}
+            ${{ inputs.review_compliance_max_turns != '' && format('--max-turns {0}', inputs.review_compliance_max_turns) || '' }}
+            ${{ inputs.review_compliance_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_compliance_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
@@ -1407,7 +1428,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.review_bugs_model }}
             --effort ${{ inputs.review_bugs_effort }}
-            --max-turns ${{ inputs.review_bugs_max_turns }}
+            ${{ inputs.review_bugs_max_turns != '' && format('--max-turns {0}', inputs.review_bugs_max_turns) || '' }}
+            ${{ inputs.review_bugs_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_bugs_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
@@ -1503,7 +1525,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.review_security_model }}
             --effort ${{ inputs.review_security_effort }}
-            --max-turns ${{ inputs.review_security_max_turns }}
+            ${{ inputs.review_security_max_turns != '' && format('--max-turns {0}', inputs.review_security_max_turns) || '' }}
+            ${{ inputs.review_security_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_security_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
@@ -1599,7 +1622,8 @@ jobs:
           claude_args: |
             --model ${{ inputs.review_smells_model }}
             --effort ${{ inputs.review_smells_effort }}
-            --max-turns ${{ inputs.review_smells_max_turns }}
+            ${{ inputs.review_smells_max_turns != '' && format('--max-turns {0}', inputs.review_smells_max_turns) || '' }}
+            ${{ inputs.review_smells_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_smells_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'

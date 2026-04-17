@@ -23944,6 +23944,29 @@ var GitHubAdapter = class {
     const pr = res.data[0];
     return { number: pr.number, url: pr.html_url };
   }
+  // GitHub's pulls.list `head` filter requires an exact `<owner>:<branch>`
+  // match — no prefix or wildcard support — and the issue-unlabel payload
+  // only carries the issue number, not the slug. So we page through open PRs
+  // and filter client-side on the canonical impl branch prefix.
+  async findOpenImplPrForIssue(issueNumber) {
+    const prefix = `shopfloor/impl/${issueNumber}-`;
+    let page = 1;
+    for (; ; ) {
+      const res = await this.octokit.rest.pulls.list({
+        ...this.repo,
+        state: "open",
+        per_page: 100,
+        page
+      });
+      for (const pr of res.data) {
+        if (pr.head?.ref && pr.head.ref.startsWith(prefix)) {
+          return { number: pr.number, body: pr.body ?? null };
+        }
+      }
+      if (res.data.length < 100) return null;
+      page++;
+    }
+  }
   async openStagePr(input) {
     const metadataLines = [
       "",
@@ -25748,12 +25771,40 @@ async function runRoute(adapter) {
       }
     }
   }
-  const decision = resolveStage({
+  let decision = resolveStage({
     eventName: import_github.context.eventName,
     payload: import_github.context.payload,
     triggerLabel,
     liveLabels
   });
+  if (decision.stage === "review" && decision.reason === "review_stuck_removed_force_review" && decision.implPrNumber === void 0 && decision.issueNumber !== void 0) {
+    try {
+      const pr = await adapter.findOpenImplPrForIssue(decision.issueNumber);
+      if (pr) {
+        const meta = parsePrMetadata(pr.body);
+        decision = {
+          ...decision,
+          implPrNumber: pr.number,
+          reviewIteration: meta?.reviewIteration ?? 0
+        };
+      } else {
+        decision = {
+          stage: "none",
+          issueNumber: decision.issueNumber,
+          reason: "review_stuck_removed_no_open_impl_pr"
+        };
+      }
+    } catch (err) {
+      core15.warning(
+        `route: review-stuck impl PR lookup failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+      decision = {
+        stage: "none",
+        issueNumber: decision.issueNumber,
+        reason: "review_stuck_removed_lookup_failed"
+      };
+    }
+  }
   core15.setOutput("stage", decision.stage);
   if (decision.issueNumber !== void 0) {
     core15.setOutput("issue_number", String(decision.issueNumber));

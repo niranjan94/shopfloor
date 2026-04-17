@@ -52,19 +52,37 @@ Valid values: `low`, `medium`, `high`. Raise an effort dial when an agent is pro
 
 ## Turn budgets
 
-Turn budgets cap how many message rounds each agent can take before Shopfloor aborts the run. If an agent is hitting the cap consistently, increase it; if it is wasting turns thrashing, lower it.
+Turn budgets cap how many message rounds each agent can take before Shopfloor aborts the run. **All turn budgets default to unset (no cap).** If an agent is wasting turns thrashing, set a numeric cap; otherwise the `*_timeout_minutes` wall-clock is the only ceiling.
 
-| Input                         | Default |
-| ----------------------------- | ------- |
-| `triage_max_turns`            | `10`    |
-| `spec_max_turns`              | `50`    |
-| `plan_max_turns`              | `50`    |
-| `review_compliance_max_turns` | `15`    |
-| `review_bugs_max_turns`       | `15`    |
-| `review_security_max_turns`   | `15`    |
-| `review_smells_max_turns`     | `15`    |
+| Input                         | Default       |
+| ----------------------------- | ------------- |
+| `triage_max_turns`            | `""` (no cap) |
+| `spec_max_turns`              | `""` (no cap) |
+| `plan_max_turns`              | `""` (no cap) |
+| `impl_max_turns`              | `""` (no cap) |
+| `review_compliance_max_turns` | `""` (no cap) |
+| `review_bugs_max_turns`       | `""` (no cap) |
+| `review_security_max_turns`   | `""` (no cap) |
+| `review_smells_max_turns`     | `""` (no cap) |
 
-The implement stage runs without a turn budget on purpose. Long tasks routinely need more rounds than a static cap can predict, and an aborted implementation mid-flight is strictly worse than a slow one. The `impl_timeout_minutes` wall-clock (default `60`) is the only ceiling on impl runs.
+Pass a numeric string to cap turns for a stage, e.g. `spec_max_turns: "50"`. Empty string (the default) omits the `--max-turns` flag from `claude_args` entirely.
+
+## Dollar budgets
+
+Per-run spend caps passed to `claude-code-action` via `--max-budget-usd`. **All dollar budgets default to unset.** When set, claude-code-action aborts the agent if the cumulative API spend for a single invocation exceeds the cap.
+
+| Input                              | Default       |
+| ---------------------------------- | ------------- |
+| `triage_max_budget_usd`            | `""` (no cap) |
+| `spec_max_budget_usd`              | `""` (no cap) |
+| `plan_max_budget_usd`              | `""` (no cap) |
+| `impl_max_budget_usd`              | `""` (no cap) |
+| `review_compliance_max_budget_usd` | `""` (no cap) |
+| `review_bugs_max_budget_usd`       | `""` (no cap) |
+| `review_security_max_budget_usd`   | `""` (no cap) |
+| `review_smells_max_budget_usd`     | `""` (no cap) |
+
+Pass a numeric string, e.g. `impl_max_budget_usd: "5.00"`. Empty string omits the `--max-budget-usd` flag from `claude_args` entirely.
 
 ## Timeouts
 

@@ -116,6 +116,32 @@ export class GitHubAdapter {
     return { number: pr.number, url: pr.html_url };
   }
 
+  // GitHub's pulls.list `head` filter requires an exact `<owner>:<branch>`
+  // match — no prefix or wildcard support — and the issue-unlabel payload
+  // only carries the issue number, not the slug. So we page through open PRs
+  // and filter client-side on the canonical impl branch prefix.
+  async findOpenImplPrForIssue(
+    issueNumber: number,
+  ): Promise<{ number: number; body: string | null } | null> {
+    const prefix = `shopfloor/impl/${issueNumber}-`;
+    let page = 1;
+    for (;;) {
+      const res = await this.octokit.rest.pulls.list({
+        ...this.repo,
+        state: "open",
+        per_page: 100,
+        page,
+      });
+      for (const pr of res.data) {
+        if (pr.head?.ref && pr.head.ref.startsWith(prefix)) {
+          return { number: pr.number, body: pr.body ?? null };
+        }
+      }
+      if (res.data.length < 100) return null;
+      page++;
+    }
+  }
+
   async openStagePr(
     input: OpenStagePrInput,
   ): Promise<{ number: number; url: string }> {
