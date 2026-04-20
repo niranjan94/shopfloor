@@ -121,4 +121,17 @@ describe("checkReviewSkip", () => {
     expect(result.skip).toBe(true);
     expect(result.reason).toBe("already_reviewed_at_sha");
   });
+
+  test("skip=false on human PR with no Shopfloor-Issue metadata", async () => {
+    const bundle = makeMockAdapter();
+    // Human-contributor PR: no metadata footer in body, no linked issue.
+    primePrFixture(bundle, {
+      body: "Fixes a rendering glitch in the sidebar.",
+      changedFiles: ["src/ui/sidebar.tsx"],
+    });
+    const result = await checkReviewSkip(bundle.adapter, 45);
+    expect(result.skip).toBe(false);
+    // getIssue must NOT be called because the body has no Shopfloor-Issue ref.
+    expect(bundle.mocks.getIssue).not.toHaveBeenCalled();
+  });
 });
