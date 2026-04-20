@@ -1,0 +1,584 @@
+name: Shopfloor Review
+on:
+  workflow_call:
+    inputs:
+      review_compliance_model: { type: string, default: sonnet }
+      review_bugs_model: { type: string, default: opus }
+      review_security_model: { type: string, default: opus }
+      review_smells_model: { type: string, default: opus }
+      review_compliance_max_turns: { type: string, default: "" }
+      review_bugs_max_turns: { type: string, default: "" }
+      review_security_max_turns: { type: string, default: "" }
+      review_smells_max_turns: { type: string, default: "" }
+      review_compliance_max_budget_usd: { type: string, default: "" }
+      review_bugs_max_budget_usd: { type: string, default: "" }
+      review_security_max_budget_usd: { type: string, default: "" }
+      review_smells_max_budget_usd: { type: string, default: "" }
+      review_compliance_enabled: { type: boolean, default: true }
+      review_bugs_enabled: { type: boolean, default: true }
+      review_security_enabled: { type: boolean, default: true }
+      review_smells_enabled: { type: boolean, default: true }
+      review_compliance_effort: { type: string, default: medium }
+      review_bugs_effort: { type: string, default: medium }
+      review_security_effort: { type: string, default: medium }
+      review_smells_effort: { type: string, default: medium }
+      review_timeout_minutes: { type: number, default: 20 }
+      review_confidence_threshold: { type: number, default: 80 }
+      max_review_iterations: { type: number, default: 3 }
+      use_bedrock: { type: boolean, default: false }
+      use_vertex: { type: boolean, default: false }
+      use_foundry: { type: boolean, default: false }
+      display_report: { type: string, default: "true" }
+      # Same trigger_label semantics as the full pipeline, but applied to PRs.
+      # When set, only PRs carrying this label are reviewed.
+      trigger_label: { type: string, default: "" }
+      runner_router:
+        type: string
+        default: "ubuntu-latest"
+      runner_review:
+        type: string
+        default: "ubuntu-latest"
+    secrets:
+      anthropic_api_key: { required: false }
+      claude_code_oauth_token: { required: false }
+      aws_access_key_id: { required: false }
+      aws_secret_access_key: { required: false }
+      aws_region: { required: false }
+      aws_bearer_token_bedrock: { required: false }
+      anthropic_vertex_project_id: { required: false }
+      cloud_ml_region: { required: false }
+      google_application_credentials: { required: false }
+      anthropic_foundry_resource: { required: false }
+      shopfloor_github_app_client_id: { required: false }
+      shopfloor_github_app_private_key: { required: false }
+      # Optional second GitHub App. When set, reviews post under this App's
+      # identity (same as the full pipeline). When unset, reviews post under
+      # the primary App's identity -- which is safe here because Shopfloor is
+      # not the author of these PRs, so the self-review restriction does not
+      # apply.
+      shopfloor_github_app_review_client_id: { required: false }
+      shopfloor_github_app_review_private_key: { required: false }
+
+env:
+  SHOPFLOOR_PLUGIN_MARKETPLACES: |-
+    https://github.com/anthropics/claude-code.git
+    https://github.com/anthropics/claude-plugins-official.git
+  SHOPFLOOR_COMMON_TOOLS: "Agent,Skill,LSP,ToolSearch,Bash(gh api:*),Bash(curl:*)"
+  SHOPFLOOR_DISALLOWED_TOOLS: "AskUserQuestion,EnterPlanMode,EnterWorktree,ExitPlanMode,ExitWorktree,TodoWrite,TaskCreate,WebSearch"
+
+jobs:
+  route:
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_REVIEW_APP: ${{ secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != '' }}
+    outputs:
+      stage: ${{ steps.router.outputs.stage }}
+      impl_pr_number: ${{ steps.router.outputs.impl_pr_number }}
+      review_iteration: ${{ steps.router.outputs.review_iteration }}
+      reason: ${{ steps.router.outputs.reason }}
+      has_review_app: ${{ steps.flags.outputs.has_review_app }}
+      pr_trigger_label_gate_passed: ${{ steps.gate.outputs.passed }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - id: flags
+        run: echo "has_review_app=${SHOPFLOOR_HAS_REVIEW_APP}" >> "$GITHUB_OUTPUT"
+      - name: Warn if no GitHub App configured
+        if: ${{ env.SHOPFLOOR_HAS_APP != 'true' }}
+        run: |
+          echo "::warning title=Shopfloor Review::No primary GitHub App credentials configured. Label writes on the PR will go through GITHUB_TOKEN, which may not be allowed by the caller's permissions."
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - id: bootstrap
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: bootstrap-labels
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+      # PR-side trigger_label gate. Empty input -> pass. Label present -> pass.
+      # Implemented in shell because the state machine doesn't apply here.
+      - id: gate
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels) }}
+          TRIGGER_LABEL: ${{ inputs.trigger_label }}
+        run: |
+          if [ -z "$TRIGGER_LABEL" ]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          elif echo "$PR_LABELS" | jq -e --arg t "$TRIGGER_LABEL" '.[] | select(.name == $t)' >/dev/null; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Shopfloor Review skipped::PR does not carry trigger label '$TRIGGER_LABEL'"
+          fi
+      - id: router
+        if: steps.gate.outputs.passed == 'true'
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: route
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          review_only: "true"
+      # Mark the PR as needing review so the aggregator's precheck passes and
+      # downstream label-flips work identically to the full pipeline.
+      - name: Label PR as needs-review
+        if: steps.router.outputs.stage == 'review'
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          PR: ${{ steps.router.outputs.impl_pr_number }}
+          REPO: ${{ github.repository }}
+        run: gh api -X POST "repos/$REPO/issues/$PR/labels" -f "labels[]=shopfloor:needs-review" >/dev/null
+
+  review-skip-check:
+    needs: route
+    if: needs.route.outputs.stage == 'review'
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      reason: ${{ steps.check.outputs.reason }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - id: check
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: check-review-skip
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          pr_number: ${{ needs.route.outputs.impl_pr_number }}
+
+  review-compliance:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_compliance_enabled
+    concurrency:
+      group: shopfloor-review-compliance-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg plan_file_contents "" \
+            --arg issue_body "" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render compliance prompt
+        id: prompt
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: render-prompt
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-compliance.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
+      - id: agent
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          allowed_bots: "*"
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          claude_args: |
+            --model ${{ inputs.review_compliance_model }}
+            --effort ${{ inputs.review_compliance_effort }}
+            ${{ inputs.review_compliance_max_turns != '' && format('--max-turns {0}', inputs.review_compliance_max_turns) || '' }}
+            ${{ inputs.review_compliance_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_compliance_max_budget_usd) || '' }}
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
+
+  review-bugs:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_bugs_enabled
+    concurrency:
+      group: shopfloor-review-bugs-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg plan_file_contents "" \
+            --arg issue_body "" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render bugs prompt
+        id: prompt
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: render-prompt
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-bugs.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
+      - id: agent
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          allowed_bots: "*"
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          claude_args: |
+            --model ${{ inputs.review_bugs_model }}
+            --effort ${{ inputs.review_bugs_effort }}
+            ${{ inputs.review_bugs_max_turns != '' && format('--max-turns {0}', inputs.review_bugs_max_turns) || '' }}
+            ${{ inputs.review_bugs_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_bugs_max_budget_usd) || '' }}
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
+
+  review-security:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_security_enabled
+    concurrency:
+      group: shopfloor-review-security-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg plan_file_contents "" \
+            --arg issue_body "" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render security prompt
+        id: prompt
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: render-prompt
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-security.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),WebFetch,${{ env.SHOPFLOOR_COMMON_TOOLS }}"
+      - id: agent
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          allowed_bots: "*"
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          claude_args: |
+            --model ${{ inputs.review_security_model }}
+            --effort ${{ inputs.review_security_effort }}
+            ${{ inputs.review_security_max_turns != '' && format('--max-turns {0}', inputs.review_security_max_turns) || '' }}
+            ${{ inputs.review_security_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_security_max_budget_usd) || '' }}
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
+
+  review-smells:
+    needs: [route, review-skip-check]
+    if: needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false' && inputs.review_smells_enabled
+    concurrency:
+      group: shopfloor-review-smells-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
+    runs-on: ${{ startsWith(inputs.runner_review, '[') && fromJSON(inputs.runner_review) || inputs.runner_review }}
+    timeout-minutes: ${{ inputs.review_timeout_minutes }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+    outputs:
+      structured_output: ${{ steps.agent.outputs.structured_output }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/pull/${{ needs.route.outputs.impl_pr_number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Build review context
+        id: ctx
+        env:
+          PR_NUMBER: ${{ needs.route.outputs.impl_pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
+          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          jq -n \
+            --arg repo_owner "$REPO_OWNER" \
+            --arg repo_name "$REPO_NAME" \
+            --arg pr_number "$PR_NUMBER" \
+            --arg pr_title "${PR_TITLE:-}" \
+            --arg pr_body "${PR_BODY:-}" \
+            --arg diff "$DIFF" \
+            --arg changed_files "$CHANGED" \
+            --arg plan_file_contents "" \
+            --arg issue_body "" \
+            --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
+            --arg previous_review_comments_json "[]" \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            > "$RUNNER_TEMP/context.json"
+          echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
+      - name: Render smells prompt
+        id: prompt
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: render-prompt
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          prompt_file: prompts/review-smells.md
+          context_file: ${{ steps.ctx.outputs.path }}
+          base_allowed_tools: "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),${{ env.SHOPFLOOR_COMMON_TOOLS }}"
+      - id: agent
+        uses: anthropics/claude-code-action@1eddb334cfa79fdb21ecbe2180ca1a016e8e7d47 # v1.0.88 -- pinned; v1.0.89+ bug: anthropics/claude-code-action#1205
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_code_oauth_token: ${{ secrets.claude_code_oauth_token }}
+          allowed_bots: "*"
+          prompt: ${{ steps.prompt.outputs.rendered }}
+          display_report: ${{ inputs.display_report }}
+          plugin_marketplaces: ${{ env.SHOPFLOOR_PLUGIN_MARKETPLACES }}
+          claude_args: |
+            --model ${{ inputs.review_smells_model }}
+            --effort ${{ inputs.review_smells_effort }}
+            ${{ inputs.review_smells_max_turns != '' && format('--max-turns {0}', inputs.review_smells_max_turns) || '' }}
+            ${{ inputs.review_smells_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.review_smells_max_budget_usd) || '' }}
+            --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
+            --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["clean","issues_found"]},"summary":{"type":"string"},"comments":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"side":{"type":"string","enum":["LEFT","RIGHT"]},"start_line":{"type":"integer"},"start_side":{"type":"string","enum":["LEFT","RIGHT"]},"body":{"type":"string"},"confidence":{"type":"integer"},"category":{"type":"string"}},"required":["path","line","side","body","confidence","category"]}}},"required":["verdict","summary","comments"]}'
+
+  review-aggregator:
+    needs:
+      [
+        route,
+        review-skip-check,
+        review-compliance,
+        review-bugs,
+        review-security,
+        review-smells,
+      ]
+    if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
+    concurrency:
+      group: shopfloor-review-aggregator-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: true
+    runs-on: ${{ startsWith(inputs.runner_router, '[') && fromJSON(inputs.runner_router) || inputs.runner_router }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      SHOPFLOOR_HAS_APP: ${{ secrets.shopfloor_github_app_client_id != '' && secrets.shopfloor_github_app_private_key != '' }}
+      SHOPFLOOR_HAS_REVIEW_APP: ${{ secrets.shopfloor_github_app_review_client_id != '' && secrets.shopfloor_github_app_review_private_key != '' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Mint GitHub App token
+        id: app_token
+        if: ${{ env.SHOPFLOOR_HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Mint GitHub App token (review app)
+        id: app_token_review
+        if: ${{ env.SHOPFLOOR_HAS_REVIEW_APP == 'true' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.shopfloor_github_app_review_client_id }}
+          private-key: ${{ secrets.shopfloor_github_app_review_private_key }}
+      - name: Precheck review preconditions
+        id: precheck
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: precheck-stage
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          stage: review-aggregator
+          # Using the PR number as issue_number is safe because GitHub's issues
+          # API treats PRs as issues for label lookups; precheck-stage reads
+          # shopfloor:needs-review from the PR's label set.
+          issue_number: ${{ needs.route.outputs.impl_pr_number }}
+          pr_number: ${{ needs.route.outputs.impl_pr_number }}
+          analysed_sha: ${{ github.event.pull_request.head.sha }}
+      - name: Log precheck skip
+        if: steps.precheck.outputs.skip == 'true'
+        run: echo "::notice title=Shopfloor review skipped::${{ steps.precheck.outputs.reason }}"
+      - name: Aggregate review
+        id: aggregate
+        uses: niranjan94/shopfloor/router@main
+        if: steps.precheck.outputs.skip != 'true'
+        with:
+          helper: aggregate-review
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          # Falls back to primary App when the secondary review App is unset;
+          # review-only PRs are not authored by Shopfloor, so the self-review
+          # block does not apply and the primary identity can post reviews.
+          review_github_token: ${{ steps.app_token_review.outputs.token || steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          # issue_number is intentionally omitted; aggregate-review's
+          # labelTarget falls back to pr_number.
+          pr_number: ${{ needs.route.outputs.impl_pr_number }}
+          confidence_threshold: ${{ inputs.review_confidence_threshold }}
+          max_iterations: ${{ inputs.max_review_iterations }}
+          compliance_output: ${{ needs.review-compliance.outputs.structured_output }}
+          bugs_output: ${{ needs.review-bugs.outputs.structured_output }}
+          security_output: ${{ needs.review-security.outputs.structured_output }}
+          smells_output: ${{ needs.review-smells.outputs.structured_output }}
+          workflow_run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          analysed_sha: ${{ github.event.pull_request.head.sha }}
