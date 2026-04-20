@@ -524,3 +524,40 @@ function resolvePullRequestReviewEvent(
     revisionMode: true,
   };
 }
+
+export function resolveReviewOnly(
+  payload: PullRequestPayload,
+): RouterDecision {
+  const pr = payload.pull_request;
+
+  // PRs authored by the full Shopfloor pipeline carry metadata. Let the
+  // full pipeline handle them; this workflow is for human-author PRs only.
+  const meta = parsePrMetadata(pr.body);
+  if (meta) {
+    return {
+      stage: "none",
+      reason: "pr_has_shopfloor_metadata_use_full_pipeline",
+    };
+  }
+
+  if (pr.state === "closed") {
+    return { stage: "none", reason: "pr_is_closed" };
+  }
+  if (pr.draft) {
+    return { stage: "none", reason: "pr_is_draft" };
+  }
+  if (prLabelSet(pr).has("shopfloor:skip-review")) {
+    return { stage: "none", reason: "skip_review_label_present" };
+  }
+
+  // First review cycle starts at 0; subsequent runs read the footer that
+  // aggregate-review appends on the first REQUEST_CHANGES.
+  const iterMatch = pr.body?.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  const reviewIteration = iterMatch ? Number(iterMatch[1]) : 0;
+
+  return {
+    stage: "review",
+    implPrNumber: pr.number,
+    reviewIteration,
+  };
+}
