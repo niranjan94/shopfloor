@@ -2,7 +2,13 @@ import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { branchSlug, parseIssueMetadata, resolveStage } from "../src/state";
+import {
+  branchSlug,
+  parseIssueMetadata,
+  resolveReviewOnly,
+  resolveStage,
+} from "../src/state";
+import type { PullRequestPayload } from "../src/types";
 import type { StateContext } from "../src/types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -506,5 +512,85 @@ describe("parseIssueMetadata", () => {
       "Trailing text that should not confuse the parser.",
     ].join("\n");
     expect(parseIssueMetadata(body)?.slug).toBe("my-slug");
+  });
+});
+
+function prPayload(
+  overrides: Partial<PullRequestPayload["pull_request"]> = {},
+  action = "synchronize",
+): PullRequestPayload {
+  return {
+    action,
+    pull_request: {
+      number: 77,
+      body: null,
+      state: "open",
+      draft: false,
+      merged: false,
+      head: { ref: "feature/x", sha: "abc" },
+      base: { ref: "main", sha: "def" },
+      labels: [],
+      ...overrides,
+    },
+    repository: { owner: { login: "o" }, name: "r" },
+  } as PullRequestPayload;
+}
+
+describe("resolveReviewOnly", () => {
+  test("human PR with no Shopfloor metadata -> review, iteration 0", () => {
+    const decision = resolveReviewOnly(prPayload());
+    expect(decision.stage).toBe("review");
+    expect(decision.implPrNumber).toBe(77);
+    expect(decision.reviewIteration).toBe(0);
+  });
+
+  test("PR carrying Shopfloor metadata -> none (full pipeline owns it)", () => {
+    const decision = resolveReviewOnly(
+      prPayload({
+        body: "Shopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 1",
+      }),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_has_shopfloor_metadata_use_full_pipeline");
+  });
+
+  test("draft PR -> none", () => {
+    const decision = resolveReviewOnly(prPayload({ draft: true }));
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_is_draft");
+  });
+
+  test("closed PR -> none", () => {
+    const decision = resolveReviewOnly(prPayload({ state: "closed" }));
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("pr_is_closed");
+  });
+
+  test("PR with shopfloor:skip-review label -> none", () => {
+    const decision = resolveReviewOnly(
+      prPayload({ labels: [{ name: "shopfloor:skip-review" }] }),
+    );
+    expect(decision.stage).toBe("none");
+    expect(decision.reason).toBe("skip_review_label_present");
+  });
+
+  test("PR with existing review-iteration footer resumes at that number", () => {
+    const decision = resolveReviewOnly(
+      prPayload({
+        body: "Thanks for reviewing.\n\nShopfloor-Review-Iteration: 2\n",
+      }),
+    );
+    expect(decision.stage).toBe("review");
+    expect(decision.reviewIteration).toBe(2);
+    expect(decision.implPrNumber).toBe(77);
+  });
+
+  test("unlabeled shopfloor:skip-review event on otherwise-eligible PR -> review", () => {
+    // The consumer wants to re-enable reviews after marking skip-review; the
+    // unlabel event fires with labels already removed from pr.labels, so this
+    // is just the happy path with no blocking label. Cover it to document the
+    // expectation that re-enabling works immediately.
+    const decision = resolveReviewOnly(prPayload({ labels: [] }, "unlabeled"));
+    expect(decision.stage).toBe("review");
   });
 });
