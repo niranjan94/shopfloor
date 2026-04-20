@@ -1,0 +1,15 @@
+name: Shopfloor Review on Shopfloor
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  review:
+    uses: ./.github/workflows/shopfloor-review.yml
+    # Same read-only ceiling as dogfood.yml; all writes flow through the
+    # Shopfloor App installation token.
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    secrets: inherit
