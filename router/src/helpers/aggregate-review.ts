@@ -17,7 +17,13 @@ interface ReviewerOutput {
 }
 
 export interface AggregateReviewParams {
-  issueNumber: number;
+  /**
+   * When omitted, every label operation below targets the PR number. Used by
+   * shopfloor-review.yml on human-authored PRs that have no linked Shopfloor
+   * issue. Present in the full pipeline so labels continue to land on the
+   * origin issue.
+   */
+  issueNumber?: number;
   prNumber: number;
   confidenceThreshold: number;
   maxIterations: number;
@@ -87,12 +93,14 @@ function parseIterationFromBody(body: string | null): number {
   return m ? Number(m[1]) : 0;
 }
 
+// For full-pipeline PRs apply-impl-postwork always inserts the footer before
+// any review runs, so this stays a no-op there. For review-only PRs the
+// footer is inserted on the first REQUEST_CHANGES and bumped on subsequent
+// iterations.
 function writeIterationToBody(body: string | null, iteration: number): string {
   const baseBody = body ?? "";
   if (!baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
-    throw new Error(
-      "aggregate-review: refusing to update PR body without existing Shopfloor-Review-Iteration metadata. This indicates apply-impl-postwork did not emit the metadata footer (wiring bug).",
-    );
+    return `${baseBody.trimEnd()}\n\nShopfloor-Review-Iteration: ${iteration}\n`;
   }
   return baseBody.replace(
     /Shopfloor-Review-Iteration:\s*\d+/,
@@ -111,6 +119,7 @@ export async function aggregateReview(
     security: parseReviewer(params.reviewerOutputs.security),
     smells: parseReviewer(params.reviewerOutputs.smells),
   };
+  const labelTarget = params.issueNumber ?? params.prNumber;
   const parsed = Object.values(outputs).filter(
     (v): v is ReviewerOutput => v !== null,
   );
@@ -177,10 +186,10 @@ export async function aggregateReview(
       "Shopfloor review passed",
       params.workflowRunUrl,
     );
-    await adapter.addLabel(params.issueNumber, "shopfloor:review-approved");
-    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.addLabel(labelTarget, "shopfloor:review-approved");
+    await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
     await adapter.removeLabel(
-      params.issueNumber,
+      labelTarget,
       "shopfloor:review-requested-changes",
     );
     return;
@@ -188,10 +197,10 @@ export async function aggregateReview(
 
   const nextIteration = currentIteration + 1;
   if (nextIteration > params.maxIterations) {
-    await adapter.addLabel(params.issueNumber, "shopfloor:review-stuck");
-    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.addLabel(labelTarget, "shopfloor:review-stuck");
+    await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
     await adapter.removeLabel(
-      params.issueNumber,
+      labelTarget,
       "shopfloor:review-requested-changes",
     );
     await adapter.postIssueComment(
@@ -237,10 +246,10 @@ export async function aggregateReview(
     params.workflowRunUrl,
   );
   await adapter.addLabel(
-    params.issueNumber,
+    labelTarget,
     "shopfloor:review-requested-changes",
   );
-  await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+  await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
 
   const newBody = writeIterationToBody(pr.body ?? null, nextIteration);
   await adapter.updatePrBody(params.prNumber, newBody);
@@ -250,8 +259,9 @@ export async function runAggregateReview(
   adapter: GitHubAdapter,
   reviewAdapter: GitHubAdapter = adapter,
 ): Promise<void> {
+  const issueNumberInput = core.getInput("issue_number");
   const params: AggregateReviewParams = {
-    issueNumber: Number(core.getInput("issue_number", { required: true })),
+    ...(issueNumberInput ? { issueNumber: Number(issueNumberInput) } : {}),
     prNumber: Number(core.getInput("pr_number", { required: true })),
     confidenceThreshold: Number(core.getInput("confidence_threshold") || 80),
     maxIterations: Number(core.getInput("max_iterations") || 3),

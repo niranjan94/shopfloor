@@ -219,7 +219,7 @@ describe("aggregateReview", () => {
     );
   });
 
-  test("writeIterationToBody throws when the body is missing the metadata footer", async () => {
+  test("issueNumber omitted -> labels land on PR number", async () => {
     const bundle = makeMockAdapter();
     bundle.mocks.getPr.mockResolvedValueOnce({
       data: {
@@ -227,24 +227,64 @@ describe("aggregateReview", () => {
         draft: false,
         merged: false,
         labels: [],
-        head: { sha: "samesha" },
-        body: "bare body with no metadata\n",
+        head: { sha: "abc" },
+        // Non-shopfloor human PR: no metadata footer.
+        body: "Quick fix for the sidebar.",
       },
     });
-    await expect(
-      aggregateReview(bundle.adapter, {
-        issueNumber: 42,
-        prNumber: 45,
-        confidenceThreshold: 80,
-        maxIterations: 3,
-        analysedSha: "samesha",
-        reviewerOutputs: {
-          compliance: fixture("compliance-issues"),
-          bugs: fixture("bugs-clean"),
-          security: fixture("security-clean"),
-          smells: fixture("smells-clean"),
-        },
+    await aggregateReview(bundle.adapter, {
+      prNumber: 77,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    expect(bundle.mocks.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_number: 77, // label target falls back to PR number
+        labels: ["shopfloor:review-requested-changes"],
       }),
-    ).rejects.toThrow(/Shopfloor-Review-Iteration/);
+    );
+    expect(bundle.mocks.removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_number: 77,
+        name: "shopfloor:needs-review",
+      }),
+    );
+  });
+
+  test("inserts Shopfloor-Review-Iteration footer when absent", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "abc" },
+        body: "Fixes a rendering bug.\n",
+      },
+    });
+    await aggregateReview(bundle.adapter, {
+      prNumber: 77,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    const updatePrCall = bundle.mocks.updatePr.mock.calls.at(-1)?.[0] as {
+      body: string;
+    };
+    expect(updatePrCall.body).toMatch(/Shopfloor-Review-Iteration: 1/);
+    // Original body preserved.
+    expect(updatePrCall.body).toContain("Fixes a rendering bug.");
   });
 });
