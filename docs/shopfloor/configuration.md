@@ -293,3 +293,59 @@ jobs:
       runner_review: '["self-hosted", "linux", "x64"]'
     secrets: inherit
 ```
+
+## Review-only workflow
+
+`shopfloor-review.yml` is a second reusable workflow that runs Shopfloor's four-reviewer matrix (compliance / bugs / security / smells) plus the aggregator on PRs that were NOT created by Shopfloor's implement stage. Use it to run agent reviews on PRs from human contributors or from other automations.
+
+It is deliberately separate from `shopfloor.yml`: the full pipeline is issue-driven and operates only on Shopfloor-authored PRs; the review-only workflow operates on arbitrary PRs and skips any PR that carries Shopfloor PR metadata (so the two workflows never double-review the same PR).
+
+### Minimal caller
+
+```yaml
+# .github/workflows/review.yml
+name: Shopfloor Review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  review:
+    uses: niranjan94/shopfloor/.github/workflows/shopfloor-review.yml@v1
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    secrets: inherit
+```
+
+### Inputs
+
+A subset of `shopfloor.yml`'s inputs applies:
+
+- Per-reviewer model / max-turns / max-budget / enabled / effort knobs (`review_compliance_*`, `review_bugs_*`, `review_security_*`, `review_smells_*`).
+- `review_timeout_minutes`, `review_confidence_threshold`, `max_review_iterations`.
+- `use_bedrock`, `use_vertex`, `use_foundry`, `display_report`, `runner_router`, `runner_review`.
+- `trigger_label` — optional. When set, only PRs carrying this label are reviewed.
+
+### Secrets
+
+Same set as the full pipeline. The second review App (`shopfloor_github_app_review_*`) is **optional** here. When unset, reviews post under the primary App's identity — which is safe because Shopfloor does not author these PRs, so the self-review restriction does not apply.
+
+### State tracking
+
+The review iteration counter is written into the PR body as `Shopfloor-Review-Iteration: N` on the first REQUEST_CHANGES. Labels (`shopfloor:needs-review`, `shopfloor:review-requested-changes`, `shopfloor:review-approved`, `shopfloor:review-stuck`) are applied to the PR itself.
+
+A human-authored revision cycle works like this:
+
+1. Contributor opens the PR → review runs.
+2. Aggregator posts REQUEST_CHANGES with inline comments.
+3. Contributor pushes a fix.
+4. `pull_request.synchronize` re-enters the workflow; review runs again.
+5. Aggregator either APPROVEs or bumps the iteration.
+
+There is no implement agent in this workflow — revisions are always human-authored.
+
+### Excluding review-only for a PR
+
+Add the `shopfloor:skip-review` label to the PR (or have the caller gate via `trigger_label`).

@@ -101,6 +101,8 @@ jobs:
 
 Commit and push this file. On the next push, GitHub will start running the workflow on every matching event.
 
+If you want agent reviews on pull requests that were NOT created by Shopfloor's pipeline (human contributors or other automations), add the companion reusable workflow `shopfloor-review.yml` alongside the main caller. See [Review-only workflow](./configuration.md#review-only-workflow) for the caller pattern.
+
 ## Step 4: First-run bootstrap
 
 The first time Shopfloor runs on your repository it creates ~20 `shopfloor:*` labels via its `bootstrap-labels` helper. This is idempotent — if you ever delete a label, the next run will recreate it. You do not need to do anything for this step.
