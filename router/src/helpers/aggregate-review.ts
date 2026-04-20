@@ -245,10 +245,7 @@ export async function aggregateReview(
     `Shopfloor review requested changes (iteration ${nextIteration})`,
     params.workflowRunUrl,
   );
-  await adapter.addLabel(
-    labelTarget,
-    "shopfloor:review-requested-changes",
-  );
+  await adapter.addLabel(labelTarget, "shopfloor:review-requested-changes");
   await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
 
   const newBody = writeIterationToBody(pr.body ?? null, nextIteration);

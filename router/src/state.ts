@@ -525,9 +525,7 @@ function resolvePullRequestReviewEvent(
   };
 }
 
-export function resolveReviewOnly(
-  payload: PullRequestPayload,
-): RouterDecision {
+export function resolveReviewOnly(payload: PullRequestPayload): RouterDecision {
   const pr = payload.pull_request;
 
   // PRs authored by the full Shopfloor pipeline carry metadata. Let the

@@ -2,7 +2,11 @@ import * as core from "@actions/core";
 import { context } from "@actions/github";
 import { parsePrMetadata, resolveReviewOnly, resolveStage } from "../state";
 import type { GitHubAdapter } from "../github";
-import type { IssuePayload, PullRequestPayload, RouterDecision } from "../types";
+import type {
+  IssuePayload,
+  PullRequestPayload,
+  RouterDecision,
+} from "../types";
 
 export async function runRoute(adapter: GitHubAdapter): Promise<void> {
   const triggerLabel = core.getInput("trigger_label") || undefined;

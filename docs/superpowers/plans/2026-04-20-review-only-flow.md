@@ -180,9 +180,7 @@ git commit -m "test(router): add failing resolveReviewOnly tests"
 Add to `router/src/state.ts` (after `resolvePullRequestReviewEvent` or near the other pull-request resolvers):
 
 ```typescript
-export function resolveReviewOnly(
-  payload: PullRequestPayload,
-): RouterDecision {
+export function resolveReviewOnly(payload: PullRequestPayload): RouterDecision {
   const pr = payload.pull_request;
 
   // PRs authored by the full Shopfloor pipeline carry metadata. Let the
@@ -349,11 +347,7 @@ export async function runRoute(adapter: GitHubAdapter): Promise<void> {
 And add the new imports at the top:
 
 ```typescript
-import {
-  parsePrMetadata,
-  resolveReviewOnly,
-  resolveStage,
-} from "../state";
+import { parsePrMetadata, resolveReviewOnly, resolveStage } from "../state";
 import type {
   IssuePayload,
   PullRequestPayload,
@@ -905,7 +899,14 @@ jobs:
 
   review-aggregator:
     needs:
-      [route, review-skip-check, review-compliance, review-bugs, review-security, review-smells]
+      [
+        route,
+        review-skip-check,
+        review-compliance,
+        review-bugs,
+        review-security,
+        review-smells,
+      ]
     if: always() && needs.route.outputs.stage == 'review' && needs.review-skip-check.outputs.skip == 'false'
     concurrency:
       group: shopfloor-review-aggregator-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}

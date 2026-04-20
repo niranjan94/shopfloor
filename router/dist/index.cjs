@@ -24657,9 +24657,10 @@ function parseIterationFromBody(body) {
 function writeIterationToBody(body, iteration) {
   const baseBody = body ?? "";
   if (!baseBody.match(/Shopfloor-Review-Iteration:\s*\d+/)) {
-    throw new Error(
-      "aggregate-review: refusing to update PR body without existing Shopfloor-Review-Iteration metadata. This indicates apply-impl-postwork did not emit the metadata footer (wiring bug)."
-    );
+    return `${baseBody.trimEnd()}
+
+Shopfloor-Review-Iteration: ${iteration}
+`;
   }
   return baseBody.replace(
     /Shopfloor-Review-Iteration:\s*\d+/,
@@ -24673,6 +24674,7 @@ async function aggregateReview(adapter, params, reviewAdapter = adapter) {
     security: parseReviewer(params.reviewerOutputs.security),
     smells: parseReviewer(params.reviewerOutputs.smells)
   };
+  const labelTarget = params.issueNumber ?? params.prNumber;
   const parsed = Object.values(outputs).filter(
     (v) => v !== null
   );
@@ -24732,20 +24734,20 @@ ${parsed.map((r) => `- ${r.summary}`).join("\n")}`;
       "Shopfloor review passed",
       params.workflowRunUrl
     );
-    await adapter.addLabel(params.issueNumber, "shopfloor:review-approved");
-    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.addLabel(labelTarget, "shopfloor:review-approved");
+    await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
     await adapter.removeLabel(
-      params.issueNumber,
+      labelTarget,
       "shopfloor:review-requested-changes"
     );
     return;
   }
   const nextIteration = currentIteration + 1;
   if (nextIteration > params.maxIterations) {
-    await adapter.addLabel(params.issueNumber, "shopfloor:review-stuck");
-    await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+    await adapter.addLabel(labelTarget, "shopfloor:review-stuck");
+    await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
     await adapter.removeLabel(
-      params.issueNumber,
+      labelTarget,
       "shopfloor:review-requested-changes"
     );
     await adapter.postIssueComment(
@@ -24789,17 +24791,15 @@ ${c.body}`
     `Shopfloor review requested changes (iteration ${nextIteration})`,
     params.workflowRunUrl
   );
-  await adapter.addLabel(
-    params.issueNumber,
-    "shopfloor:review-requested-changes"
-  );
-  await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+  await adapter.addLabel(labelTarget, "shopfloor:review-requested-changes");
+  await adapter.removeLabel(labelTarget, "shopfloor:needs-review");
   const newBody = writeIterationToBody(pr.body ?? null, nextIteration);
   await adapter.updatePrBody(params.prNumber, newBody);
 }
 async function runAggregateReview(adapter, reviewAdapter = adapter) {
+  const issueNumberInput = core9.getInput("issue_number");
   const params = {
-    issueNumber: Number(core9.getInput("issue_number", { required: true })),
+    ...issueNumberInput ? { issueNumber: Number(issueNumberInput) } : {},
     prNumber: Number(core9.getInput("pr_number", { required: true })),
     confidenceThreshold: Number(core9.getInput("confidence_threshold") || 80),
     maxIterations: Number(core9.getInput("max_iterations") || 3),
@@ -25275,6 +25275,32 @@ function resolvePullRequestReviewEvent(payload, shopfloorBotLogin) {
     stage: meta.stage,
     issueNumber: meta.issueNumber,
     revisionMode: true
+  };
+}
+function resolveReviewOnly(payload) {
+  const pr = payload.pull_request;
+  const meta = parsePrMetadata(pr.body);
+  if (meta) {
+    return {
+      stage: "none",
+      reason: "pr_has_shopfloor_metadata_use_full_pipeline"
+    };
+  }
+  if (pr.state === "closed") {
+    return { stage: "none", reason: "pr_is_closed" };
+  }
+  if (pr.draft) {
+    return { stage: "none", reason: "pr_is_draft" };
+  }
+  if (prLabelSet(pr).has("shopfloor:skip-review")) {
+    return { stage: "none", reason: "skip_review_label_present" };
+  }
+  const iterMatch = pr.body?.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  const reviewIteration = iterMatch ? Number(iterMatch[1]) : 0;
+  return {
+    stage: "review",
+    implPrNumber: pr.number,
+    reviewIteration
   };
 }
 
@@ -25757,8 +25783,9 @@ var core15 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
 async function runRoute(adapter) {
   const triggerLabel = core15.getInput("trigger_label") || void 0;
+  const reviewOnly = core15.getInput("review_only") === "true";
   let liveLabels;
-  if (import_github.context.eventName === "issues") {
+  if (!reviewOnly && import_github.context.eventName === "issues") {
     const payload = import_github.context.payload;
     if (payload.issue?.number !== void 0) {
       try {
@@ -25771,7 +25798,7 @@ async function runRoute(adapter) {
       }
     }
   }
-  let decision = resolveStage({
+  let decision = reviewOnly ? resolveReviewOnly(import_github.context.payload) : resolveStage({
     eventName: import_github.context.eventName,
     payload: import_github.context.payload,
     triggerLabel,
