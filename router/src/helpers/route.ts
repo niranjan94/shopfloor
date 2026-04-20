@@ -1,14 +1,15 @@
 import * as core from "@actions/core";
 import { context } from "@actions/github";
-import { parsePrMetadata, resolveStage } from "../state";
+import { parsePrMetadata, resolveReviewOnly, resolveStage } from "../state";
 import type { GitHubAdapter } from "../github";
-import type { IssuePayload, RouterDecision } from "../types";
+import type { IssuePayload, PullRequestPayload, RouterDecision } from "../types";
 
 export async function runRoute(adapter: GitHubAdapter): Promise<void> {
   const triggerLabel = core.getInput("trigger_label") || undefined;
+  const reviewOnly = core.getInput("review_only") === "true";
 
   let liveLabels: string[] | undefined;
-  if (context.eventName === "issues") {
+  if (!reviewOnly && context.eventName === "issues") {
     const payload = context.payload as unknown as IssuePayload;
     if (payload.issue?.number !== undefined) {
       try {
@@ -24,12 +25,14 @@ export async function runRoute(adapter: GitHubAdapter): Promise<void> {
     }
   }
 
-  let decision: RouterDecision = resolveStage({
-    eventName: context.eventName,
-    payload: context.payload as never,
-    triggerLabel,
-    liveLabels,
-  });
+  let decision: RouterDecision = reviewOnly
+    ? resolveReviewOnly(context.payload as unknown as PullRequestPayload)
+    : resolveStage({
+        eventName: context.eventName,
+        payload: context.payload as never,
+        triggerLabel,
+        liveLabels,
+      });
 
   // The unlabeled(shopfloor:review-stuck) path on an issue event cannot know
   // the impl PR number or the current review iteration from the payload

@@ -192,4 +192,49 @@ describe("runRoute", () => {
       );
     });
   });
+
+  describe("review_only mode", () => {
+    beforeEach(() => {
+      (context as unknown as { eventName: string }).eventName = "pull_request";
+      (context as unknown as { payload: unknown }).payload = {
+        action: "synchronize",
+        pull_request: {
+          number: 77,
+          body: null,
+          state: "open",
+          draft: false,
+          merged: false,
+          head: { ref: "feature/x", sha: "abc" },
+          base: { ref: "main", sha: "def" },
+          labels: [],
+        },
+        repository: { owner: { login: "o" }, name: "r" },
+      };
+    });
+
+    test("review_only=true dispatches to resolveReviewOnly", async () => {
+      vi.spyOn(core, "getInput").mockImplementation((name: string) => {
+        if (name === "review_only") return "true";
+        if (name === "trigger_label") return "";
+        return "";
+      });
+      const bundle = makeMockAdapter();
+      await runRoute(bundle.adapter);
+      expect(setOutput).toHaveBeenCalledWith("stage", "review");
+      expect(setOutput).toHaveBeenCalledWith("impl_pr_number", "77");
+      // Crucially: no issueNumber is emitted because human PRs have no linked
+      // Shopfloor issue. Downstream jobs pass PR number as issue_number instead.
+      expect(setOutput).not.toHaveBeenCalledWith(
+        "issue_number",
+        expect.anything(),
+      );
+    });
+
+    test("review_only not set -> falls through to resolveStage (PR without metadata -> none)", async () => {
+      vi.spyOn(core, "getInput").mockImplementation(() => "");
+      const bundle = makeMockAdapter();
+      await runRoute(bundle.adapter);
+      expect(setOutput).toHaveBeenCalledWith("stage", "none");
+    });
+  });
 });

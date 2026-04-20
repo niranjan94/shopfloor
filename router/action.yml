@@ -14,6 +14,10 @@ inputs:
   trigger_label:
     description: "Optional label that an issue must carry before Shopfloor will enter the pipeline. Leave empty to run on every new issue."
     required: false
+  review_only:
+    description: "When 'true', routing uses resolveReviewOnly (for non-shopfloor human PRs) instead of the issue-centric state machine. Used by shopfloor-review.yml."
+    required: false
+    default: ""
 
   # open-stage-pr inputs
   issue_number:
