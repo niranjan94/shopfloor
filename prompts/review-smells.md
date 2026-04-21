@@ -27,13 +27,13 @@ Review iteration: {{iteration_count}}
 {{pr_body}}
 </pr_body>
 
-<diff>
-{{diff}}
-</diff>
+<base_ref>{{base_ref}}</base_ref>
 
 <changed_files>
 {{changed_files}}
 </changed_files>
+
+`<changed_files>` is a JSON array of repository-relative paths. The diff is not inlined. To read a file's changes, take a path verbatim from the array and run `git diff 'origin/{{base_ref}}...HEAD' -- '<path>'` via Bash. Both the ref argument and every path MUST be wrapped in single quotes so the shell cannot split, glob, or interpret them — refs and paths can contain shell metacharacters. If a value itself contains a literal single quote, escape it as `'\''`. Never interpolate, concatenate, or word-split these values into the command.
 
 <plan_file_contents>
 {{plan_file_contents}}

@@ -207,21 +207,20 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
-          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          CHANGED_FILES_JSON=$(git diff --name-only -z "origin/${BASE_REF}...HEAD" | jq -Rcs 'split("\u0000") | map(select(length > 0))')
           jq -n \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
             --arg pr_number "$PR_NUMBER" \
             --arg pr_title "${PR_TITLE:-}" \
             --arg pr_body "${PR_BODY:-}" \
-            --arg diff "$DIFF" \
-            --arg changed_files "$CHANGED" \
+            --arg base_ref "$BASE_REF" \
+            --arg changed_files "$CHANGED_FILES_JSON" \
             --arg plan_file_contents "" \
             --arg issue_body "" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, base_ref: $base_ref, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render compliance prompt
@@ -291,21 +290,20 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
-          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          CHANGED_FILES_JSON=$(git diff --name-only -z "origin/${BASE_REF}...HEAD" | jq -Rcs 'split("\u0000") | map(select(length > 0))')
           jq -n \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
             --arg pr_number "$PR_NUMBER" \
             --arg pr_title "${PR_TITLE:-}" \
             --arg pr_body "${PR_BODY:-}" \
-            --arg diff "$DIFF" \
-            --arg changed_files "$CHANGED" \
+            --arg base_ref "$BASE_REF" \
+            --arg changed_files "$CHANGED_FILES_JSON" \
             --arg plan_file_contents "" \
             --arg issue_body "" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, base_ref: $base_ref, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render bugs prompt
@@ -375,21 +373,20 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
-          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          CHANGED_FILES_JSON=$(git diff --name-only -z "origin/${BASE_REF}...HEAD" | jq -Rcs 'split("\u0000") | map(select(length > 0))')
           jq -n \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
             --arg pr_number "$PR_NUMBER" \
             --arg pr_title "${PR_TITLE:-}" \
             --arg pr_body "${PR_BODY:-}" \
-            --arg diff "$DIFF" \
-            --arg changed_files "$CHANGED" \
+            --arg base_ref "$BASE_REF" \
+            --arg changed_files "$CHANGED_FILES_JSON" \
             --arg plan_file_contents "" \
             --arg issue_body "" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, base_ref: $base_ref, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render security prompt
@@ -459,21 +456,20 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          DIFF=$(git diff "origin/${BASE_REF}...HEAD" | head -c 200000 || echo "")
-          CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" | tr '\n' ',' | sed 's/,$//')
+          CHANGED_FILES_JSON=$(git diff --name-only -z "origin/${BASE_REF}...HEAD" | jq -Rcs 'split("\u0000") | map(select(length > 0))')
           jq -n \
             --arg repo_owner "$REPO_OWNER" \
             --arg repo_name "$REPO_NAME" \
             --arg pr_number "$PR_NUMBER" \
             --arg pr_title "${PR_TITLE:-}" \
             --arg pr_body "${PR_BODY:-}" \
-            --arg diff "$DIFF" \
-            --arg changed_files "$CHANGED" \
+            --arg base_ref "$BASE_REF" \
+            --arg changed_files "$CHANGED_FILES_JSON" \
             --arg plan_file_contents "" \
             --arg issue_body "" \
             --arg iteration_count "${{ needs.route.outputs.review_iteration }}" \
             --arg previous_review_comments_json "[]" \
-            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, diff: $diff, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
+            '{repo_owner: $repo_owner, repo_name: $repo_name, pr_number: $pr_number, pr_title: $pr_title, pr_body: $pr_body, base_ref: $base_ref, changed_files: $changed_files, plan_file_contents: $plan_file_contents, issue_body: $issue_body, iteration_count: $iteration_count, previous_review_comments_json: $previous_review_comments_json}' \
             > "$RUNNER_TEMP/context.json"
           echo "path=$RUNNER_TEMP/context.json" >> "$GITHUB_OUTPUT"
       - name: Render smells prompt
