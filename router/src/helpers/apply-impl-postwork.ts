@@ -75,6 +75,11 @@ export async function applyImplPostwork(
     params.issueNumber,
     "shopfloor:review-requested-changes",
   );
+  // A new impl run produces a new head SHA, so any prior review-approved
+  // label is stale. Strip it so downstream consumers see the correct state.
+  if (nextLabel === "shopfloor:needs-review") {
+    await adapter.removeLabel(params.issueNumber, "shopfloor:review-approved");
+  }
 
   return { nextLabel, skipReason: skip.reason };
 }

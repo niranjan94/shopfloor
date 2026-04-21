@@ -25464,6 +25464,9 @@ async function applyImplPostwork(adapter, params) {
     params.issueNumber,
     "shopfloor:review-requested-changes"
   );
+  if (nextLabel === "shopfloor:needs-review") {
+    await adapter.removeLabel(params.issueNumber, "shopfloor:review-approved");
+  }
   return { nextLabel, skipReason: skip.reason };
 }
 async function runApplyImplPostwork(adapter) {

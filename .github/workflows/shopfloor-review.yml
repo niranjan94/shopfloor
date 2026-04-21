@@ -128,14 +128,18 @@ jobs:
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           review_only: "true"
       # Mark the PR as needing review so the aggregator's precheck passes and
-      # downstream label-flips work identically to the full pipeline.
+      # downstream label-flips work identically to the full pipeline. Also
+      # strip any stale shopfloor:review-approved left over from a previous
+      # review cycle -- a new head SHA invalidates the prior approval.
       - name: Label PR as needs-review
         if: steps.router.outputs.stage == 'review'
         env:
           GH_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           PR: ${{ steps.router.outputs.impl_pr_number }}
           REPO: ${{ github.repository }}
-        run: gh api -X POST "repos/$REPO/issues/$PR/labels" -f "labels[]=shopfloor:needs-review" >/dev/null
+        run: |
+          gh api -X POST "repos/$REPO/issues/$PR/labels" -f "labels[]=shopfloor:needs-review" >/dev/null
+          gh api -X DELETE "repos/$REPO/issues/$PR/labels/shopfloor:review-approved" >/dev/null 2>&1 || true
 
   review-skip-check:
     needs: route

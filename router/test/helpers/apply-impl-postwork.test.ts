@@ -261,6 +261,113 @@ describe("applyImplPostwork", () => {
     expect(writtenBody).toContain("Shopfloor-Review-Iteration: 2");
   });
 
+  test("needs-review transition strips stale shopfloor:review-approved", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [
+          { name: "shopfloor:needs-impl" },
+          { name: "shopfloor:implementing" },
+          { name: "shopfloor:review-approved" },
+        ],
+        state: "open",
+      },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "abc" },
+        body: "Body\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 1\n",
+      },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "abc" },
+        body: "Body\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 1\n",
+      },
+    });
+    bundle.mocks.listFiles.mockResolvedValueOnce({
+      data: [{ filename: "src/auth.ts" }],
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open" },
+    });
+    bundle.mocks.listReviews.mockResolvedValueOnce({ data: [] });
+
+    const result = await applyImplPostwork(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      prTitle: "feat: x",
+      prBody: "body",
+      hasReviewApp: true,
+    });
+
+    expect(result.nextLabel).toBe("shopfloor:needs-review");
+    expect(bundle.mocks.removeLabel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:review-approved" }),
+    );
+  });
+
+  test("impl-in-review transition does not touch shopfloor:review-approved", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [
+          { name: "shopfloor:needs-impl" },
+          { name: "shopfloor:implementing" },
+        ],
+        state: "open",
+      },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [{ name: "shopfloor:skip-review" }],
+        head: { sha: "abc" },
+        body: "Body\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0\n",
+      },
+    });
+    bundle.mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [{ name: "shopfloor:skip-review" }],
+        head: { sha: "abc" },
+        body: "Body\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 0\n",
+      },
+    });
+    bundle.mocks.listFiles.mockResolvedValueOnce({
+      data: [{ filename: "src/auth.ts" }],
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open" },
+    });
+    bundle.mocks.listReviews.mockResolvedValueOnce({ data: [] });
+
+    const result = await applyImplPostwork(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      prTitle: "t",
+      prBody: "b",
+      hasReviewApp: true,
+    });
+
+    expect(result.nextLabel).toBe("shopfloor:impl-in-review");
+    expect(bundle.mocks.removeLabel).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "shopfloor:review-approved" }),
+    );
+  });
+
   test("hasReviewApp=false short-circuits to impl-in-review without touching review-skip inputs", async () => {
     const bundle = makeMockAdapter();
     bundle.mocks.getIssue.mockResolvedValueOnce({
