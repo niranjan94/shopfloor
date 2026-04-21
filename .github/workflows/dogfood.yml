@@ -11,6 +11,14 @@ on:
 
 jobs:
   shopfloor:
+    # Mutually exclusive with dogfood-review.yml on the PR event surface.
+    # Non-PR events (issues, issue_comment) always proceed; PR/PR-review events
+    # proceed only when the PR was authored by Shopfloor (body carries the
+    # `Shopfloor-Stage:` marker set by router/src/github.ts). This prevents the
+    # full pipeline's review jobs from appearing as skipped rows on human PRs.
+    if: >-
+      !(github.event_name == 'pull_request' || github.event_name == 'pull_request_review')
+      || contains(github.event.pull_request.body, 'Shopfloor-Stage:')
     uses: ./.github/workflows/shopfloor.yml
     # Minimum ceiling: every nested Shopfloor job runs on read-only GITHUB_TOKEN
     # scopes because all writes flow through the Shopfloor GitHub App installation

@@ -5,6 +5,12 @@ on:
 
 jobs:
   review:
+    # Mutually exclusive with dogfood.yml. Shopfloor-authored stage PRs carry
+    # `Shopfloor-Stage:` in the body (set by router/src/github.ts) and are
+    # reviewed by the full pipeline; this review-only workflow fires on every
+    # other PR. Gating at the `uses:` level means the 7 reusable-workflow jobs
+    # never instantiate as skipped check rows on Shopfloor-authored PRs.
+    if: "!contains(github.event.pull_request.body, 'Shopfloor-Stage:')"
     uses: ./.github/workflows/shopfloor-review.yml
     # Same read-only ceiling as dogfood.yml; all writes flow through the
     # Shopfloor App installation token.
