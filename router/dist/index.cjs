@@ -24088,6 +24088,28 @@ ${metadataLines.join("\n")}
     }
     return files;
   }
+  async listChangedFilePatches(prNumber) {
+    const out = [];
+    let page = 1;
+    for (; ; ) {
+      const res = await this.octokit.rest.pulls.listFiles({
+        ...this.repo,
+        pull_number: prNumber,
+        per_page: 100,
+        page
+      });
+      out.push(
+        ...res.data.map((f) => ({
+          filename: f.filename,
+          patch: f.patch,
+          status: f.status
+        }))
+      );
+      if (res.data.length < 100) break;
+      page++;
+    }
+    return out;
+  }
   async getIssue(issueNumber) {
     const res = await this.octokit.rest.issues.get({
       ...this.repo,
@@ -24607,6 +24629,74 @@ async function runCheckReviewSkip(adapter) {
 
 // src/helpers/aggregate-review.ts
 var core9 = __toESM(require_core(), 1);
+
+// src/helpers/diff-positions.ts
+var HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+function parseHunkPositions(patch) {
+  const positions = { left: /* @__PURE__ */ new Set(), right: /* @__PURE__ */ new Set() };
+  if (!patch) return positions;
+  const lines = patch.split("\n");
+  let oldLine = 0;
+  let newLine = 0;
+  let inHunk = false;
+  for (const line of lines) {
+    const header = line.match(HUNK_HEADER);
+    if (header) {
+      oldLine = Number(header[1]);
+      newLine = Number(header[3]);
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk) continue;
+    if (line.startsWith("\\")) continue;
+    if (line.startsWith("+")) {
+      positions.right.add(newLine);
+      newLine++;
+    } else if (line.startsWith("-")) {
+      positions.left.add(oldLine);
+      oldLine++;
+    } else if (line.startsWith(" ") || line === "") {
+      positions.left.add(oldLine);
+      positions.right.add(newLine);
+      oldLine++;
+      newLine++;
+    } else {
+      inHunk = false;
+    }
+  }
+  return positions;
+}
+function buildPositionMap(patches) {
+  const map = /* @__PURE__ */ new Map();
+  for (const file of patches) {
+    map.set(file.filename, parseHunkPositions(file.patch));
+  }
+  return map;
+}
+function commentFits(comment, positions) {
+  const sideSet = (side) => side === "LEFT" ? positions.left : positions.right;
+  if (!sideSet(comment.side).has(comment.line)) return false;
+  if (comment.start_line !== void 0) {
+    const startSide = comment.start_side ?? comment.side;
+    if (!sideSet(startSide).has(comment.start_line)) return false;
+  }
+  return true;
+}
+function partitionCommentsByDiff(comments, positionMap) {
+  const valid = [];
+  const dropped = [];
+  for (const c of comments) {
+    const positions = positionMap.get(c.path);
+    if (positions && commentFits(c, positions)) {
+      valid.push(c);
+    } else {
+      dropped.push(c);
+    }
+  }
+  return { valid, dropped };
+}
+
+// src/helpers/aggregate-review.ts
 var SHOPFLOOR_REVIEW_MARKER = "<!-- shopfloor-review -->";
 function parseReviewer(raw) {
   if (!raw || !raw.trim()) return null;
@@ -24762,13 +24852,36 @@ ${parsed.map((r) => `- ${r.summary}`).join("\n")}`;
     );
     return;
   }
-  const reviewBody = [
+  const patches = await adapter.listChangedFilePatches(params.prNumber);
+  const positionMap = buildPositionMap(patches);
+  const { valid: anchored, dropped } = partitionCommentsByDiff(
+    filtered,
+    positionMap
+  );
+  if (dropped.length > 0) {
+    core9.warning(
+      `aggregateReview: dropped ${dropped.length} review comment(s) whose lines fall outside the PR diff hunks; surfaced in the review body.`
+    );
+  }
+  const reviewBodyParts = [
     SHOPFLOOR_REVIEW_MARKER,
     `**Shopfloor agent review: changes requested** (iteration ${nextIteration}/${params.maxIterations}).`,
     "",
     parsed.map((r) => `- ${r.summary}`).join("\n")
-  ].join("\n");
-  const batchedComments = filtered.map((c) => ({
+  ];
+  if (dropped.length > 0) {
+    reviewBodyParts.push(
+      "",
+      "**Findings dropped (line not in PR diff hunks):**",
+      ...dropped.map((c) => {
+        const sideMarker = c.side === "LEFT" ? " (LEFT)" : "";
+        const firstLine = c.body.split("\n", 1)[0];
+        return `- \`${c.path}:${c.line}\`${sideMarker} [${c.category} / ${c.confidence}]: ${firstLine}`;
+      })
+    );
+  }
+  const reviewBody = reviewBodyParts.join("\n");
+  const batchedComments = anchored.map((c) => ({
     path: c.path,
     line: c.line,
     side: c.side,

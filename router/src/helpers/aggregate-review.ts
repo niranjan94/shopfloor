@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import type { GitHubAdapter, ReviewComment } from "../github";
+import { buildPositionMap, partitionCommentsByDiff } from "./diff-positions";
 
 interface ReviewerOutput {
   verdict: "clean" | "issues_found";
@@ -216,14 +217,44 @@ export async function aggregateReview(
     return;
   }
 
-  const reviewBody = [
+  // GitHub's pulls.createReview is atomic: a single inline comment whose
+  // (path, line, side) doesn't fall on a hunk line in the PR's unified diff
+  // 422s the entire review with "Line could not be resolved". Reviewer agents
+  // sometimes guess off-diff lines, so partition findings against the actual
+  // diff and surface the dropped ones in the body summary.
+  const patches = await adapter.listChangedFilePatches(params.prNumber);
+  const positionMap = buildPositionMap(patches);
+  const { valid: anchored, dropped } = partitionCommentsByDiff(
+    filtered,
+    positionMap,
+  );
+
+  if (dropped.length > 0) {
+    core.warning(
+      `aggregateReview: dropped ${dropped.length} review comment(s) whose lines fall outside the PR diff hunks; surfaced in the review body.`,
+    );
+  }
+
+  const reviewBodyParts: string[] = [
     SHOPFLOOR_REVIEW_MARKER,
     `**Shopfloor agent review: changes requested** (iteration ${nextIteration}/${params.maxIterations}).`,
     "",
     parsed.map((r) => `- ${r.summary}`).join("\n"),
-  ].join("\n");
+  ];
+  if (dropped.length > 0) {
+    reviewBodyParts.push(
+      "",
+      "**Findings dropped (line not in PR diff hunks):**",
+      ...dropped.map((c) => {
+        const sideMarker = c.side === "LEFT" ? " (LEFT)" : "";
+        const firstLine = c.body.split("\n", 1)[0];
+        return `- \`${c.path}:${c.line}\`${sideMarker} [${c.category} / ${c.confidence}]: ${firstLine}`;
+      }),
+    );
+  }
+  const reviewBody = reviewBodyParts.join("\n");
 
-  const batchedComments: ReviewComment[] = filtered.map((c) => ({
+  const batchedComments: ReviewComment[] = anchored.map((c) => ({
     path: c.path,
     line: c.line,
     side: c.side,

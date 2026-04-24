@@ -65,6 +65,16 @@ describe("aggregateReview", () => {
   test("issues found -> REQUEST_CHANGES with filtered+deduped comments", async () => {
     const bundle = makeMockAdapter();
     primeImplPr(bundle);
+    bundle.mocks.listFiles.mockResolvedValueOnce({
+      data: [
+        {
+          filename: "src/auth.ts",
+          status: "modified",
+          patch:
+            "@@ -40,5 +40,5 @@\n unchanged40\n unchanged41\n-old42\n+new42\n unchanged43\n",
+        },
+      ],
+    });
     await aggregateReview(bundle.adapter, {
       issueNumber: 42,
       prNumber: 45,
@@ -255,6 +265,132 @@ describe("aggregateReview", () => {
         name: "shopfloor:needs-review",
       }),
     );
+  });
+
+  test("drops comments whose line is outside the PR diff hunks and surfaces them in the body", async () => {
+    const bundle = makeMockAdapter();
+    primeImplPr(bundle);
+    // src/auth.ts is changed but only lines 1-3 are in the diff. The
+    // compliance-issues fixture targets line 42 RIGHT, which GitHub would
+    // reject with "Line could not be resolved". The aggregator must drop it
+    // before posting and surface it in the review body so the next iteration
+    // can self-correct.
+    bundle.mocks.listFiles.mockResolvedValueOnce({
+      data: [
+        {
+          filename: "src/auth.ts",
+          status: "modified",
+          patch: "@@ -1,3 +1,3 @@\n-old1\n+new1\n unchanged2\n unchanged3\n",
+        },
+      ],
+    });
+    await aggregateReview(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    const reviewCall = bundle.mocks.createReview.mock.calls[0][0] as {
+      body: string;
+      comments: Array<{ path: string; line: number }>;
+    };
+    expect(reviewCall.comments).toHaveLength(0);
+    expect(reviewCall.body).toMatch(/dropped/i);
+    expect(reviewCall.body).toContain("src/auth.ts:42");
+  });
+
+  test("drops comments whose file is not part of the PR diff", async () => {
+    const bundle = makeMockAdapter();
+    primeImplPr(bundle);
+    bundle.mocks.listFiles.mockResolvedValueOnce({ data: [] });
+    await aggregateReview(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    const reviewCall = bundle.mocks.createReview.mock.calls[0][0] as {
+      body: string;
+      comments: Array<{ path: string; line: number }>;
+    };
+    expect(reviewCall.comments).toHaveLength(0);
+    expect(reviewCall.body).toContain("src/auth.ts:42");
+  });
+
+  test("keeps comments that land inside a diff hunk", async () => {
+    const bundle = makeMockAdapter();
+    primeImplPr(bundle);
+    bundle.mocks.listFiles.mockResolvedValueOnce({
+      data: [
+        {
+          filename: "src/auth.ts",
+          status: "modified",
+          patch:
+            "@@ -40,5 +40,5 @@\n unchanged40\n unchanged41\n-old42\n+new42\n unchanged43\n",
+        },
+      ],
+    });
+    await aggregateReview(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    const reviewCall = bundle.mocks.createReview.mock.calls[0][0] as {
+      body: string;
+      comments: Array<{ path: string; line: number }>;
+    };
+    expect(reviewCall.comments).toHaveLength(1);
+    expect(reviewCall.comments[0].path).toBe("src/auth.ts");
+    expect(reviewCall.comments[0].line).toBe(42);
+  });
+
+  test("posts REQUEST_CHANGES with empty comments when every finding is off-diff", async () => {
+    // GitHub's createReview is atomic on comments: any single off-diff line
+    // 422s the entire call. With every comment dropped, post the review with
+    // an empty comments array so the body-level summary still lands and the
+    // status check fails visibly.
+    const bundle = makeMockAdapter();
+    primeImplPr(bundle);
+    bundle.mocks.listFiles.mockResolvedValueOnce({ data: [] });
+    await aggregateReview(bundle.adapter, {
+      issueNumber: 42,
+      prNumber: 45,
+      confidenceThreshold: 80,
+      maxIterations: 3,
+      reviewerOutputs: {
+        compliance: fixture("compliance-issues"),
+        bugs: fixture("bugs-clean"),
+        security: fixture("security-clean"),
+        smells: fixture("smells-clean"),
+      },
+    });
+    // We still post a REQUEST_CHANGES so the dropped findings are visible,
+    // but the comments array must be empty (otherwise GitHub 422s).
+    const reviewCall = bundle.mocks.createReview.mock.calls[0][0] as {
+      event: string;
+      comments: unknown[];
+    };
+    expect(reviewCall.event).toBe("REQUEST_CHANGES");
+    expect(reviewCall.comments).toEqual([]);
   });
 
   test("inserts Shopfloor-Review-Iteration footer when absent", async () => {

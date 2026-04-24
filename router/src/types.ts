@@ -237,7 +237,13 @@ export interface OctokitLike {
         pull_number: number;
         per_page?: number;
         page?: number;
-      }): Promise<{ data: Array<{ filename: string }> }>;
+      }): Promise<{
+        data: Array<{
+          filename: string;
+          patch?: string;
+          status: string;
+        }>;
+      }>;
       createReview(params: {
         owner: string;
         repo: string;

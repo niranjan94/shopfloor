@@ -142,16 +142,33 @@ export function getPr(
   };
 }
 
+// Real GitHub returns a unified-diff `patch` per file. aggregate-review uses
+// it to drop reviewer comments whose lines fall outside the diff hunks (so
+// pulls.createReview doesn't 422). The harness has no working tree, so we
+// synthesize a generous "added 1000 RIGHT-side lines" patch per file. That
+// keeps every scenario's reviewer findings anchorable without each scenario
+// having to declare exact hunk geometry.
+const SYNTHETIC_PATCH_LINES = 1000;
+function syntheticPatch(filename: string): string {
+  const additions = Array.from(
+    { length: SYNTHETIC_PATCH_LINES },
+    (_, i) => `+synthetic line ${i + 1} for ${filename}`,
+  ).join("\n");
+  return `@@ -0,0 +1,${SYNTHETIC_PATCH_LINES} @@\n${additions}`;
+}
+
 export function listFiles(
   state: FakeState,
   params: { pull_number: number; per_page?: number; page?: number },
-): Array<{ filename: string }> {
+): Array<{ filename: string; patch: string; status: string }> {
   const pr = requirePr(state, params.pull_number);
   const per = params.per_page ?? 30;
   const page = params.page ?? 1;
-  return pr.files
-    .slice((page - 1) * per, page * per)
-    .map((filename) => ({ filename }));
+  return pr.files.slice((page - 1) * per, page * per).map((filename) => ({
+    filename,
+    patch: syntheticPatch(filename),
+    status: "modified",
+  }));
 }
 
 // LOWERCASE on purpose -- see the comment on the Review type in state.ts.

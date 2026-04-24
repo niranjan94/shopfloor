@@ -306,6 +306,35 @@ export class GitHubAdapter {
     return files;
   }
 
+  async listChangedFilePatches(prNumber: number): Promise<
+    Array<{
+      filename: string;
+      patch?: string;
+      status: string;
+    }>
+  > {
+    const out: Array<{ filename: string; patch?: string; status: string }> = [];
+    let page = 1;
+    for (;;) {
+      const res = await this.octokit.rest.pulls.listFiles({
+        ...this.repo,
+        pull_number: prNumber,
+        per_page: 100,
+        page,
+      });
+      out.push(
+        ...res.data.map((f) => ({
+          filename: f.filename,
+          patch: f.patch,
+          status: f.status,
+        })),
+      );
+      if (res.data.length < 100) break;
+      page++;
+    }
+    return out;
+  }
+
   async getIssue(issueNumber: number): Promise<{
     labels: Array<{ name: string }>;
     state: "open" | "closed";
