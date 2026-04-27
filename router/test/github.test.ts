@@ -29,6 +29,14 @@ function makeMockOctokit(): {
     listReviewComments: vi.fn().mockResolvedValue({ data: [] }),
     listIssueComments: vi.fn().mockResolvedValue({ data: [] }),
     createCommitStatus: vi.fn().mockResolvedValue({ data: {} }),
+    getRef: vi
+      .fn()
+      .mockResolvedValue({ data: { object: { sha: "main-sha" } } }),
+    createRef: vi.fn().mockResolvedValue({ data: {} }),
+    getContent: vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("nope"), { status: 404 })),
+    createOrUpdateFileContents: vi.fn().mockResolvedValue({ data: {} }),
   };
   const octokit: OctokitLike = {
     rest: {
@@ -55,6 +63,12 @@ function makeMockOctokit(): {
       },
       repos: {
         createCommitStatus: mocks.createCommitStatus,
+        getContent: mocks.getContent,
+        createOrUpdateFileContents: mocks.createOrUpdateFileContents,
+      },
+      git: {
+        getRef: mocks.getRef,
+        createRef: mocks.createRef,
       },
     },
   };
@@ -352,5 +366,124 @@ describe("GitHubAdapter", () => {
         description: "Running...",
       }),
     );
+  });
+});
+
+describe("GitHubAdapter Git Data + Contents API surface", () => {
+  test("getRefSha returns the SHA for a heads ref", async () => {
+    const getRef = vi
+      .fn()
+      .mockResolvedValue({ data: { object: { sha: "abc123" } } });
+    const octokit = {
+      rest: { git: { getRef } },
+    } as unknown as OctokitLike;
+    const adapter = new GitHubAdapter(octokit, { owner: "o", repo: "r" });
+    expect(await adapter.getRefSha("main")).toBe("abc123");
+    expect(getRef).toHaveBeenCalledWith({
+      owner: "o",
+      repo: "r",
+      ref: "heads/main",
+    });
+  });
+
+  test("createRef creates a new branch ref", async () => {
+    const createRef = vi.fn().mockResolvedValue({ data: {} });
+    const adapter = new GitHubAdapter(
+      { rest: { git: { createRef } } } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await adapter.createRef("shopfloor/spec/42-foo", "abc123");
+    expect(createRef).toHaveBeenCalledWith({
+      owner: "o",
+      repo: "r",
+      ref: "refs/heads/shopfloor/spec/42-foo",
+      sha: "abc123",
+    });
+  });
+
+  test("createRef rethrows non-422 errors", async () => {
+    const createRef = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
+    const adapter = new GitHubAdapter(
+      { rest: { git: { createRef } } } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await expect(adapter.createRef("b", "s")).rejects.toThrow("boom");
+  });
+
+  test("createRef swallows 422 (ref already exists) and returns false", async () => {
+    const createRef = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Reference already exists"), {
+        status: 422,
+      }),
+    );
+    const adapter = new GitHubAdapter(
+      { rest: { git: { createRef } } } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    expect(await adapter.createRef("b", "s")).toBe(false);
+  });
+
+  test("getFileSha returns null on 404 and the blob sha when present", async () => {
+    const get404 = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("nope"), { status: 404 }));
+    const adapter404 = new GitHubAdapter(
+      { rest: { repos: { getContent: get404 } } } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    expect(
+      await adapter404.getFileSha("path/to/x.md", "shopfloor/spec/1-x"),
+    ).toBeNull();
+
+    const getOk = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { sha: "blob123", type: "file" } });
+    const adapterOk = new GitHubAdapter(
+      { rest: { repos: { getContent: getOk } } } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    expect(
+      await adapterOk.getFileSha("path/to/x.md", "shopfloor/spec/1-x"),
+    ).toBe("blob123");
+  });
+
+  test("putFileContents creates a file (no sha) and updates one (with sha)", async () => {
+    const put = vi.fn().mockResolvedValue({ data: {} });
+    const adapter = new GitHubAdapter(
+      {
+        rest: { repos: { createOrUpdateFileContents: put } },
+      } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await adapter.putFileContents({
+      path: "docs/spec.md",
+      branch: "shopfloor/spec/1-x",
+      message: "docs(spec): seed",
+      content: "hi",
+    });
+    expect(put).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner: "o",
+        repo: "r",
+        path: "docs/spec.md",
+        branch: "shopfloor/spec/1-x",
+        message: "docs(spec): seed",
+        content: Buffer.from("hi", "utf8").toString("base64"),
+      }),
+    );
+    const callWithSha = put.mock.calls[0][0] as { sha?: string };
+    expect(callWithSha.sha).toBeUndefined();
+
+    await adapter.putFileContents({
+      path: "docs/spec.md",
+      branch: "shopfloor/spec/1-x",
+      message: "docs(spec): update",
+      content: "hi2",
+      sha: "blob123",
+    });
+    const second = put.mock.calls[1][0] as { sha?: string };
+    expect(second.sha).toBe("blob123");
   });
 });

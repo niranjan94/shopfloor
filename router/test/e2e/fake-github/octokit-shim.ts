@@ -92,6 +92,28 @@ export function buildOctokitShim(opts: ShimOptions): OctokitLike {
           repos.createCommitStatus(state, p);
           return envelope({});
         },
+        async getContent() {
+          throw new Error(
+            "fake-github: repos.getContent not implemented in e2e shim",
+          );
+        },
+        async createOrUpdateFileContents() {
+          throw new Error(
+            "fake-github: repos.createOrUpdateFileContents not implemented in e2e shim",
+          );
+        },
+      },
+      git: {
+        async getRef() {
+          throw new Error(
+            "fake-github: git.getRef not implemented in e2e shim",
+          );
+        },
+        async createRef() {
+          throw new Error(
+            "fake-github: git.createRef not implemented in e2e shim",
+          );
+        },
       },
     },
   } satisfies OctokitLike;

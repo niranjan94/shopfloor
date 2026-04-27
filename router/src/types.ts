@@ -297,6 +297,36 @@ export interface OctokitLike {
         description: string;
         target_url?: string;
       }): Promise<unknown>;
+      getContent(params: {
+        owner: string;
+        repo: string;
+        path: string;
+        ref?: string;
+      }): Promise<{
+        data: { sha: string; type: string } | Array<unknown>;
+      }>;
+      createOrUpdateFileContents(params: {
+        owner: string;
+        repo: string;
+        path: string;
+        branch: string;
+        message: string;
+        content: string;
+        sha?: string;
+      }): Promise<unknown>;
+    };
+    git: {
+      getRef(params: {
+        owner: string;
+        repo: string;
+        ref: string;
+      }): Promise<{ data: { object: { sha: string } } }>;
+      createRef(params: {
+        owner: string;
+        repo: string;
+        ref: string;
+        sha: string;
+      }): Promise<unknown>;
     };
   };
 }

@@ -425,6 +425,60 @@ export class GitHubAdapter {
     return all;
   }
 
+  async getRefSha(branchName: string): Promise<string> {
+    const res = await this.octokit.rest.git.getRef({
+      ...this.repo,
+      ref: `heads/${branchName}`,
+    });
+    return res.data.object.sha;
+  }
+
+  async createRef(branchName: string, sha: string): Promise<boolean> {
+    try {
+      await this.octokit.rest.git.createRef({
+        ...this.repo,
+        ref: `refs/heads/${branchName}`,
+        sha,
+      });
+      return true;
+    } catch (err: unknown) {
+      if ((err as { status?: number }).status === 422) return false;
+      throw err;
+    }
+  }
+
+  async getFileSha(path: string, branch: string): Promise<string | null> {
+    try {
+      const res = await this.octokit.rest.repos.getContent({
+        ...this.repo,
+        path,
+        ref: branch,
+      });
+      if (Array.isArray(res.data)) return null;
+      return res.data.sha;
+    } catch (err: unknown) {
+      if ((err as { status?: number }).status === 404) return null;
+      throw err;
+    }
+  }
+
+  async putFileContents(input: {
+    path: string;
+    branch: string;
+    message: string;
+    content: string;
+    sha?: string;
+  }): Promise<void> {
+    await this.octokit.rest.repos.createOrUpdateFileContents({
+      ...this.repo,
+      path: input.path,
+      branch: input.branch,
+      message: input.message,
+      content: Buffer.from(input.content, "utf8").toString("base64"),
+      ...(input.sha ? { sha: input.sha } : {}),
+    });
+  }
+
   async listIssueComments(issueNumber: number): Promise<IssueCommentRow[]> {
     const all: IssueCommentRow[] = [];
     let page = 1;

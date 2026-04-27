@@ -23,6 +23,10 @@ export interface MockBundle {
     listReviewComments: ReturnType<typeof vi.fn>;
     listIssueComments: ReturnType<typeof vi.fn>;
     createCommitStatus: ReturnType<typeof vi.fn>;
+    getRef: ReturnType<typeof vi.fn>;
+    createRef: ReturnType<typeof vi.fn>;
+    getContent: ReturnType<typeof vi.fn>;
+    createOrUpdateFileContents: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -50,6 +54,14 @@ export function makeMockAdapter(repo = { owner: "o", repo: "r" }): MockBundle {
     listReviewComments: vi.fn().mockResolvedValue({ data: [] }),
     listIssueComments: vi.fn().mockResolvedValue({ data: [] }),
     createCommitStatus: vi.fn().mockResolvedValue({ data: {} }),
+    getRef: vi
+      .fn()
+      .mockResolvedValue({ data: { object: { sha: "main-sha" } } }),
+    createRef: vi.fn().mockResolvedValue({ data: {} }),
+    getContent: vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("nope"), { status: 404 })),
+    createOrUpdateFileContents: vi.fn().mockResolvedValue({ data: {} }),
   };
   const octokit = {
     rest: {
@@ -76,6 +88,12 @@ export function makeMockAdapter(repo = { owner: "o", repo: "r" }): MockBundle {
       },
       repos: {
         createCommitStatus: mocks.createCommitStatus,
+        getContent: mocks.getContent,
+        createOrUpdateFileContents: mocks.createOrUpdateFileContents,
+      },
+      git: {
+        getRef: mocks.getRef,
+        createRef: mocks.createRef,
       },
     },
   } as unknown as OctokitLike;
