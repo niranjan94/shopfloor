@@ -142,6 +142,8 @@ export function parseStageBranchRef(
 
 export interface IssueMetadata {
   slug?: string;
+  specPath?: string;
+  planPath?: string;
 }
 
 // The metadata block is a single HTML comment appended by the triage helper.
@@ -156,6 +158,10 @@ export function parseIssueMetadata(body: string | null): IssueMetadata | null {
   const metadata: IssueMetadata = {};
   const slugMatch = block.match(/^\s*Shopfloor-Slug:\s*(\S+)\s*$/m);
   if (slugMatch) metadata.slug = slugMatch[1];
+  const specPathMatch = block.match(/^\s*Shopfloor-Spec-Path:\s*(\S+)\s*$/m);
+  if (specPathMatch) metadata.specPath = specPathMatch[1];
+  const planPathMatch = block.match(/^\s*Shopfloor-Plan-Path:\s*(\S+)\s*$/m);
+  if (planPathMatch) metadata.planPath = planPathMatch[1];
   return metadata;
 }
 

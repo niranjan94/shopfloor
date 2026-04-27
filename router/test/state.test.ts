@@ -515,6 +515,65 @@ describe("parseIssueMetadata", () => {
   });
 });
 
+describe("parseIssueMetadata Shopfloor-Spec-Path / Shopfloor-Plan-Path", () => {
+  test("returns specPath when present", () => {
+    const body = [
+      "Body.",
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: my-slug",
+      "Shopfloor-Spec-Path: docs/specs/x.md",
+      "-->",
+    ].join("\n");
+    expect(parseIssueMetadata(body)).toEqual({
+      slug: "my-slug",
+      specPath: "docs/specs/x.md",
+    });
+  });
+
+  test("returns planPath when present", () => {
+    const body = [
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: s",
+      "Shopfloor-Plan-Path: docs/plans/x.md",
+      "-->",
+    ].join("\n");
+    expect(parseIssueMetadata(body)).toEqual({
+      slug: "s",
+      planPath: "docs/plans/x.md",
+    });
+  });
+
+  test("returns both when both are present", () => {
+    const body = [
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: s",
+      "Shopfloor-Spec-Path: docs/a.md",
+      "Shopfloor-Plan-Path: docs/b.md",
+      "-->",
+    ].join("\n");
+    expect(parseIssueMetadata(body)).toEqual({
+      slug: "s",
+      specPath: "docs/a.md",
+      planPath: "docs/b.md",
+    });
+  });
+
+  test("legacy block with only slug parses cleanly", () => {
+    const body = "<!-- shopfloor:metadata\nShopfloor-Slug: s\n-->";
+    expect(parseIssueMetadata(body)).toEqual({ slug: "s" });
+  });
+
+  test("ignores unknown keys inside the block", () => {
+    const body = [
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: s",
+      "Shopfloor-Future-Key: whatever",
+      "-->",
+    ].join("\n");
+    expect(parseIssueMetadata(body)).toEqual({ slug: "s" });
+  });
+});
+
 function prPayload(
   overrides: Partial<PullRequestPayload["pull_request"]> = {},
   action = "synchronize",
