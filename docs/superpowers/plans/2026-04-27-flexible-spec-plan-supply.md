@@ -999,6 +999,11 @@ describe("seedStagePr", () => {
     });
     expect(result.prNumber).toBe(99);
     expect(bundle.mocks.createPr).not.toHaveBeenCalled();
+    // openStagePr refreshes title/body when an existing PR is reused
+    // (preserveBodyIfExists is false for stage='spec').
+    expect(bundle.mocks.updatePr).toHaveBeenCalledWith(
+      expect.objectContaining({ pull_number: 99 }),
+    );
   });
 
   test("non-422 createRef error rethrows untouched", async () => {
@@ -1210,7 +1215,7 @@ pnpm test -- build-revision-context.test
 
 - [ ] **Step 7.4: Apply the override**
 
-In `router/src/helpers/build-revision-context.ts`, immediately after the `const issue = await adapter.getIssue(...)` line:
+In `router/src/helpers/build-revision-context.ts`, immediately after the `const issue = await adapter.getIssue(...)` line, derive effective paths from the override (if any) without rebinding `params`:
 
 ```ts
 import { parseIssueMetadata, branchSlug } from "../state";
@@ -1218,18 +1223,19 @@ import { resolveArtifactPaths } from "./resolve-artifact-paths";
 
 // ...inside buildRevisionContext, right after fetching the issue:
 const metadata = parseIssueMetadata(issue.body ?? null);
-if (metadata?.specPath || metadata?.planPath) {
-  const slug = metadata?.slug ?? branchSlug(issue.title);
-  const resolved = resolveArtifactPaths(params.issueNumber, slug, metadata);
-  params = {
-    ...params,
-    specFilePath: resolved.specFilePath,
-    planFilePath: resolved.planFilePath,
-  };
-}
+const slug = metadata?.slug ?? branchSlug(issue.title);
+const resolved = resolveArtifactPaths(params.issueNumber, slug, metadata);
+const effectiveSpecPath = metadata?.specPath
+  ? resolved.specFilePath
+  : params.specFilePath;
+const effectivePlanPath = metadata?.planPath
+  ? resolved.planFilePath
+  : params.planFilePath;
 ```
 
-NOTE: mutating `params` directly violates the TypeScript `BuildRevisionContextParams` shape if it's typed as `readonly`. If this fails to compile, introduce a local `effectiveSpecPath` / `effectivePlanPath` and substitute them in the four places `params.specFilePath` / `params.planFilePath` are used in this function.
+Then substitute every existing reference to `params.specFilePath` and `params.planFilePath` inside the function body with `effectiveSpecPath` / `effectivePlanPath` (there are four sites: the `fragmentVars` block, and the `spec`/`plan`/`implement` cases inside the `switch`).
+
+This keeps `params` immutable and makes the override decision explicit at the call site, rather than overwriting input shape state.
 
 - [ ] **Step 7.5: Run tests green and type-check**
 
