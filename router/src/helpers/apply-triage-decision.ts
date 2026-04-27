@@ -4,11 +4,43 @@ import { branchSlug } from "../state";
 import { advanceState } from "./advance-state";
 import { upsertIssueMetadata } from "./upsert-issue-metadata";
 
+export interface SuppliedArtifact {
+  source: "body" | "path";
+  path?: string;
+  content?: string;
+}
+
 interface TriageOutput {
   status: "classified" | "needs_clarification";
   complexity: "quick" | "medium" | "large";
   rationale: string;
   clarifying_questions: string[];
+  supplied_spec?: SuppliedArtifact | null;
+  supplied_plan?: SuppliedArtifact | null;
+}
+
+function validateSupplied(
+  label: string,
+  supplied: unknown,
+): SuppliedArtifact | null {
+  if (supplied === undefined || supplied === null) return null;
+  const s = supplied as Partial<SuppliedArtifact>;
+  if (s.source !== "body" && s.source !== "path") {
+    throw new Error(
+      `apply-triage-decision: ${label}.source must be 'body' or 'path'`,
+    );
+  }
+  if (s.source === "path" && !s.path) {
+    throw new Error(
+      `apply-triage-decision: ${label}.path is required when source='path'`,
+    );
+  }
+  if (s.source === "body" && !s.content) {
+    throw new Error(
+      `apply-triage-decision: ${label}.content is required when source='body'`,
+    );
+  }
+  return { source: s.source, path: s.path, content: s.content };
 }
 
 const NEXT_STAGE_LABEL: Record<TriageOutput["complexity"], string> = {
@@ -134,5 +166,13 @@ export async function runApplyTriageDecision(
       `apply-triage-decision: invalid status '${decision.status}'`,
     );
   }
+  decision.supplied_spec = validateSupplied(
+    "supplied_spec",
+    decision.supplied_spec,
+  );
+  decision.supplied_plan = validateSupplied(
+    "supplied_plan",
+    decision.supplied_plan,
+  );
   await applyTriageDecision(adapter, { issueNumber, decision });
 }

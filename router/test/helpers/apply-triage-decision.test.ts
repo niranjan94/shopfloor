@@ -276,6 +276,31 @@ describe("applyTriageDecision", () => {
     expect(bodyWrites).toHaveLength(0);
   });
 
+  test("parses supplied_spec and supplied_plan as null without changing behavior", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: null,
+        supplied_plan: null,
+      },
+    });
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:needs-spec");
+  });
+
   test("throws when a non-triaging state label is already present", async () => {
     const bundle = makeMockAdapter();
     bundle.mocks.getIssue.mockResolvedValueOnce({
