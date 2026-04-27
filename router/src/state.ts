@@ -7,6 +7,7 @@ import type {
   RouterDecision,
   StateContext,
 } from "./types";
+import { resolveArtifactPaths } from "./helpers/resolve-artifact-paths";
 
 const STATE_LABELS = new Set<string>([
   "shopfloor:triaging",
@@ -187,14 +188,20 @@ function computeStageFromLabels(
   // renames after triage don't strand later stages against file paths that
   // no longer exist. Fall back to deriving from the title for legacy issues
   // whose metadata block has not yet been written.
-  const slug = parseIssueMetadata(issue.body)?.slug ?? branchSlug(issue.title);
+  const metadata = parseIssueMetadata(issue.body);
+  const slug = metadata?.slug ?? branchSlug(issue.title);
+  const { specFilePath, planFilePath } = resolveArtifactPaths(
+    issueNumber,
+    slug,
+    metadata,
+  );
   if (labels.has("shopfloor:needs-spec")) {
     return {
       stage: "spec",
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/spec/${issueNumber}-${slug}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
+      specFilePath,
     };
   }
   if (labels.has("shopfloor:needs-plan")) {
@@ -203,8 +210,8 @@ function computeStageFromLabels(
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/plan/${issueNumber}-${slug}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${slug}.md`,
+      specFilePath,
+      planFilePath,
     };
   }
   if (labels.has("shopfloor:needs-impl")) {
@@ -213,8 +220,8 @@ function computeStageFromLabels(
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/impl/${issueNumber}-${slug}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${slug}.md`,
+      specFilePath,
+      planFilePath,
     };
   }
   return null;

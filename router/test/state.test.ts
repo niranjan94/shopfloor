@@ -252,6 +252,17 @@ describe("resolveStage", () => {
     );
   });
 
+  test("computeStageFromLabels honors Shopfloor-Spec-Path override on a needs-plan event", () => {
+    const decision = resolveStage(
+      ctx("issues", "issue-labeled-needs-plan-with-spec-path"),
+    );
+    expect(decision.stage).toBe("plan");
+    expect(decision.specFilePath).toBe("docs/specs/external.md");
+    expect(decision.planFilePath).toMatch(
+      /^docs\/shopfloor\/plans\/\d+-.+\.md$/,
+    );
+  });
+
   test("trigger_label set, new issue without it -> none (trigger_label_absent)", () => {
     const decision = resolveStage(
       ctx("issues", "issue-opened-bare", { triggerLabel: "shopfloor:enabled" }),
