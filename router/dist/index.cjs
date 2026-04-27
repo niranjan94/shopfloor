@@ -24183,6 +24183,50 @@ ${metadataLines.join("\n")}
     }
     return all;
   }
+  async getRefSha(branchName) {
+    const res = await this.octokit.rest.git.getRef({
+      ...this.repo,
+      ref: `heads/${branchName}`
+    });
+    return res.data.object.sha;
+  }
+  async createRef(branchName, sha) {
+    try {
+      await this.octokit.rest.git.createRef({
+        ...this.repo,
+        ref: `refs/heads/${branchName}`,
+        sha
+      });
+      return true;
+    } catch (err) {
+      if (err.status === 422) return false;
+      throw err;
+    }
+  }
+  async getFileSha(path, branch) {
+    try {
+      const res = await this.octokit.rest.repos.getContent({
+        ...this.repo,
+        path,
+        ref: branch
+      });
+      if (Array.isArray(res.data)) return null;
+      return res.data.sha;
+    } catch (err) {
+      if (err.status === 404) return null;
+      throw err;
+    }
+  }
+  async putFileContents(input) {
+    await this.octokit.rest.repos.createOrUpdateFileContents({
+      ...this.repo,
+      path: input.path,
+      branch: input.branch,
+      message: input.message,
+      content: Buffer.from(input.content, "utf8").toString("base64"),
+      ...input.sha ? { sha: input.sha } : {}
+    });
+  }
   async listIssueComments(issueNumber) {
     const all = [];
     let page = 1;
@@ -25053,6 +25097,30 @@ async function runRenderPrompt(_adapter) {
 // src/helpers/apply-triage-decision.ts
 var core11 = __toESM(require_core(), 1);
 
+// src/helpers/resolve-artifact-paths.ts
+var CANONICAL_SPEC_DIR = "docs/shopfloor/specs";
+var CANONICAL_PLAN_DIR = "docs/shopfloor/plans";
+function resolveArtifactPaths(issueNumber, slug, metadata) {
+  return {
+    specFilePath: metadata?.specPath ?? `${CANONICAL_SPEC_DIR}/${issueNumber}-${slug}.md`,
+    planFilePath: metadata?.planPath ?? `${CANONICAL_PLAN_DIR}/${issueNumber}-${slug}.md`
+  };
+}
+function validateOverridePath(path) {
+  if (path.length === 0) {
+    throw new Error("override path must not be empty");
+  }
+  if (path.startsWith("/")) {
+    throw new Error("override path must be a relative path (no leading '/')");
+  }
+  if (path.split("/").some((seg) => seg === "..")) {
+    throw new Error("override path must not contain '..' segments");
+  }
+  if (!path.endsWith(".md")) {
+    throw new Error("override path must end in '.md'");
+  }
+}
+
 // src/state.ts
 var STATE_LABELS = /* @__PURE__ */ new Set([
   "shopfloor:triaging",
@@ -25153,6 +25221,10 @@ function parseIssueMetadata(body) {
   const metadata = {};
   const slugMatch = block.match(/^\s*Shopfloor-Slug:\s*(\S+)\s*$/m);
   if (slugMatch) metadata.slug = slugMatch[1];
+  const specPathMatch = block.match(/^\s*Shopfloor-Spec-Path:\s*(\S+)\s*$/m);
+  if (specPathMatch) metadata.specPath = specPathMatch[1];
+  const planPathMatch = block.match(/^\s*Shopfloor-Plan-Path:\s*(\S+)\s*$/m);
+  if (planPathMatch) metadata.planPath = planPathMatch[1];
   return metadata;
 }
 var ADVANCEMENT_STATE_LABELS = /* @__PURE__ */ new Set([
@@ -25167,14 +25239,20 @@ function failedLabel(labels) {
 }
 function computeStageFromLabels(labels, issue) {
   const issueNumber = issue.number;
-  const slug = parseIssueMetadata(issue.body)?.slug ?? branchSlug(issue.title);
+  const metadata = parseIssueMetadata(issue.body);
+  const slug = metadata?.slug ?? branchSlug(issue.title);
+  const { specFilePath, planFilePath } = resolveArtifactPaths(
+    issueNumber,
+    slug,
+    metadata
+  );
   if (labels.has("shopfloor:needs-spec")) {
     return {
       stage: "spec",
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/spec/${issueNumber}-${slug}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`
+      specFilePath
     };
   }
   if (labels.has("shopfloor:needs-plan")) {
@@ -25183,8 +25261,8 @@ function computeStageFromLabels(labels, issue) {
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/plan/${issueNumber}-${slug}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${slug}.md`
+      specFilePath,
+      planFilePath
     };
   }
   if (labels.has("shopfloor:needs-impl")) {
@@ -25193,8 +25271,8 @@ function computeStageFromLabels(labels, issue) {
       issueNumber,
       complexity: complexityOf(labels),
       branchName: `shopfloor/impl/${issueNumber}-${slug}`,
-      specFilePath: `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
-      planFilePath: `docs/shopfloor/plans/${issueNumber}-${slug}.md`
+      specFilePath,
+      planFilePath
     };
   }
   return null;
@@ -25425,6 +25503,10 @@ var MALFORMED_TAIL = /<!--\s*shopfloor:metadata[\s\S]*$/;
 function renderBlock(fields) {
   const lines = [OPENER];
   if (fields.slug !== void 0) lines.push(`Shopfloor-Slug: ${fields.slug}`);
+  if (fields.specPath !== void 0)
+    lines.push(`Shopfloor-Spec-Path: ${fields.specPath}`);
+  if (fields.planPath !== void 0)
+    lines.push(`Shopfloor-Plan-Path: ${fields.planPath}`);
   lines.push(CLOSER);
   return lines.join("\n");
 }
@@ -25441,7 +25523,65 @@ function upsertIssueMetadata(body, fields) {
   return `${body}${sep}${block}`;
 }
 
+// src/helpers/seed-stage-pr.ts
+var DIR_FOR_STAGE = {
+  spec: "docs/shopfloor/specs",
+  plan: "docs/shopfloor/plans"
+};
+async function seedStagePr(adapter, params) {
+  const { issueNumber, slug, stage, content, baseBranch, prTitle, prSummary } = params;
+  const branchName = `shopfloor/${stage}/${issueNumber}-${slug}`;
+  const filePath = `${DIR_FOR_STAGE[stage]}/${issueNumber}-${slug}.md`;
+  const baseSha = await adapter.getRefSha(baseBranch);
+  const created = await adapter.createRef(branchName, baseSha);
+  const existingSha = created ? null : await adapter.getFileSha(filePath, branchName);
+  await adapter.putFileContents({
+    path: filePath,
+    branch: branchName,
+    message: `docs(${stage}): seed ${stage} from issue #${issueNumber}`,
+    content,
+    ...existingSha ? { sha: existingSha } : {}
+  });
+  const pr = await adapter.openStagePr({
+    base: baseBranch,
+    head: branchName,
+    title: prTitle,
+    body: `${prSummary}
+
+Closes #${issueNumber}`,
+    stage,
+    issueNumber,
+    preserveBodyIfExists: false
+  });
+  return {
+    prNumber: pr.number,
+    url: pr.url,
+    branchName,
+    filePath
+  };
+}
+
 // src/helpers/apply-triage-decision.ts
+function validateSupplied(label, supplied) {
+  if (supplied === void 0 || supplied === null) return null;
+  const s = supplied;
+  if (s.source !== "body" && s.source !== "path") {
+    throw new Error(
+      `apply-triage-decision: ${label}.source must be 'body' or 'path'`
+    );
+  }
+  if (s.source === "path" && !s.path) {
+    throw new Error(
+      `apply-triage-decision: ${label}.path is required when source='path'`
+    );
+  }
+  if (s.source === "body" && !s.content) {
+    throw new Error(
+      `apply-triage-decision: ${label}.content is required when source='body'`
+    );
+  }
+  return { source: s.source, path: s.path, content: s.content };
+}
 var NEXT_STAGE_LABEL = {
   quick: "shopfloor:needs-impl",
   medium: "shopfloor:needs-plan",
@@ -25493,13 +25633,63 @@ async function applyTriageDecision(adapter, params) {
     return;
   }
   const slug = branchSlug(issue.title);
-  const newBody = upsertIssueMetadata(issue.body, { slug });
+  const suppliedSpec = decision.supplied_spec ?? null;
+  const suppliedPlan = decision.supplied_plan ?? null;
+  const anySupplied = suppliedSpec !== null || suppliedPlan !== null;
+  const effectiveComplexity = anySupplied && decision.complexity === "quick" ? "medium" : decision.complexity;
+  const metadataUpdates = { slug };
+  if (suppliedSpec?.source === "path" && suppliedSpec.path) {
+    validateOverridePath(suppliedSpec.path);
+    metadataUpdates.specPath = suppliedSpec.path;
+  }
+  if (suppliedPlan?.source === "path" && suppliedPlan.path) {
+    validateOverridePath(suppliedPlan.path);
+    metadataUpdates.planPath = suppliedPlan.path;
+  }
+  const newBody = upsertIssueMetadata(issue.body, metadataUpdates);
   if (newBody !== issue.body) {
     await adapter.updateIssueBody(issueNumber, newBody);
   }
-  const nextStageLabel = NEXT_STAGE_LABEL[decision.complexity];
+  let seededStage = null;
+  if (suppliedSpec?.source === "body" && suppliedSpec.content) {
+    await seedStagePr(adapter, {
+      issueNumber,
+      slug,
+      stage: "spec",
+      content: suppliedSpec.content,
+      baseBranch: "main",
+      prTitle: `Seed spec for #${issueNumber}: ${issue.title}`,
+      prSummary: `Seeded from issue #${issueNumber}'s body during triage.`
+    });
+    seededStage = "spec";
+  }
+  if (suppliedPlan?.source === "body" && suppliedPlan.content) {
+    await seedStagePr(adapter, {
+      issueNumber,
+      slug,
+      stage: "plan",
+      content: suppliedPlan.content,
+      baseBranch: "main",
+      prTitle: `Seed plan for #${issueNumber}: ${issue.title}`,
+      prSummary: `Seeded from issue #${issueNumber}'s body during triage.`
+    });
+    seededStage = "plan";
+  }
+  let nextStateLabel;
+  if (seededStage === "spec") {
+    nextStateLabel = "shopfloor:spec-in-review";
+  } else if (seededStage === "plan") {
+    nextStateLabel = "shopfloor:plan-in-review";
+  } else if (suppliedPlan?.source === "path") {
+    nextStateLabel = "shopfloor:needs-impl";
+  } else if (suppliedSpec?.source === "path") {
+    nextStateLabel = "shopfloor:needs-plan";
+  } else {
+    nextStateLabel = NEXT_STAGE_LABEL[effectiveComplexity];
+  }
+  const promotedNote = anySupplied && decision.complexity === "quick" ? ` (promoted from \`quick\` because supplied artifacts require the plan-aware flow)` : "";
   const body = [
-    `**Shopfloor triage: classified as \`${decision.complexity}\`.**`,
+    `**Shopfloor triage: classified as \`${effectiveComplexity}\`.**${promotedNote}`,
     "",
     decision.rationale
   ].join("\n");
@@ -25508,8 +25698,8 @@ async function applyTriageDecision(adapter, params) {
     (l) => current.has(l)
   );
   await advanceState(adapter, issueNumber, fromLabels, [
-    `shopfloor:${decision.complexity}`,
-    nextStageLabel
+    `shopfloor:${effectiveComplexity}`,
+    nextStateLabel
   ]);
 }
 async function runApplyTriageDecision(adapter) {
@@ -25528,6 +25718,14 @@ async function runApplyTriageDecision(adapter) {
       `apply-triage-decision: invalid status '${decision.status}'`
     );
   }
+  decision.supplied_spec = validateSupplied(
+    "supplied_spec",
+    decision.supplied_spec
+  );
+  decision.supplied_plan = validateSupplied(
+    "supplied_plan",
+    decision.supplied_plan
+  );
   await applyTriageDecision(adapter, { issueNumber, decision });
 }
 
@@ -25793,6 +25991,11 @@ ${c.body ?? ""}`
 }
 async function buildRevisionContext(adapter, params) {
   const issue = await adapter.getIssue(params.issueNumber);
+  const metadata = parseIssueMetadata(issue.body ?? null);
+  const slug = metadata?.slug ?? branchSlug(issue.title);
+  const resolved = resolveArtifactPaths(params.issueNumber, slug, metadata);
+  const effectiveSpecPath = metadata?.specPath ? resolved.specFilePath : params.specFilePath;
+  const effectivePlanPath = metadata?.planPath ? resolved.planFilePath : params.planFilePath;
   const pr = await adapter.getPr(params.prNumber);
   const reviews = await adapter.listPrReviews(params.prNumber);
   const requestChangesReviews = reviews.filter((r) => r.state === "changes_requested").sort((a, b) => {
@@ -25830,8 +26033,8 @@ async function buildRevisionContext(adapter, params) {
   const fragmentVars = {
     review_comments_json: reviewCommentsJson,
     iteration_count: String(iterationCount),
-    spec_file_path: params.specFilePath,
-    plan_file_path: params.planFilePath
+    spec_file_path: effectiveSpecPath,
+    plan_file_path: effectivePlanPath
   };
   const fragmentPath = resolvePromptFile(params.promptFragmentPath);
   const revisionBlock = renderPrompt(fragmentPath, fragmentVars);
@@ -25851,21 +26054,21 @@ async function buildRevisionContext(adapter, params) {
       contextOut = {
         ...common,
         triage_rationale: "",
-        spec_file_path: params.specFilePath
+        spec_file_path: effectiveSpecPath
       };
       break;
     case "plan":
       contextOut = {
         ...common,
-        plan_file_path: params.planFilePath,
-        spec_file_path: params.specFilePath
+        plan_file_path: effectivePlanPath,
+        spec_file_path: effectiveSpecPath
       };
       break;
     case "implement":
       contextOut = {
         ...common,
-        spec_file_path: params.specFilePath,
-        plan_file_path: params.planFilePath,
+        spec_file_path: effectiveSpecPath,
+        plan_file_path: effectivePlanPath,
         progress_comment_id: params.progressCommentId,
         review_comments_json: reviewCommentsJson,
         iteration_count: String(iterationCount),
