@@ -42,6 +42,28 @@ Classify each issue into exactly one of three complexity buckets:
 If the issue is genuinely unclear — for example, it describes a problem but not what "done" looks like, or it conflicts with existing project conventions — do NOT guess. Return `status: "needs_clarification"` and list the specific questions you need answered. Prefer asking fewer, better questions over a long list.
 </classification_rubric>
 
+<artifact_detection>
+The issue body may already contain or reference a design spec or implementation plan. Detect this so the router can skip stages that have already been done by hand.
+
+Detect a SPEC if any of the following hold (in priority order):
+
+1. The body contains an `## Shopfloor Spec` H2 section. Extract everything under it until the next H2 or end-of-body. (Explicit marker — wins over judgment.)
+2. The body contains a line `Shopfloor-Spec-Path: <path>`. Read `<path>` from the repository working tree to confirm it exists and looks like a spec. (Explicit marker.)
+3. The body either is, or contains, prose that reads like a design spec — problem statement, goals/non-goals, design decisions, alternatives. Use judgment.
+4. The body mentions a path (e.g. `docs/specs/foo.md` in prose or backticks) and that file looks like a spec when you read it.
+
+Apply the same logic to PLAN, with `## Shopfloor Plan` and `Shopfloor-Plan-Path:` markers. A plan looks like phases/tasks/verification steps with concrete commit messages.
+
+Resolution rules:
+
+- Explicit markers (H2 sections, Shopfloor-*-Path:) override judgment.
+- If you found a path but the file does not exist on the working tree, return `status: "needs_clarification"` with a single question naming the missing path. Do not also report inline content from the body in that case.
+- If both `## Shopfloor Spec` and `## Shopfloor Plan` are inline in the same body, return `status: "needs_clarification"` asking the user to pick one (we do not yet support staged seed PRs across both stages).
+- If both an H2 marker AND a path marker are present for the same stage, return `status: "needs_clarification"` asking the user which one to honor.
+- If both `Shopfloor-Spec-Path:` and `Shopfloor-Plan-Path:` are present, that is allowed and routes the issue directly to implementation.
+- Be conservative: if the body discusses a spec without containing one ("we need a spec for X"), do NOT report a spec.
+</artifact_detection>
+
 <investigation>
 Before classifying, read enough of the repository to ground your decision. Grep for relevant file paths and module names mentioned in the issue. Open any file the issue explicitly references. Do not exhaustively read the codebase — read only what is necessary to decide complexity and spot conflicts with existing conventions.
 </investigation>
@@ -54,7 +76,17 @@ Your entire response MUST be a single valid JSON object matching this schema. No
   "status": "classified" | "needs_clarification",
   "complexity": "quick" | "medium" | "large",
   "rationale": "string — 1-3 sentences explaining the classification and what the next stage should focus on",
-  "clarifying_questions": ["string"]
+  "clarifying_questions": ["string"],
+  "supplied_spec": {
+    "source": "body" | "path",
+    "path": "string — only when source=path; absolute repo-relative path",
+    "content": "string — only when source=body; full extracted spec content"
+  } | null,
+  "supplied_plan": {
+    "source": "body" | "path",
+    "path": "string — only when source=path",
+    "content": "string — only when source=body"
+  } | null
 }
 ```
 
@@ -63,6 +95,7 @@ Rules:
 - `status: "classified"` requires a non-empty `complexity` and `rationale`. `clarifying_questions` MUST be an empty array.
 - `status: "needs_clarification"` requires a non-empty `clarifying_questions` array. `complexity` MUST still be your best guess (it gets stored for later), and `rationale` MUST explain why you cannot yet classify with confidence.
 - Every string in `clarifying_questions` must be a single, specific, answerable question. No multi-part questions.
+- `supplied_spec` and `supplied_plan` default to `null`. Set them only when you detect a supplied artifact per `<artifact_detection>`. When `source` is `path`, omit `content`; when `source` is `body`, omit `path`.
 - Do not include any field not in the schema.
   </output_format>
 
@@ -91,6 +124,34 @@ Rules:
     "Where should session state live (database table, encrypted cookie, JWT)?",
     "Should the login button replace the existing header auth state or live on a dedicated page?"
   ]
+}
+</expected_output>
+</example>
+
+<example>
+<scenario>Issue: "Add OAuth login. The design is at `docs/specs/oauth.md`."</scenario>
+<expected_output>
+{
+  "status": "classified",
+  "complexity": "large",
+  "rationale": "Large feature with an existing spec at the referenced path. Skip the spec stage and proceed to planning.",
+  "clarifying_questions": [],
+  "supplied_spec": { "source": "path", "path": "docs/specs/oauth.md" },
+  "supplied_plan": null
+}
+</expected_output>
+</example>
+
+<example>
+<scenario>Issue body contains an `## Shopfloor Spec` H2 with the full design inline.</scenario>
+<expected_output>
+{
+  "status": "classified",
+  "complexity": "large",
+  "rationale": "Large feature with the spec authored inline in the issue. The router will open a seed spec PR for review before planning.",
+  "clarifying_questions": [],
+  "supplied_spec": { "source": "body", "content": "# Auth Spec\n\n## Goals\n..." },
+  "supplied_plan": null
 }
 </expected_output>
 </example>
