@@ -3,6 +3,8 @@ import * as core from "@actions/core";
 import type { GitHubAdapter } from "../github";
 import { renderPrompt } from "../prompt-render";
 import { resolvePromptFile } from "./render-prompt";
+import { branchSlug, parseIssueMetadata } from "../state";
+import { resolveArtifactPaths } from "./resolve-artifact-paths";
 
 export type RevisionStage = "spec" | "plan" | "implement";
 
@@ -48,6 +50,15 @@ export async function buildRevisionContext(
   params: BuildRevisionContextParams,
 ): Promise<void> {
   const issue = await adapter.getIssue(params.issueNumber);
+  const metadata = parseIssueMetadata(issue.body ?? null);
+  const slug = metadata?.slug ?? branchSlug(issue.title);
+  const resolved = resolveArtifactPaths(params.issueNumber, slug, metadata);
+  const effectiveSpecPath = metadata?.specPath
+    ? resolved.specFilePath
+    : params.specFilePath;
+  const effectivePlanPath = metadata?.planPath
+    ? resolved.planFilePath
+    : params.planFilePath;
   const pr = await adapter.getPr(params.prNumber);
   const reviews = await adapter.listPrReviews(params.prNumber);
 
@@ -98,8 +109,8 @@ export async function buildRevisionContext(
   const fragmentVars: Record<string, string> = {
     review_comments_json: reviewCommentsJson,
     iteration_count: String(iterationCount),
-    spec_file_path: params.specFilePath,
-    plan_file_path: params.planFilePath,
+    spec_file_path: effectiveSpecPath,
+    plan_file_path: effectivePlanPath,
   };
 
   const fragmentPath = resolvePromptFile(params.promptFragmentPath);
@@ -122,21 +133,21 @@ export async function buildRevisionContext(
       contextOut = {
         ...common,
         triage_rationale: "",
-        spec_file_path: params.specFilePath,
+        spec_file_path: effectiveSpecPath,
       };
       break;
     case "plan":
       contextOut = {
         ...common,
-        plan_file_path: params.planFilePath,
-        spec_file_path: params.specFilePath,
+        plan_file_path: effectivePlanPath,
+        spec_file_path: effectiveSpecPath,
       };
       break;
     case "implement":
       contextOut = {
         ...common,
-        spec_file_path: params.specFilePath,
-        plan_file_path: params.planFilePath,
+        spec_file_path: effectiveSpecPath,
+        plan_file_path: effectivePlanPath,
         progress_comment_id: params.progressCommentId,
         review_comments_json: reviewCommentsJson,
         iteration_count: String(iterationCount),

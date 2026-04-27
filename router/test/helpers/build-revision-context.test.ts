@@ -482,6 +482,70 @@ describe("buildRevisionContext", () => {
     expect(written).not.toHaveProperty("bash_allowlist");
   });
 
+  test("applies Shopfloor-Spec-Path override from issue metadata onto impl revision context", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [],
+        state: "open",
+        title: "issue",
+        body: [
+          "Body.",
+          "<!-- shopfloor:metadata",
+          "Shopfloor-Slug: foo",
+          "Shopfloor-Spec-Path: docs/specs/external.md",
+          "-->",
+        ].join("\n"),
+      },
+    });
+    mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "x" },
+        body: "Shopfloor-Review-Iteration: 1",
+      },
+    });
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          user: { login: "h" },
+          body: "fix it",
+          commit_id: "c",
+          state: "changes_requested",
+          submitted_at: "2025-01-01",
+        },
+      ],
+    });
+    mocks.listReviewComments.mockResolvedValueOnce({ data: [] });
+    mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
+
+    await buildRevisionContext(adapter, {
+      stage: "implement",
+      issueNumber: 42,
+      prNumber: 7,
+      branchName: "shopfloor/impl/42-foo",
+      specFilePath: "docs/shopfloor/specs/42-foo.md",
+      planFilePath: "docs/shopfloor/plans/42-foo.md",
+      progressCommentId: "1",
+      bashAllowlist: "",
+      repoOwner: "o",
+      repoName: "r",
+      outputPath,
+      promptFragmentPath: "prompts/implement-revision-fragment.md",
+    });
+
+    const written = JSON.parse(readFileSync(outputPath, "utf-8")) as Record<
+      string,
+      string
+    >;
+    expect(written.spec_file_path).toBe("docs/specs/external.md");
+    expect(written.plan_file_path).toBe("docs/shopfloor/plans/42-foo.md");
+  });
+
   test("plan stage renders plan-revision-fragment and outputs plan context shape", async () => {
     const { adapter, mocks } = makeMockAdapter();
     mocks.getIssue.mockResolvedValueOnce({
