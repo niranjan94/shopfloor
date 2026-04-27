@@ -10,6 +10,10 @@ const MALFORMED_TAIL = /<!--\s*shopfloor:metadata[\s\S]*$/;
 function renderBlock(fields: Record<string, string>): string {
   const lines = [OPENER];
   if (fields.slug !== undefined) lines.push(`Shopfloor-Slug: ${fields.slug}`);
+  if (fields.specPath !== undefined)
+    lines.push(`Shopfloor-Spec-Path: ${fields.specPath}`);
+  if (fields.planPath !== undefined)
+    lines.push(`Shopfloor-Plan-Path: ${fields.planPath}`);
   lines.push(CLOSER);
   return lines.join("\n");
 }

@@ -62,4 +62,71 @@ describe("upsertIssueMetadata", () => {
     expect(parseIssueMetadata(next)?.slug).toBe("fixed");
     expect(next.match(/<!--\s*shopfloor:metadata/g)?.length).toBe(1);
   });
+
+  test("writes specPath when supplied alongside slug", () => {
+    const next = upsertIssueMetadata(null, {
+      slug: "s",
+      specPath: "docs/specs/x.md",
+    });
+    expect(parseIssueMetadata(next)).toEqual({
+      slug: "s",
+      specPath: "docs/specs/x.md",
+    });
+  });
+
+  test("writes planPath when supplied alongside slug", () => {
+    const next = upsertIssueMetadata(null, {
+      slug: "s",
+      planPath: "docs/plans/x.md",
+    });
+    expect(parseIssueMetadata(next)).toEqual({
+      slug: "s",
+      planPath: "docs/plans/x.md",
+    });
+  });
+
+  test("writes both paths in stable order: slug, specPath, planPath", () => {
+    const next = upsertIssueMetadata(null, {
+      slug: "s",
+      specPath: "a.md",
+      planPath: "b.md",
+    });
+    const block =
+      next.match(/<!--\s*shopfloor:metadata([\s\S]*?)-->/)?.[1] ?? "";
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    expect(lines).toEqual([
+      "Shopfloor-Slug: s",
+      "Shopfloor-Spec-Path: a.md",
+      "Shopfloor-Plan-Path: b.md",
+    ]);
+  });
+
+  test("upsert is idempotent across spec/plan path writes", () => {
+    const once = upsertIssueMetadata(null, {
+      slug: "s",
+      specPath: "a.md",
+    });
+    const twice = upsertIssueMetadata(once, { slug: "s", specPath: "a.md" });
+    expect(twice).toBe(once);
+  });
+
+  test("upserting with a wider field set replaces the block contents", () => {
+    const initial = upsertIssueMetadata(null, {
+      slug: "s",
+      specPath: "a.md",
+    });
+    const next = upsertIssueMetadata(initial, {
+      slug: "s",
+      specPath: "a.md",
+      planPath: "b.md",
+    });
+    expect(parseIssueMetadata(next)).toEqual({
+      slug: "s",
+      specPath: "a.md",
+      planPath: "b.md",
+    });
+  });
 });
