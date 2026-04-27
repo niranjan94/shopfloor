@@ -114,6 +114,13 @@ The helper currently writes the slug, posts a classification comment, and advanc
 - "Triage classified as `large`. The body contains a spec — opening a seed spec PR for review."
 - "Triage classified as `large`. Found spec at `docs/specs/auth.md` and plan at `docs/plans/auth.md`; skipping straight to implementation."
 
+(Paths in the example comments above reflect user-supplied overrides, not the canonical layout. The canonical layout — used when no override is present — remains `docs/shopfloor/specs/<N>-<slug>.md` and `docs/shopfloor/plans/<N>-<slug>.md`.)
+
+**Seed-PR title and summary** are synthesized by `apply-triage-decision`, not emitted by the triage agent. Default shapes:
+
+- `prTitle`: `Seed <stage> for #<N>: <issue title>`
+- `prSummary`: `Seeded from issue #<N>'s body during triage.`
+
 **Pre-existing label guard** (`UNEXPECTED_TRIAGE_LABELS`) still runs unchanged — if the issue already carries a state label, triage refuses to re-run.
 
 ### 3. Seed PR helper (`router/src/helpers/seed-stage-pr.ts`)
@@ -154,7 +161,7 @@ async function seedStagePr(adapter, params): Promise<SeedStagePrResult>;
 5. Reuse `openStagePr` to upsert the PR. The metadata footer is generated automatically.
 6. Return PR number, URL, branch name, file path.
 
-**Idempotency.** Steps 3-5 are individually idempotent. Re-running `apply-triage-decision` after a partial failure (e.g. branch created but file write failed) heals the state.
+**Idempotency.** Steps 3-5 are individually idempotent. Re-running `apply-triage-decision` after a partial failure (e.g. branch created but file write failed) heals the state. See "Edge cases and failure modes" below for the full retry semantics.
 
 **Seed PR body shape:**
 
@@ -204,6 +211,8 @@ Two more line-based regex matches added. Unknown keys continue to be ignored, so
 - Must point at a `.md` file.
 - Must exist on `main` at the moment the consuming helper resolves it.
 
+Triage-time existence check (Section 1, `<artifact_detection>`) runs against the runner's working tree, which is checked out from `main` at the start of the triage job. Triage-time validation and consumer-time validation therefore look at the same source of truth, modulo any commits that land between the two — those are caught by consumer-time validation per the failure-modes table below.
+
 ### 5. `resolveArtifactPaths` helper
 
 A new helper at `router/src/helpers/resolve-artifact-paths.ts`:
@@ -229,7 +238,7 @@ Every existing site that builds canonical paths routes through this helper. Sing
 | ----------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `computeStageFromLabels` (`state.ts`)                 | Builds canonical path from issue title/metadata                         | Calls `resolveArtifactPaths` with `parseIssueMetadata(issue.body)`.                                                    |
 | `resolvePullRequestReviewEvent` impl-revision branch  | Reconstructs path from impl branch ref                                  | Unchanged. Override applied later by `build-revision-context` (it already does an issue fetch).                        |
-| `resolvePullRequestReviewEvent` spec/plan-revision    | Reconstructs path from stage branch ref                                 | Unchanged. Spec/plan revision PRs only exist for canonical-path flow.                                                  |
+| `resolvePullRequestReviewEvent` spec/plan-revision    | Reconstructs path from stage branch ref                                 | Unchanged. Spec/plan revision PRs only exist for canonical-path flow — when a user supplies a `Shopfloor-*-Path:` override, the corresponding stage is skipped entirely and no stage PR is opened, so a revision flow against an override is structurally impossible. |
 | `build-revision-context.ts`                           | Receives `specFilePath` / `planFilePath` from router decision           | Fetches issue, applies override via `resolveArtifactPaths` before invoking the agent.                                  |
 | `apply-impl-postwork.ts`                              | Reads `specFilePath` / `planFilePath` from inputs                       | Same pattern: respect issue metadata override before consuming.                                                        |
 | `handle-merge.ts`                                     | Doesn't touch file paths — only label transitions                        | No change.                                                                                                              |
