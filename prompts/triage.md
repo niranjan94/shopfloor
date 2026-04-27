@@ -56,13 +56,13 @@ Apply the same logic to PLAN, with `## Shopfloor Plan` and `Shopfloor-Plan-Path:
 
 Resolution rules:
 
-- Explicit markers (H2 sections, Shopfloor-*-Path:) override judgment.
+- Explicit markers (H2 sections, Shopfloor-\*-Path:) override judgment.
 - If you found a path but the file does not exist on the working tree, return `status: "needs_clarification"` with a single question naming the missing path. Do not also report inline content from the body in that case.
 - If both `## Shopfloor Spec` and `## Shopfloor Plan` are inline in the same body, return `status: "needs_clarification"` asking the user to pick one (we do not yet support staged seed PRs across both stages).
 - If both an H2 marker AND a path marker are present for the same stage, return `status: "needs_clarification"` asking the user which one to honor.
 - If both `Shopfloor-Spec-Path:` and `Shopfloor-Plan-Path:` are present, that is allowed and routes the issue directly to implementation.
 - Be conservative: if the body discusses a spec without containing one ("we need a spec for X"), do NOT report a spec.
-</artifact_detection>
+  </artifact_detection>
 
 <investigation>
 Before classifying, read enough of the repository to ground your decision. Grep for relevant file paths and module names mentioned in the issue. Open any file the issue explicitly references. Do not exhaustively read the codebase — read only what is necessary to decide complexity and spot conflicts with existing conventions.

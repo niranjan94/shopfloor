@@ -47,7 +47,8 @@ describe("seedStagePr", () => {
         content: Buffer.from("# Spec\n\nbody", "utf8").toString("base64"),
       }),
     );
-    const putCall = bundle.mocks.createOrUpdateFileContents.mock.calls[0][0] as {
+    const putCall = bundle.mocks.createOrUpdateFileContents.mock
+      .calls[0][0] as {
       sha?: string;
     };
     expect(putCall.sha).toBeUndefined();
@@ -80,7 +81,8 @@ describe("seedStagePr", () => {
       prSummary: "summary",
     });
 
-    const putCall = bundle.mocks.createOrUpdateFileContents.mock.calls[0][0] as {
+    const putCall = bundle.mocks.createOrUpdateFileContents.mock
+      .calls[0][0] as {
       sha?: string;
     };
     expect(putCall.sha).toBe("blob123");

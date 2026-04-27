@@ -60,6 +60,7 @@ docs/
 **Why first:** The seed-stage-pr helper needs branch creation (Git Refs API) and file write (Repos Contents API) on the adapter. Every later task that touches the seed flow depends on these methods.
 
 **Files:**
+
 - Modify: `router/src/types.ts` (extend `OctokitLike.rest` with `git` and add to `repos`)
 - Modify: `router/src/github.ts` (add four adapter methods)
 - Modify: `router/test/helpers/_mock-adapter.ts` (mocks for the new endpoints)
@@ -110,9 +111,9 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
   });
 
   test("createRef rethrows non-422 errors", async () => {
-    const create = vi.fn().mockRejectedValue(
-      Object.assign(new Error("boom"), { status: 500 }),
-    );
+    const create = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
     const adapter = new GitHubAdapter(
       { rest: { git: { createRef: create } } } as unknown as OctokitLike,
       { owner: "o", repo: "r" },
@@ -121,9 +122,11 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
   });
 
   test("createRef swallows 422 (ref already exists) and returns false", async () => {
-    const create = vi.fn().mockRejectedValue(
-      Object.assign(new Error("Reference already exists"), { status: 422 }),
-    );
+    const create = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("Reference already exists"), { status: 422 }),
+      );
     const adapter = new GitHubAdapter(
       { rest: { git: { createRef: create } } } as unknown as OctokitLike,
       { owner: "o", repo: "r" },
@@ -352,6 +355,7 @@ git commit -m "feat(router): add Git Data + Contents adapter methods"
 **Why second:** Parsers are a cheap, pure change with no I/O. Land them before any consumer reads or writes the new keys.
 
 **Files:**
+
 - Modify: `router/src/state.ts:143-160` (extend `IssueMetadata` interface and `parseIssueMetadata`)
 - Test: `router/test/state.test.ts` (add a `parseIssueMetadata` describe block — search for existing coverage first; if no block exists, append one)
 
@@ -480,6 +484,7 @@ git commit -m "feat(router): parse Shopfloor-Spec-Path and Shopfloor-Plan-Path m
 ## Task 3: Extend `upsertIssueMetadata` to render the new keys
 
 **Files:**
+
 - Modify: `router/src/helpers/upsert-issue-metadata.ts`
 - Modify: `router/test/helpers/upsert-issue-metadata.test.ts`
 
@@ -605,6 +610,7 @@ git commit -m "feat(router): render spec/plan path overrides in issue metadata b
 **Why now:** The pure resolver is the single source of truth referenced by every later consumer. Build it now, with full validation coverage, before wiring it into call sites.
 
 **Files:**
+
 - Create: `router/src/helpers/resolve-artifact-paths.ts`
 - Test: `router/test/helpers/resolve-artifact-paths.test.ts`
 
@@ -721,11 +727,9 @@ export function resolveArtifactPaths(
 ): ArtifactPaths {
   return {
     specFilePath:
-      metadata?.specPath ??
-      `${CANONICAL_SPEC_DIR}/${issueNumber}-${slug}.md`,
+      metadata?.specPath ?? `${CANONICAL_SPEC_DIR}/${issueNumber}-${slug}.md`,
     planFilePath:
-      metadata?.planPath ??
-      `${CANONICAL_PLAN_DIR}/${issueNumber}-${slug}.md`,
+      metadata?.planPath ?? `${CANONICAL_PLAN_DIR}/${issueNumber}-${slug}.md`,
   };
 }
 
@@ -767,6 +771,7 @@ git commit -m "feat(router): add resolveArtifactPaths helper with override valid
 ## Task 5: Wire `resolveArtifactPaths` into `computeStageFromLabels`
 
 **Files:**
+
 - Modify: `router/src/state.ts:175-215` (`computeStageFromLabels`)
 - Modify: `router/test/state.test.ts` (cover override resolution)
 - Create: `router/test/fixtures/events/issue-labeled-needs-plan-with-spec-path.json`
@@ -873,6 +878,7 @@ git commit -m "refactor(router): route computeStageFromLabels through resolveArt
 ## Task 6: New `seed-stage-pr` helper
 
 **Files:**
+
 - Create: `router/src/helpers/seed-stage-pr.ts`
 - Test: `router/test/helpers/seed-stage-pr.test.ts`
 
@@ -1130,6 +1136,7 @@ git commit -m "feat(router): add seed-stage-pr helper for body-supplied artifact
 ## Task 7: Apply override in `build-revision-context`
 
 **Files:**
+
 - Modify: `router/src/helpers/build-revision-context.ts`
 - Modify: `router/test/helpers/build-revision-context.test.ts`
 
@@ -1258,6 +1265,7 @@ git commit -m "feat(router): apply spec/plan path override in build-revision-con
 **Why split this from the matrix work:** Schema parsing is a contained change. Land the parser changes first so the matrix work in Task 9 can focus on routing logic.
 
 **Files:**
+
 - Modify: `router/src/helpers/apply-triage-decision.ts:7-12, 119-138`
 - Modify: `router/test/helpers/apply-triage-decision.test.ts`
 
@@ -1322,24 +1330,39 @@ interface TriageOutput {
 In `runApplyTriageDecision` after the JSON parse, add validation:
 
 ```ts
-function validateSupplied(label: string, supplied: unknown): SuppliedArtifact | null {
+function validateSupplied(
+  label: string,
+  supplied: unknown,
+): SuppliedArtifact | null {
   if (supplied === undefined || supplied === null) return null;
   const s = supplied as Partial<SuppliedArtifact>;
   if (s.source !== "body" && s.source !== "path") {
-    throw new Error(`apply-triage-decision: ${label}.source must be 'body' or 'path'`);
+    throw new Error(
+      `apply-triage-decision: ${label}.source must be 'body' or 'path'`,
+    );
   }
   if (s.source === "path" && !s.path) {
-    throw new Error(`apply-triage-decision: ${label}.path is required when source='path'`);
+    throw new Error(
+      `apply-triage-decision: ${label}.path is required when source='path'`,
+    );
   }
   if (s.source === "body" && !s.content) {
-    throw new Error(`apply-triage-decision: ${label}.content is required when source='body'`);
+    throw new Error(
+      `apply-triage-decision: ${label}.content is required when source='body'`,
+    );
   }
   return { source: s.source, path: s.path, content: s.content };
 }
 
 // In runApplyTriageDecision, after the JSON.parse:
-decision.supplied_spec = validateSupplied("supplied_spec", decision.supplied_spec);
-decision.supplied_plan = validateSupplied("supplied_plan", decision.supplied_plan);
+decision.supplied_spec = validateSupplied(
+  "supplied_spec",
+  decision.supplied_spec,
+);
+decision.supplied_plan = validateSupplied(
+  "supplied_plan",
+  decision.supplied_plan,
+);
 ```
 
 - [ ] **Step 8.4: Run tests green**
@@ -1363,6 +1386,7 @@ git commit -m "feat(router): parse supplied_spec/supplied_plan in triage decisio
 **Why now:** Schema is in place from Task 8, seed helper is ready from Task 6, metadata writer handles new keys from Task 3. This task wires them together.
 
 **Files:**
+
 - Modify: `router/src/helpers/apply-triage-decision.ts:39-114`
 - Modify: `router/test/helpers/apply-triage-decision.test.ts`
 
@@ -1372,15 +1396,15 @@ For each scenario below, write a test in `apply-triage-decision.test.ts`. Use th
 
 The matrix (per spec Section 3 of `2026-04-27-flexible-spec-plan-supply-design.md`):
 
-| `supplied_spec` | `supplied_plan` | Expected adapter calls / labels                                                                |
-| --------------- | --------------- | ---------------------------------------------------------------------------------------------- |
+| `supplied_spec` | `supplied_plan` | Expected adapter calls / labels                                                                 |
+| --------------- | --------------- | ----------------------------------------------------------------------------------------------- |
 | null            | null            | Existing behavior. No `seedStagePr`, no path metadata. (Already covered.)                       |
 | `path`          | null            | `Shopfloor-Spec-Path: <path>` written via `updateIssueBody`; label flip to `needs-plan`.        |
 | null            | `path`          | `Shopfloor-Plan-Path: <path>` written; label flip to `needs-impl`.                              |
 | `path` + `path` | (both)          | Both paths written; label flip to `needs-impl`.                                                 |
-| `body`          | null            | `seedStagePr` called with stage=spec; label flip to `spec-in-review`.                            |
-| null            | `body`          | `seedStagePr` called with stage=plan; label flip to `plan-in-review`.                            |
-| `path`          | `body`          | Spec path written + `seedStagePr` for plan; label flip to `plan-in-review`.                      |
+| `body`          | null            | `seedStagePr` called with stage=spec; label flip to `spec-in-review`.                           |
+| null            | `body`          | `seedStagePr` called with stage=plan; label flip to `plan-in-review`.                           |
+| `path`          | `body`          | Spec path written + `seedStagePr` for plan; label flip to `plan-in-review`.                     |
 | Quick + spec    | (any path)      | Complexity label promoted to `medium`.                                                          |
 | `body` + throws | n/a             | Label flip never runs (mock `seedStagePr` to throw; assert no `addLabels` call for state-flip). |
 
@@ -1596,7 +1620,10 @@ if (newBody !== issue.body) {
 
 // Open seed PR(s) for body content.
 let seededStage: "spec" | "plan" | null = null;
-if (decision.supplied_spec?.source === "body" && decision.supplied_spec.content) {
+if (
+  decision.supplied_spec?.source === "body" &&
+  decision.supplied_spec.content
+) {
   await seedStagePr(adapter, {
     issueNumber,
     slug,
@@ -1608,7 +1635,10 @@ if (decision.supplied_spec?.source === "body" && decision.supplied_spec.content)
   });
   seededStage = "spec";
 }
-if (decision.supplied_plan?.source === "body" && decision.supplied_plan.content) {
+if (
+  decision.supplied_plan?.source === "body" &&
+  decision.supplied_plan.content
+) {
   await seedStagePr(adapter, {
     issueNumber,
     slug,
@@ -1630,7 +1660,7 @@ if (seededStage === "spec") {
 } else if (
   decision.supplied_plan?.source === "path" ||
   (decision.supplied_spec?.source === "path" &&
-    decision.supplied_plan === null /* and no plan body */)
+    decision.supplied_plan === null) /* and no plan body */
 ) {
   // Path-only flows: spec-path + plan-path -> needs-impl;
   // plan-path-only -> needs-impl; spec-path-only -> needs-plan.
@@ -1691,6 +1721,7 @@ git commit -m "feat(router): branch apply-triage-decision on supplied spec/plan 
 **Why last among code-tasks:** The prompt drives the agent; the agent's output drives the helper. Wiring the agent before the helper would crash the pipeline mid-issue.
 
 **Files:**
+
 - Modify: `prompts/triage.md`
 
 - [ ] **Step 10.1: Add the `<artifact_detection>` section**
@@ -1798,6 +1829,7 @@ git commit -m "feat(prompts): teach triage to detect supplied spec/plan artifact
 ## Task 11: Build the router dist bundle
 
 **Files:**
+
 - Modify: `router/dist/index.cjs`
 
 - [ ] **Step 11.1: Type-check the whole repo**

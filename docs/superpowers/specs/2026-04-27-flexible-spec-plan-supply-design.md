@@ -32,13 +32,13 @@ This spec describes a single entry point — `shopfloor:trigger` — through whi
 
 Any combination of these shapes is valid when filing an issue with `shopfloor:trigger`:
 
-| Author intent                | What they put in the issue body                                                  | Triage behavior                                                                                          |
-| ---------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Just a problem               | Free-text description, no spec, no plan                                          | Existing flow — classify and route to the right entry stage by complexity                                 |
-| Spec already in repo         | Mention path inline (any phrasing) or use `Shopfloor-Spec-Path: <path>` marker   | No spec PR. Persist path in issue metadata. Route directly to `needs-plan`                               |
-| Plan already in repo         | Mention path inline or use `Shopfloor-Plan-Path: <path>` marker                  | No spec or plan PR. Persist path(s) in issue metadata. Route directly to `needs-impl`                    |
-| Spec inline in body          | Spec content under an `## Shopfloor Spec` H2, or LLM detects it as a spec        | Open a seed spec PR pre-populated with the content. Route to `shopfloor:spec-in-review`. Normal cycle.   |
-| Plan inline in body          | Plan content under an `## Shopfloor Plan` H2, or LLM detects it as a plan        | Open a seed plan PR pre-populated. Route to `shopfloor:plan-in-review`. Normal cycle.                    |
+| Author intent        | What they put in the issue body                                                | Triage behavior                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Just a problem       | Free-text description, no spec, no plan                                        | Existing flow — classify and route to the right entry stage by complexity                              |
+| Spec already in repo | Mention path inline (any phrasing) or use `Shopfloor-Spec-Path: <path>` marker | No spec PR. Persist path in issue metadata. Route directly to `needs-plan`                             |
+| Plan already in repo | Mention path inline or use `Shopfloor-Plan-Path: <path>` marker                | No spec or plan PR. Persist path(s) in issue metadata. Route directly to `needs-impl`                  |
+| Spec inline in body  | Spec content under an `## Shopfloor Spec` H2, or LLM detects it as a spec      | Open a seed spec PR pre-populated with the content. Route to `shopfloor:spec-in-review`. Normal cycle. |
+| Plan inline in body  | Plan content under an `## Shopfloor Plan` H2, or LLM detects it as a plan      | Open a seed plan PR pre-populated. Route to `shopfloor:plan-in-review`. Normal cycle.                  |
 
 ### Marker semantics
 
@@ -94,17 +94,17 @@ The triage agent already has `Read`, `Glob`, `Grep`, `WebFetch`. Detection is mo
 
 The helper currently writes the slug, posts a classification comment, and advances state to `needs-spec` / `needs-plan` / `needs-impl` based on complexity. The new behavior keeps slug and comment unchanged; the routing branch becomes a decision matrix:
 
-| `supplied_spec` | `supplied_plan` | Action                                                                                              | Final state label             |
-| --------------- | --------------- | --------------------------------------------------------------------------------------------------- | ----------------------------- |
-| null            | null            | Existing flow — route by complexity                                                                  | `needs-spec` / `needs-plan` / `needs-impl` |
-| `path`          | null            | Persist `Shopfloor-Spec-Path: <path>` in issue metadata. Skip spec stage.                          | `needs-plan`                  |
-| null            | `path`          | Persist `Shopfloor-Plan-Path: <path>` in issue metadata. Skip spec and plan stages.                | `needs-impl`                  |
-| `path`          | `path`          | Persist both paths. Skip spec and plan stages.                                                      | `needs-impl`                  |
-| `body`          | null            | Open seed spec PR with content (Section 3).                                                         | `spec-in-review`              |
-| null            | `body`          | Open seed plan PR with content (no spec, medium-style flow).                                        | `plan-in-review`              |
-| `path`          | `body`          | Persist spec path. Open seed plan PR with body content.                                              | `plan-in-review`              |
-| `body`          | `path`          | Disallowed — triage emits `needs_clarification` instead.                                            | n/a                           |
-| `body`          | `body`          | Disallowed — triage emits `needs_clarification` instead.                                            | n/a                           |
+| `supplied_spec` | `supplied_plan` | Action                                                                              | Final state label                          |
+| --------------- | --------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ |
+| null            | null            | Existing flow — route by complexity                                                 | `needs-spec` / `needs-plan` / `needs-impl` |
+| `path`          | null            | Persist `Shopfloor-Spec-Path: <path>` in issue metadata. Skip spec stage.           | `needs-plan`                               |
+| null            | `path`          | Persist `Shopfloor-Plan-Path: <path>` in issue metadata. Skip spec and plan stages. | `needs-impl`                               |
+| `path`          | `path`          | Persist both paths. Skip spec and plan stages.                                      | `needs-impl`                               |
+| `body`          | null            | Open seed spec PR with content (Section 3).                                         | `spec-in-review`                           |
+| null            | `body`          | Open seed plan PR with content (no spec, medium-style flow).                        | `plan-in-review`                           |
+| `path`          | `body`          | Persist spec path. Open seed plan PR with body content.                             | `plan-in-review`                           |
+| `body`          | `path`          | Disallowed — triage emits `needs_clarification` instead.                            | n/a                                        |
+| `body`          | `body`          | Disallowed — triage emits `needs_clarification` instead.                            | n/a                                        |
 
 **Complexity promotion.** When `supplied_spec` or `supplied_plan` is present and the agent classified the issue as `quick`, `apply-triage-decision` writes `shopfloor:medium` instead of `shopfloor:quick`. `implement-quick.md` does not expect a spec or plan file to exist; promoting to `medium` selects the plan-aware implement prompt. The classification comment posted to the issue notes the promotion explicitly.
 
@@ -224,8 +224,10 @@ export function resolveArtifactPaths(
   metadata: IssueMetadata | null,
 ): { specFilePath: string; planFilePath: string } {
   return {
-    specFilePath: metadata?.specPath ?? `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
-    planFilePath: metadata?.planPath ?? `docs/shopfloor/plans/${issueNumber}-${slug}.md`,
+    specFilePath:
+      metadata?.specPath ?? `docs/shopfloor/specs/${issueNumber}-${slug}.md`,
+    planFilePath:
+      metadata?.planPath ?? `docs/shopfloor/plans/${issueNumber}-${slug}.md`,
   };
 }
 ```
@@ -234,34 +236,34 @@ Every existing site that builds canonical paths routes through this helper. Sing
 
 **Sites that consume it:**
 
-| Site                                                  | Resolution today                                                        | Change                                                                                                                 |
-| ----------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `computeStageFromLabels` (`state.ts`)                 | Builds canonical path from issue title/metadata                         | Calls `resolveArtifactPaths` with `parseIssueMetadata(issue.body)`.                                                    |
-| `resolvePullRequestReviewEvent` impl-revision branch  | Reconstructs path from impl branch ref                                  | Unchanged. Override applied later by `build-revision-context` (it already does an issue fetch).                        |
-| `resolvePullRequestReviewEvent` spec/plan-revision    | Reconstructs path from stage branch ref                                 | Unchanged. Spec/plan revision PRs only exist for canonical-path flow — when a user supplies a `Shopfloor-*-Path:` override, the corresponding stage is skipped entirely and no stage PR is opened, so a revision flow against an override is structurally impossible. |
-| `build-revision-context.ts`                           | Receives `specFilePath` / `planFilePath` from router decision           | Fetches issue, applies override via `resolveArtifactPaths` before invoking the agent.                                  |
-| `apply-impl-postwork.ts`                              | Reads `specFilePath` / `planFilePath` from inputs                       | Same pattern: respect issue metadata override before consuming.                                                        |
-| `handle-merge.ts`                                     | Doesn't touch file paths — only label transitions                        | No change.                                                                                                              |
-| `bootstrap-labels.ts`                                 | Doesn't touch paths                                                     | No change.                                                                                                              |
-| `render-prompt.ts`                                    | Substitutes `{{spec_file_path}}` / `{{plan_file_path}}`                 | No change — templates whatever path the caller passes in.                                                              |
+| Site                                                 | Resolution today                                              | Change                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `computeStageFromLabels` (`state.ts`)                | Builds canonical path from issue title/metadata               | Calls `resolveArtifactPaths` with `parseIssueMetadata(issue.body)`.                                                                                                                                                                                                   |
+| `resolvePullRequestReviewEvent` impl-revision branch | Reconstructs path from impl branch ref                        | Unchanged. Override applied later by `build-revision-context` (it already does an issue fetch).                                                                                                                                                                       |
+| `resolvePullRequestReviewEvent` spec/plan-revision   | Reconstructs path from stage branch ref                       | Unchanged. Spec/plan revision PRs only exist for canonical-path flow — when a user supplies a `Shopfloor-*-Path:` override, the corresponding stage is skipped entirely and no stage PR is opened, so a revision flow against an override is structurally impossible. |
+| `build-revision-context.ts`                          | Receives `specFilePath` / `planFilePath` from router decision | Fetches issue, applies override via `resolveArtifactPaths` before invoking the agent.                                                                                                                                                                                 |
+| `apply-impl-postwork.ts`                             | Reads `specFilePath` / `planFilePath` from inputs             | Same pattern: respect issue metadata override before consuming.                                                                                                                                                                                                       |
+| `handle-merge.ts`                                    | Doesn't touch file paths — only label transitions             | No change.                                                                                                                                                                                                                                                            |
+| `bootstrap-labels.ts`                                | Doesn't touch paths                                           | No change.                                                                                                                                                                                                                                                            |
+| `render-prompt.ts`                                   | Substitutes `{{spec_file_path}}` / `{{plan_file_path}}`       | No change — templates whatever path the caller passes in.                                                                                                                                                                                                             |
 
 `state.ts` stays pure: `issue.body` is part of the payload, so no I/O is added.
 
 ## Edge cases and failure modes
 
-| Case                                                                | Behavior                                                                                                                                     |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Path supplied but file missing on main at triage time               | Triage agent confirms existence via Read; emits `needs_clarification` if missing.                                                            |
-| Path validates at triage, file deleted before consuming stage runs  | Plan/impl helper hits 404, throws clear error; `report-failure` lands `shopfloor:failed:<stage>`. User restores or fixes metadata to retry.  |
-| User edits metadata block manually after triage                     | Allowed. Every consuming helper re-parses on each invocation.                                                                                |
-| Path uses `..`, is absolute, or doesn't end in `.md`                | Rejected at consumption time by `resolveArtifactPaths` validation. Same failure path as above.                                               |
-| Path equals canonical path                                          | No-op override. Resolves to same string canonical builder would produce.                                                                     |
-| `quick` complexity + supplied artifact                              | Promoted to `medium` for label-writing. Comment notes the promotion.                                                                         |
-| User edits override file via direct push to main between stages     | Fine. Plan/impl read latest from main at agent run-time.                                                                                     |
-| H2 marker conflicts with `Shopfloor-*-Path:` marker for same stage  | Triage emits `needs_clarification` asking user to pick one.                                                                                  |
-| Seed PR collision (branch exists from previous failed triage)       | Helper is idempotent (Section 3, point 9); existing branch + same content = no-op, PR reused; existing branch + different content = new commit, PR refreshed. |
-| User closes the issue mid-seed-PR-flow                              | Issue-closed gate (`state.ts:228-230`) shuts down further routing. Seed PR persists; user cleans up manually.                                |
-| `shopfloor:failed:triage` retry semantics                           | Re-runs `apply-triage-decision` with fresh issue read. Idempotent seed helper heals partial state.                                           |
+| Case                                                               | Behavior                                                                                                                                                      |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path supplied but file missing on main at triage time              | Triage agent confirms existence via Read; emits `needs_clarification` if missing.                                                                             |
+| Path validates at triage, file deleted before consuming stage runs | Plan/impl helper hits 404, throws clear error; `report-failure` lands `shopfloor:failed:<stage>`. User restores or fixes metadata to retry.                   |
+| User edits metadata block manually after triage                    | Allowed. Every consuming helper re-parses on each invocation.                                                                                                 |
+| Path uses `..`, is absolute, or doesn't end in `.md`               | Rejected at consumption time by `resolveArtifactPaths` validation. Same failure path as above.                                                                |
+| Path equals canonical path                                         | No-op override. Resolves to same string canonical builder would produce.                                                                                      |
+| `quick` complexity + supplied artifact                             | Promoted to `medium` for label-writing. Comment notes the promotion.                                                                                          |
+| User edits override file via direct push to main between stages    | Fine. Plan/impl read latest from main at agent run-time.                                                                                                      |
+| H2 marker conflicts with `Shopfloor-*-Path:` marker for same stage | Triage emits `needs_clarification` asking user to pick one.                                                                                                   |
+| Seed PR collision (branch exists from previous failed triage)      | Helper is idempotent (Section 3, point 9); existing branch + same content = no-op, PR reused; existing branch + different content = new commit, PR refreshed. |
+| User closes the issue mid-seed-PR-flow                             | Issue-closed gate (`state.ts:228-230`) shuts down further routing. Seed PR persists; user cleans up manually.                                                 |
+| `shopfloor:failed:triage` retry semantics                          | Re-runs `apply-triage-decision` with fresh issue read. Idempotent seed helper heals partial state.                                                            |
 
 ## Testing strategy
 

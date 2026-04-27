@@ -131,7 +131,9 @@ export async function applyTriageDecision(
   const suppliedPlan = decision.supplied_plan ?? null;
   const anySupplied = suppliedSpec !== null || suppliedPlan !== null;
   const effectiveComplexity =
-    anySupplied && decision.complexity === "quick" ? "medium" : decision.complexity;
+    anySupplied && decision.complexity === "quick"
+      ? "medium"
+      : decision.complexity;
 
   const metadataUpdates: Record<string, string> = { slug };
   if (suppliedSpec?.source === "path" && suppliedSpec.path) {

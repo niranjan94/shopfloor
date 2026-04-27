@@ -15,11 +15,9 @@ export function resolveArtifactPaths(
 ): ArtifactPaths {
   return {
     specFilePath:
-      metadata?.specPath ??
-      `${CANONICAL_SPEC_DIR}/${issueNumber}-${slug}.md`,
+      metadata?.specPath ?? `${CANONICAL_SPEC_DIR}/${issueNumber}-${slug}.md`,
     planFilePath:
-      metadata?.planPath ??
-      `${CANONICAL_PLAN_DIR}/${issueNumber}-${slug}.md`,
+      metadata?.planPath ?? `${CANONICAL_PLAN_DIR}/${issueNumber}-${slug}.md`,
   };
 }
 
