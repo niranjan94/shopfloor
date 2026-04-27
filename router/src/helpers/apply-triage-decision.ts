@@ -3,6 +3,8 @@ import type { GitHubAdapter } from "../github";
 import { branchSlug } from "../state";
 import { advanceState } from "./advance-state";
 import { upsertIssueMetadata } from "./upsert-issue-metadata";
+import { validateOverridePath } from "./resolve-artifact-paths";
+import { seedStagePr } from "./seed-stage-pr";
 
 export interface SuppliedArtifact {
   source: "body" | "path";
@@ -121,14 +123,78 @@ export async function applyTriageDecision(
   // above does NOT write: the title may still change before the eventual
   // classified re-triage, and writing early would lock in a stale slug.
   const slug = branchSlug(issue.title);
-  const newBody = upsertIssueMetadata(issue.body, { slug });
+
+  // Quick complexity uses the implement-quick prompt, which does not expect
+  // any spec or plan file to exist. If the user supplied an artifact, the
+  // plan-aware implement prompt is the correct surface, so promote.
+  const suppliedSpec = decision.supplied_spec ?? null;
+  const suppliedPlan = decision.supplied_plan ?? null;
+  const anySupplied = suppliedSpec !== null || suppliedPlan !== null;
+  const effectiveComplexity =
+    anySupplied && decision.complexity === "quick" ? "medium" : decision.complexity;
+
+  const metadataUpdates: Record<string, string> = { slug };
+  if (suppliedSpec?.source === "path" && suppliedSpec.path) {
+    validateOverridePath(suppliedSpec.path);
+    metadataUpdates.specPath = suppliedSpec.path;
+  }
+  if (suppliedPlan?.source === "path" && suppliedPlan.path) {
+    validateOverridePath(suppliedPlan.path);
+    metadataUpdates.planPath = suppliedPlan.path;
+  }
+  const newBody = upsertIssueMetadata(issue.body, metadataUpdates);
   if (newBody !== issue.body) {
     await adapter.updateIssueBody(issueNumber, newBody);
   }
 
-  const nextStageLabel = NEXT_STAGE_LABEL[decision.complexity];
+  // Open seed PR(s) for body-supplied artifacts. Spec and plan are exclusive
+  // here: the triage prompt rejects combos that would seed both stages at
+  // once, so seededStage is set at most once.
+  let seededStage: "spec" | "plan" | null = null;
+  if (suppliedSpec?.source === "body" && suppliedSpec.content) {
+    await seedStagePr(adapter, {
+      issueNumber,
+      slug,
+      stage: "spec",
+      content: suppliedSpec.content,
+      baseBranch: "main",
+      prTitle: `Seed spec for #${issueNumber}: ${issue.title}`,
+      prSummary: `Seeded from issue #${issueNumber}'s body during triage.`,
+    });
+    seededStage = "spec";
+  }
+  if (suppliedPlan?.source === "body" && suppliedPlan.content) {
+    await seedStagePr(adapter, {
+      issueNumber,
+      slug,
+      stage: "plan",
+      content: suppliedPlan.content,
+      baseBranch: "main",
+      prTitle: `Seed plan for #${issueNumber}: ${issue.title}`,
+      prSummary: `Seeded from issue #${issueNumber}'s body during triage.`,
+    });
+    seededStage = "plan";
+  }
+
+  let nextStateLabel: string;
+  if (seededStage === "spec") {
+    nextStateLabel = "shopfloor:spec-in-review";
+  } else if (seededStage === "plan") {
+    nextStateLabel = "shopfloor:plan-in-review";
+  } else if (suppliedPlan?.source === "path") {
+    nextStateLabel = "shopfloor:needs-impl";
+  } else if (suppliedSpec?.source === "path") {
+    nextStateLabel = "shopfloor:needs-plan";
+  } else {
+    nextStateLabel = NEXT_STAGE_LABEL[effectiveComplexity];
+  }
+
+  const promotedNote =
+    anySupplied && decision.complexity === "quick"
+      ? ` (promoted from \`quick\` because supplied artifacts require the plan-aware flow)`
+      : "";
   const body = [
-    `**Shopfloor triage: classified as \`${decision.complexity}\`.**`,
+    `**Shopfloor triage: classified as \`${effectiveComplexity}\`.**${promotedNote}`,
     "",
     decision.rationale,
   ].join("\n");
@@ -140,8 +206,8 @@ export async function applyTriageDecision(
     (l) => current.has(l),
   );
   await advanceState(adapter, issueNumber, fromLabels, [
-    `shopfloor:${decision.complexity}`,
-    nextStageLabel,
+    `shopfloor:${effectiveComplexity}`,
+    nextStateLabel,
   ]);
 }
 

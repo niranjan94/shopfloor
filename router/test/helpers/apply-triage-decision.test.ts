@@ -301,6 +301,336 @@ describe("applyTriageDecision", () => {
     expect(labelCalls.flat()).toContain("shopfloor:needs-spec");
   });
 
+  test("supplied_spec=path: writes spec path metadata, advances to needs-plan", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add OAuth",
+        body: "Body. Spec at docs/specs/oauth.md.",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: { source: "path", path: "docs/specs/oauth.md" },
+        supplied_plan: null,
+      },
+    });
+
+    const updateCall = bundle.mocks.updateIssue.mock.calls.find(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    expect(updateCall).toBeDefined();
+    expect((updateCall![0] as { body: string }).body).toContain(
+      "Shopfloor-Spec-Path: docs/specs/oauth.md",
+    );
+
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:needs-plan");
+    expect(labelCalls.flat()).not.toContain("shopfloor:needs-spec");
+  });
+
+  test("supplied_plan=path: writes plan path metadata, advances to needs-impl", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add OAuth",
+        body: "Body.",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: null,
+        supplied_plan: { source: "path", path: "docs/plans/oauth.md" },
+      },
+    });
+
+    const updateCall = bundle.mocks.updateIssue.mock.calls.find(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    expect((updateCall![0] as { body: string }).body).toContain(
+      "Shopfloor-Plan-Path: docs/plans/oauth.md",
+    );
+
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:needs-impl");
+    expect(labelCalls.flat()).not.toContain("shopfloor:needs-plan");
+  });
+
+  test("both paths supplied: writes both metadata keys, advances to needs-impl", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add OAuth",
+        body: "Body.",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: { source: "path", path: "docs/specs/oauth.md" },
+        supplied_plan: { source: "path", path: "docs/plans/oauth.md" },
+      },
+    });
+
+    const updateCall = bundle.mocks.updateIssue.mock.calls.find(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    const updatedBody = (updateCall![0] as { body: string }).body;
+    expect(updatedBody).toContain("Shopfloor-Spec-Path: docs/specs/oauth.md");
+    expect(updatedBody).toContain("Shopfloor-Plan-Path: docs/plans/oauth.md");
+
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:needs-impl");
+  });
+
+  test("supplied_spec=body: opens seed spec PR, advances to spec-in-review", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add OAuth",
+        body: "## Shopfloor Spec\nbody",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    bundle.mocks.getRef.mockResolvedValueOnce({
+      data: { object: { sha: "main-sha" } },
+    });
+    bundle.mocks.createRef.mockResolvedValueOnce({ data: {} });
+    bundle.mocks.getContent.mockRejectedValueOnce(
+      Object.assign(new Error("nope"), { status: 404 }),
+    );
+    bundle.mocks.createOrUpdateFileContents.mockResolvedValueOnce({ data: {} });
+    bundle.mocks.listPrs.mockResolvedValueOnce({ data: [] });
+    bundle.mocks.createPr.mockResolvedValueOnce({
+      data: { number: 7, html_url: "https://x/pr/7" },
+    });
+
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: { source: "body", content: "# Spec\n\nbody" },
+        supplied_plan: null,
+      },
+    });
+
+    expect(bundle.mocks.createRef).toHaveBeenCalled();
+    expect(bundle.mocks.createPr).toHaveBeenCalled();
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:spec-in-review");
+  });
+
+  test("supplied_plan=body: opens seed plan PR, advances to plan-in-review", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add OAuth",
+        body: "## Shopfloor Plan\nplan body",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    bundle.mocks.getRef.mockResolvedValueOnce({
+      data: { object: { sha: "main-sha" } },
+    });
+    bundle.mocks.createRef.mockResolvedValueOnce({ data: {} });
+    bundle.mocks.getContent.mockRejectedValueOnce(
+      Object.assign(new Error("nope"), { status: 404 }),
+    );
+    bundle.mocks.createOrUpdateFileContents.mockResolvedValueOnce({ data: {} });
+    bundle.mocks.listPrs.mockResolvedValueOnce({ data: [] });
+    bundle.mocks.createPr.mockResolvedValueOnce({
+      data: { number: 8, html_url: "https://x/pr/8" },
+    });
+
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: null,
+        supplied_plan: { source: "body", content: "# Plan" },
+      },
+    });
+
+    expect(bundle.mocks.createPr).toHaveBeenCalled();
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:plan-in-review");
+  });
+
+  test("supplied_spec=path + supplied_plan=body: writes spec metadata + seeds plan PR + advances to plan-in-review", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "Add OAuth",
+        body: "Body.\n\n## Shopfloor Plan\nplan body",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    bundle.mocks.getRef.mockResolvedValueOnce({
+      data: { object: { sha: "main-sha" } },
+    });
+    bundle.mocks.createRef.mockResolvedValueOnce({ data: {} });
+    bundle.mocks.getContent.mockRejectedValueOnce(
+      Object.assign(new Error("nope"), { status: 404 }),
+    );
+    bundle.mocks.createOrUpdateFileContents.mockResolvedValueOnce({ data: {} });
+    bundle.mocks.listPrs.mockResolvedValueOnce({ data: [] });
+    bundle.mocks.createPr.mockResolvedValueOnce({
+      data: { number: 9, html_url: "https://x/pr/9" },
+    });
+
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: { source: "path", path: "docs/specs/oauth.md" },
+        supplied_plan: { source: "body", content: "# Plan" },
+      },
+    });
+
+    const updateCall = bundle.mocks.updateIssue.mock.calls.find(
+      (c) => (c[0] as { body?: string }).body !== undefined,
+    );
+    expect((updateCall![0] as { body: string }).body).toContain(
+      "Shopfloor-Spec-Path: docs/specs/oauth.md",
+    );
+    expect(bundle.mocks.createPr).toHaveBeenCalled();
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:plan-in-review");
+  });
+
+  test("supplied artifact + quick complexity gets promoted to medium", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "x",
+        body: "",
+      },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      decision: {
+        status: "classified",
+        complexity: "quick",
+        rationale: "r",
+        clarifying_questions: [],
+        supplied_spec: { source: "path", path: "docs/specs/x.md" },
+        supplied_plan: null,
+      },
+    });
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).toContain("shopfloor:medium");
+    expect(labelCalls.flat()).not.toContain("shopfloor:quick");
+  });
+
+  test("seedStagePr failure leaves no state-flip labels behind", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: {
+        labels: [{ name: "shopfloor:triaging" }],
+        state: "open",
+        title: "x",
+        body: "",
+      },
+    });
+    bundle.mocks.getRef.mockResolvedValueOnce({
+      data: { object: { sha: "main-sha" } },
+    });
+    bundle.mocks.createRef.mockRejectedValueOnce(
+      Object.assign(new Error("server error"), { status: 500 }),
+    );
+
+    await expect(
+      applyTriageDecision(bundle.adapter, {
+        issueNumber: 42,
+        decision: {
+          status: "classified",
+          complexity: "large",
+          rationale: "r",
+          clarifying_questions: [],
+          supplied_spec: { source: "body", content: "# Spec" },
+          supplied_plan: null,
+        },
+      }),
+    ).rejects.toThrow("server error");
+
+    const labelCalls = bundle.mocks.addLabels.mock.calls.map(
+      (c) => (c[0] as { labels: string[] }).labels,
+    );
+    expect(labelCalls.flat()).not.toContain("shopfloor:spec-in-review");
+  });
+
   test("throws when a non-triaging state label is already present", async () => {
     const bundle = makeMockAdapter();
     bundle.mocks.getIssue.mockResolvedValueOnce({
