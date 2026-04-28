@@ -347,7 +347,7 @@ jobs:
             ${{ inputs.triage_max_budget_usd != '' && format('--max-budget-usd {0}', inputs.triage_max_budget_usd) || '' }}
             --allowedTools "${{ steps.prompt.outputs.allowed_tools }}"
             --disallowedTools "${{ env.SHOPFLOOR_DISALLOWED_TOOLS }}"
-            --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}}},"required":["status","complexity","rationale","clarifying_questions"]}'
+            --json-schema '{"type":"object","properties":{"status":{"type":"string","enum":["classified","needs_clarification"]},"complexity":{"type":"string","enum":["quick","medium","large"]},"rationale":{"type":"string"},"clarifying_questions":{"type":"array","items":{"type":"string"}},"supplied_spec":{"type":["object","null"],"properties":{"source":{"type":"string","enum":["body","path"]},"path":{"type":"string"},"content":{"type":"string"}},"required":["source"]},"supplied_plan":{"type":["object","null"],"properties":{"source":{"type":"string","enum":["body","path"]},"path":{"type":"string"},"content":{"type":"string"}},"required":["source"]}},"required":["status","complexity","rationale","clarifying_questions"]}'
       - name: Apply triage decision
         if: success() && steps.precheck.outputs.skip != 'true'
         uses: niranjan94/shopfloor/router@main
