@@ -94,7 +94,29 @@ on:
         type: string
         default: "ubuntu-latest"
         description: >-
-          Runner for Claude agent stages (triage, spec, plan, implement).
+          Default runner for all Claude agent stages (triage, spec, plan,
+          implement). Per-stage overrides (runner_triage, runner_spec,
+          runner_plan, runner_impl) take precedence when non-empty.
+      runner_triage:
+        type: string
+        default: ""
+        description: >-
+          Runner override for the triage stage. Falls back to runner_agent when empty.
+      runner_spec:
+        type: string
+        default: ""
+        description: >-
+          Runner override for the spec stage. Falls back to runner_agent when empty.
+      runner_plan:
+        type: string
+        default: ""
+        description: >-
+          Runner override for the plan stage. Falls back to runner_agent when empty.
+      runner_impl:
+        type: string
+        default: ""
+        description: >-
+          Runner override for the implement stage. Falls back to runner_agent when empty.
       runner_review:
         type: string
         default: "ubuntu-latest"
@@ -217,7 +239,7 @@ jobs:
     concurrency:
       group: shopfloor-triage-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
+    runs-on: ${{ inputs.runner_triage != '' && (startsWith(inputs.runner_triage, '[') && fromJSON(inputs.runner_triage) || inputs.runner_triage) || (startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent) }}
     timeout-minutes: ${{ inputs.triage_timeout_minutes }}
     permissions:
       contents: read
@@ -351,7 +373,7 @@ jobs:
     concurrency:
       group: shopfloor-spec-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
+    runs-on: ${{ inputs.runner_spec != '' && (startsWith(inputs.runner_spec, '[') && fromJSON(inputs.runner_spec) || inputs.runner_spec) || (startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent) }}
     timeout-minutes: ${{ inputs.spec_timeout_minutes }}
     permissions:
       contents: read
@@ -567,7 +589,7 @@ jobs:
     concurrency:
       group: shopfloor-plan-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
+    runs-on: ${{ inputs.runner_plan != '' && (startsWith(inputs.runner_plan, '[') && fromJSON(inputs.runner_plan) || inputs.runner_plan) || (startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent) }}
     timeout-minutes: ${{ inputs.plan_timeout_minutes }}
     permissions:
       contents: read
@@ -784,7 +806,7 @@ jobs:
     concurrency:
       group: shopfloor-implement-${{ needs.route.outputs.issue_number }}
       cancel-in-progress: false
-    runs-on: ${{ startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent }}
+    runs-on: ${{ inputs.runner_impl != '' && (startsWith(inputs.runner_impl, '[') && fromJSON(inputs.runner_impl) || inputs.runner_impl) || (startsWith(inputs.runner_agent, '[') && fromJSON(inputs.runner_agent) || inputs.runner_agent) }}
     timeout-minutes: ${{ inputs.impl_timeout_minutes }}
     permissions:
       contents: read
