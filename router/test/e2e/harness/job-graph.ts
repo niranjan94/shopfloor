@@ -174,6 +174,7 @@ jobGraph.triage = [
     helper: "apply-triage-decision",
     from: {
       issue_number: { source: "route", key: "issue_number" },
+      base_branch: { source: "literal", value: "main" },
       decision_json: { source: "agent", key: "decision_json" },
     },
   },

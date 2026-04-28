@@ -25601,7 +25601,7 @@ var UNEXPECTED_TRIAGE_LABELS = [
   "shopfloor:done"
 ];
 async function applyTriageDecision(adapter, params) {
-  const { issueNumber, decision } = params;
+  const { issueNumber, decision, baseBranch } = params;
   const issue = await adapter.getIssue(issueNumber);
   const current = new Set(
     issue.labels.map((l) => l.name)
@@ -25657,7 +25657,7 @@ async function applyTriageDecision(adapter, params) {
       slug,
       stage: "spec",
       content: suppliedSpec.content,
-      baseBranch: "main",
+      baseBranch,
       prTitle: `Seed spec for #${issueNumber}: ${issue.title}`,
       prSummary: `Seeded from issue #${issueNumber}'s body during triage.`
     });
@@ -25669,7 +25669,7 @@ async function applyTriageDecision(adapter, params) {
       slug,
       stage: "plan",
       content: suppliedPlan.content,
-      baseBranch: "main",
+      baseBranch,
       prTitle: `Seed plan for #${issueNumber}: ${issue.title}`,
       prSummary: `Seeded from issue #${issueNumber}'s body during triage.`
     });
@@ -25704,6 +25704,7 @@ async function applyTriageDecision(adapter, params) {
 }
 async function runApplyTriageDecision(adapter) {
   const issueNumber = Number(core11.getInput("issue_number", { required: true }));
+  const baseBranch = core11.getInput("base_branch", { required: true });
   const decisionJson = core11.getInput("decision_json", { required: true });
   let decision;
   try {
@@ -25726,7 +25727,7 @@ async function runApplyTriageDecision(adapter) {
     "supplied_plan",
     decision.supplied_plan
   );
-  await applyTriageDecision(adapter, { issueNumber, decision });
+  await applyTriageDecision(adapter, { issueNumber, decision, baseBranch });
 }
 
 // src/helpers/apply-impl-postwork.ts

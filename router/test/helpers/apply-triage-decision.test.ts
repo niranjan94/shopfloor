@@ -15,6 +15,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "needs_clarification",
         complexity: "large",
@@ -44,6 +45,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -70,6 +72,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "quick",
@@ -96,6 +99,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "medium",
@@ -121,6 +125,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "quick",
@@ -143,6 +148,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "needs_clarification",
         complexity: "large",
@@ -177,6 +183,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "medium",
@@ -229,6 +236,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "medium",
@@ -263,6 +271,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "needs_clarification",
         complexity: "medium",
@@ -286,6 +295,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -317,6 +327,7 @@ describe("applyTriageDecision", () => {
 
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -358,6 +369,7 @@ describe("applyTriageDecision", () => {
 
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -398,6 +410,7 @@ describe("applyTriageDecision", () => {
 
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -449,6 +462,7 @@ describe("applyTriageDecision", () => {
 
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -495,6 +509,7 @@ describe("applyTriageDecision", () => {
 
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -540,6 +555,7 @@ describe("applyTriageDecision", () => {
 
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "large",
@@ -578,6 +594,7 @@ describe("applyTriageDecision", () => {
     });
     await applyTriageDecision(bundle.adapter, {
       issueNumber: 42,
+      baseBranch: "main",
       decision: {
         status: "classified",
         complexity: "quick",
@@ -614,6 +631,7 @@ describe("applyTriageDecision", () => {
     await expect(
       applyTriageDecision(bundle.adapter, {
         issueNumber: 42,
+        baseBranch: "main",
         decision: {
           status: "classified",
           complexity: "large",
@@ -642,6 +660,7 @@ describe("applyTriageDecision", () => {
     await expect(
       applyTriageDecision(bundle.adapter, {
         issueNumber: 42,
+        baseBranch: "main",
         decision: {
           status: "classified",
           complexity: "quick",

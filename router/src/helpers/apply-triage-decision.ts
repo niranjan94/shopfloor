@@ -54,6 +54,7 @@ const NEXT_STAGE_LABEL: Record<TriageOutput["complexity"], string> = {
 export interface ApplyTriageParams {
   issueNumber: number;
   decision: TriageOutput;
+  baseBranch: string;
 }
 
 const UNEXPECTED_TRIAGE_LABELS = [
@@ -74,7 +75,7 @@ export async function applyTriageDecision(
   adapter: GitHubAdapter,
   params: ApplyTriageParams,
 ): Promise<void> {
-  const { issueNumber, decision } = params;
+  const { issueNumber, decision, baseBranch } = params;
 
   const issue = await adapter.getIssue(issueNumber);
   const current = new Set(
@@ -159,7 +160,7 @@ export async function applyTriageDecision(
       slug,
       stage: "spec",
       content: suppliedSpec.content,
-      baseBranch: "main",
+      baseBranch,
       prTitle: `Seed spec for #${issueNumber}: ${issue.title}`,
       prSummary: `Seeded from issue #${issueNumber}'s body during triage.`,
     });
@@ -171,7 +172,7 @@ export async function applyTriageDecision(
       slug,
       stage: "plan",
       content: suppliedPlan.content,
-      baseBranch: "main",
+      baseBranch,
       prTitle: `Seed plan for #${issueNumber}: ${issue.title}`,
       prSummary: `Seeded from issue #${issueNumber}'s body during triage.`,
     });
@@ -217,6 +218,7 @@ export async function runApplyTriageDecision(
   adapter: GitHubAdapter,
 ): Promise<void> {
   const issueNumber = Number(core.getInput("issue_number", { required: true }));
+  const baseBranch = core.getInput("base_branch", { required: true });
   const decisionJson = core.getInput("decision_json", { required: true });
   let decision: TriageOutput;
   try {
@@ -242,5 +244,5 @@ export async function runApplyTriageDecision(
     "supplied_plan",
     decision.supplied_plan,
   );
-  await applyTriageDecision(adapter, { issueNumber, decision });
+  await applyTriageDecision(adapter, { issueNumber, decision, baseBranch });
 }

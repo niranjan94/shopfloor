@@ -333,6 +333,7 @@ jobs:
           helper: apply-triage-decision
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           issue_number: ${{ needs.route.outputs.issue_number }}
+          base_branch: ${{ github.event.repository.default_branch }}
           decision_json: ${{ steps.agent.outputs.structured_output }}
       - name: Report failure
         if: failure() && steps.precheck.outputs.skip != 'true'
