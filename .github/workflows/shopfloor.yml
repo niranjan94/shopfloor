@@ -232,6 +232,20 @@ jobs:
           helper: route
           github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           trigger_label: ${{ inputs.trigger_label }}
+      # When a human reviewer leaves CHANGES_REQUESTED on an impl PR the router
+      # decides stage=implement+revisionMode=true, but no helper has flipped the
+      # issue's labels into shopfloor:review-requested-changes (the agent path
+      # does this via aggregate-review). Without this step the implement
+      # precheck would skip with implement_neither_needs_impl_nor_revision_label_present.
+      # Also clears shopfloor:review-stuck so a human review unsticks an issue
+      # that the agent loop has given up on.
+      - name: Apply review-revision labels for human-requested changes
+        if: ${{ github.event_name == 'pull_request_review' && steps.router.outputs.stage == 'implement' && steps.router.outputs.revision_mode == 'true' }}
+        uses: niranjan94/shopfloor/router@main
+        with:
+          helper: apply-review-revision
+          github_token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+          issue_number: ${{ steps.router.outputs.issue_number }}
 
   triage:
     needs: route

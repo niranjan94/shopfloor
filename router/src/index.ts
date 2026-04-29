@@ -15,6 +15,7 @@ import { runAggregateReview } from "./helpers/aggregate-review";
 import { runRenderPrompt } from "./helpers/render-prompt";
 import { runApplyTriageDecision } from "./helpers/apply-triage-decision";
 import { runApplyImplPostwork } from "./helpers/apply-impl-postwork";
+import { runApplyReviewRevision } from "./helpers/apply-review-revision";
 import { runPrecheckStage } from "./helpers/precheck-stage";
 import { runBuildRevisionContext } from "./helpers/build-revision-context";
 import { runRoute } from "./helpers/route";
@@ -69,6 +70,8 @@ export async function main(): Promise<void> {
       return runApplyTriageDecision(adapter);
     case "apply-impl-postwork":
       return runApplyImplPostwork(adapter);
+    case "apply-review-revision":
+      return runApplyReviewRevision(adapter);
     case "precheck-stage":
       return runPrecheckStage(adapter);
     case "build-revision-context":

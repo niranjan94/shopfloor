@@ -19679,7 +19679,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path.delimiter}${process.env["PATH"]}`;
     }
     exports2.addPath = addPath;
-    function getInput16(name, options) {
+    function getInput17(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -19689,9 +19689,9 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports2.getInput = getInput16;
+    exports2.getInput = getInput17;
     function getMultilineInput(name, options) {
-      const inputs = getInput16(name, options).split("\n").filter((x) => x !== "");
+      const inputs = getInput17(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
@@ -19701,7 +19701,7 @@ var require_core = __commonJS({
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput16(name, options);
+      const val = getInput17(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -23888,7 +23888,7 @@ __export(index_exports, {
   main: () => main
 });
 module.exports = __toCommonJS(index_exports);
-var core16 = __toESM(require_core(), 1);
+var core17 = __toESM(require_core(), 1);
 var import_github2 = __toESM(require_github(), 1);
 
 // src/github.ts
@@ -25799,8 +25799,25 @@ async function runApplyImplPostwork(adapter) {
   if (result.skipReason) core12.setOutput("skip_reason", result.skipReason);
 }
 
-// src/helpers/precheck-stage.ts
+// src/helpers/apply-review-revision.ts
 var core13 = __toESM(require_core(), 1);
+async function applyReviewRevision(adapter, params) {
+  await adapter.addLabel(
+    params.issueNumber,
+    "shopfloor:review-requested-changes"
+  );
+  await adapter.removeLabel(params.issueNumber, "shopfloor:needs-review");
+  await adapter.removeLabel(params.issueNumber, "shopfloor:review-stuck");
+}
+async function runApplyReviewRevision(adapter) {
+  const issueNumber = Number(
+    core13.getInput("issue_number", { required: true })
+  );
+  await applyReviewRevision(adapter, { issueNumber });
+}
+
+// src/helpers/precheck-stage.ts
+var core14 = __toESM(require_core(), 1);
 var TRIAGE_BLOCKING_STATE_LABELS = /* @__PURE__ */ new Set([
   // shopfloor:triaging is a transient mutex marker set by the triage job's
   // pre-agent advance-state step. If it is already present when a second
@@ -25826,7 +25843,7 @@ async function precheckStage(adapter, params) {
     const issue = await adapter.getIssue(params.issueNumber);
     labels = new Set(issue.labels.map((l) => l.name));
   } catch (err) {
-    core13.warning(
+    core14.warning(
       `precheck-stage: issue read failed for ${params.issueNumber}, falling back to skip=false: ${err instanceof Error ? err.message : String(err)}`
     );
     return { skip: false, reason: "precheck_read_error_fail_open" };
@@ -25899,7 +25916,7 @@ async function precheckStage(adapter, params) {
             };
           }
         } catch (err) {
-          core13.warning(
+          core14.warning(
             `precheck-stage: review PR fetch failed, falling open: ${err instanceof Error ? err.message : String(err)}`
           );
           return { skip: false, reason: "precheck_pr_read_error_fail_open" };
@@ -25952,12 +25969,12 @@ async function precheckStage(adapter, params) {
   }
 }
 async function runPrecheckStage(adapter) {
-  const stage = core13.getInput("stage", { required: true });
-  const issueNumber = Number(core13.getInput("issue_number", { required: true }));
-  const analysedSha = core13.getInput("analysed_sha") || void 0;
-  const prNumberInput = core13.getInput("pr_number");
+  const stage = core14.getInput("stage", { required: true });
+  const issueNumber = Number(core14.getInput("issue_number", { required: true }));
+  const analysedSha = core14.getInput("analysed_sha") || void 0;
+  const prNumberInput = core14.getInput("pr_number");
   const prNumber = prNumberInput ? Number(prNumberInput) : void 0;
-  const mergedStageInput = core13.getInput("merged_stage");
+  const mergedStageInput = core14.getInput("merged_stage");
   const mergedStage = mergedStageInput ? mergedStageInput : void 0;
   const result = await precheckStage(adapter, {
     stage,
@@ -25966,18 +25983,18 @@ async function runPrecheckStage(adapter) {
     prNumber,
     mergedStage
   });
-  core13.setOutput("skip", result.skip ? "true" : "false");
-  core13.setOutput("reason", result.reason);
+  core14.setOutput("skip", result.skip ? "true" : "false");
+  core14.setOutput("reason", result.reason);
   if (result.skip) {
-    core13.notice(`precheck-stage: skipping ${stage} - ${result.reason}`);
+    core14.notice(`precheck-stage: skipping ${stage} - ${result.reason}`);
   } else {
-    core13.info(`precheck-stage: ${stage} preconditions hold - ${result.reason}`);
+    core14.info(`precheck-stage: ${stage} preconditions hold - ${result.reason}`);
   }
 }
 
 // src/helpers/build-revision-context.ts
 var import_node_fs3 = require("node:fs");
-var core14 = __toESM(require_core(), 1);
+var core15 = __toESM(require_core(), 1);
 function parseIterationFromBody3(body) {
   if (!body) return 0;
   const m = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
@@ -26025,7 +26042,7 @@ async function buildRevisionContext(adapter, params) {
     const fetched = await adapter.listIssueComments(params.issueNumber);
     issueComments = formatIssueComments(fetched);
   } catch (err) {
-    core14.warning(
+    core15.warning(
       `build-revision-context: failed to fetch issue comments for #${params.issueNumber}, falling back to empty: ${err instanceof Error ? err.message : String(err)}`
     );
   }
@@ -26078,32 +26095,32 @@ async function buildRevisionContext(adapter, params) {
       break;
   }
   (0, import_node_fs3.writeFileSync)(params.outputPath, JSON.stringify(contextOut));
-  core14.setOutput("path", params.outputPath);
+  core15.setOutput("path", params.outputPath);
 }
 async function runBuildRevisionContext(adapter) {
-  const stage = core14.getInput("stage") || "implement";
+  const stage = core15.getInput("stage") || "implement";
   await buildRevisionContext(adapter, {
     stage,
-    issueNumber: Number(core14.getInput("issue_number", { required: true })),
-    prNumber: Number(core14.getInput("pr_number", { required: true })),
-    branchName: core14.getInput("branch_name", { required: true }),
-    specFilePath: core14.getInput("spec_file_path") || "",
-    planFilePath: core14.getInput("plan_file_path") || "",
-    progressCommentId: core14.getInput("progress_comment_id") || "",
-    bashAllowlist: core14.getInput("bash_allowlist") || "",
-    repoOwner: core14.getInput("repo_owner", { required: true }),
-    repoName: core14.getInput("repo_name", { required: true }),
-    outputPath: core14.getInput("output_path", { required: true }),
-    promptFragmentPath: core14.getInput("prompt_fragment_path") || `prompts/${stage}-revision-fragment.md`
+    issueNumber: Number(core15.getInput("issue_number", { required: true })),
+    prNumber: Number(core15.getInput("pr_number", { required: true })),
+    branchName: core15.getInput("branch_name", { required: true }),
+    specFilePath: core15.getInput("spec_file_path") || "",
+    planFilePath: core15.getInput("plan_file_path") || "",
+    progressCommentId: core15.getInput("progress_comment_id") || "",
+    bashAllowlist: core15.getInput("bash_allowlist") || "",
+    repoOwner: core15.getInput("repo_owner", { required: true }),
+    repoName: core15.getInput("repo_name", { required: true }),
+    outputPath: core15.getInput("output_path", { required: true }),
+    promptFragmentPath: core15.getInput("prompt_fragment_path") || `prompts/${stage}-revision-fragment.md`
   });
 }
 
 // src/helpers/route.ts
-var core15 = __toESM(require_core(), 1);
+var core16 = __toESM(require_core(), 1);
 var import_github = __toESM(require_github(), 1);
 async function runRoute(adapter) {
-  const triggerLabel = core15.getInput("trigger_label") || void 0;
-  const reviewOnly = core15.getInput("review_only") === "true";
+  const triggerLabel = core16.getInput("trigger_label") || void 0;
+  const reviewOnly = core16.getInput("review_only") === "true";
   let liveLabels;
   if (!reviewOnly && import_github.context.eventName === "issues") {
     const payload = import_github.context.payload;
@@ -26112,7 +26129,7 @@ async function runRoute(adapter) {
         const issue = await adapter.getIssue(payload.issue.number);
         liveLabels = issue.labels.map((l) => l.name);
       } catch (err) {
-        core15.warning(
+        core16.warning(
           `route: live label fetch failed, falling back to payload snapshot: ${err instanceof Error ? err.message : String(err)}`
         );
       }
@@ -26142,7 +26159,7 @@ async function runRoute(adapter) {
         };
       }
     } catch (err) {
-      core15.warning(
+      core16.warning(
         `route: review-stuck impl PR lookup failed: ${err instanceof Error ? err.message : String(err)}`
       );
       decision = {
@@ -26152,34 +26169,34 @@ async function runRoute(adapter) {
       };
     }
   }
-  core15.setOutput("stage", decision.stage);
+  core16.setOutput("stage", decision.stage);
   if (decision.issueNumber !== void 0) {
-    core15.setOutput("issue_number", String(decision.issueNumber));
+    core16.setOutput("issue_number", String(decision.issueNumber));
   }
-  if (decision.complexity) core15.setOutput("complexity", decision.complexity);
-  if (decision.branchName) core15.setOutput("branch_name", decision.branchName);
+  if (decision.complexity) core16.setOutput("complexity", decision.complexity);
+  if (decision.branchName) core16.setOutput("branch_name", decision.branchName);
   if (decision.specFilePath) {
-    core15.setOutput("spec_file_path", decision.specFilePath);
+    core16.setOutput("spec_file_path", decision.specFilePath);
   }
   if (decision.planFilePath) {
-    core15.setOutput("plan_file_path", decision.planFilePath);
+    core16.setOutput("plan_file_path", decision.planFilePath);
   }
   if (decision.revisionMode !== void 0) {
-    core15.setOutput("revision_mode", String(decision.revisionMode));
+    core16.setOutput("revision_mode", String(decision.revisionMode));
   }
   if (decision.reviewIteration !== void 0) {
-    core15.setOutput("review_iteration", String(decision.reviewIteration));
+    core16.setOutput("review_iteration", String(decision.reviewIteration));
   }
   if (decision.implPrNumber !== void 0) {
-    core15.setOutput("impl_pr_number", String(decision.implPrNumber));
+    core16.setOutput("impl_pr_number", String(decision.implPrNumber));
   }
-  if (decision.reason) core15.setOutput("reason", decision.reason);
+  if (decision.reason) core16.setOutput("reason", decision.reason);
 }
 
 // src/index.ts
 async function main() {
-  const helper = core16.getInput("helper", { required: false }) || "route";
-  const token = core16.getInput("github_token", { required: true });
+  const helper = core17.getInput("helper", { required: false }) || "route";
+  const token = core17.getInput("github_token", { required: true });
   const octokit = (0, import_github2.getOctokit)(token);
   const adapter = new GitHubAdapter(octokit, {
     owner: import_github2.context.repo.owner,
@@ -26205,7 +26222,7 @@ async function main() {
     case "check-review-skip":
       return runCheckReviewSkip(adapter);
     case "aggregate-review": {
-      const reviewToken = core16.getInput("review_github_token") || "";
+      const reviewToken = core17.getInput("review_github_token") || "";
       const reviewAdapter = reviewToken ? new GitHubAdapter((0, import_github2.getOctokit)(reviewToken), {
         owner: import_github2.context.repo.owner,
         repo: import_github2.context.repo.repo
@@ -26218,17 +26235,19 @@ async function main() {
       return runApplyTriageDecision(adapter);
     case "apply-impl-postwork":
       return runApplyImplPostwork(adapter);
+    case "apply-review-revision":
+      return runApplyReviewRevision(adapter);
     case "precheck-stage":
       return runPrecheckStage(adapter);
     case "build-revision-context":
       return runBuildRevisionContext(adapter);
     default:
-      core16.setFailed(`Unknown helper: ${helper}`);
+      core17.setFailed(`Unknown helper: ${helper}`);
   }
 }
 if (process.env.GITHUB_ACTIONS === "true") {
   main().catch((err) => {
-    core16.setFailed(err instanceof Error ? err.message : String(err));
+    core17.setFailed(err instanceof Error ? err.message : String(err));
   });
 }
 // Annotate the CommonJS export names for ESM import in node:
