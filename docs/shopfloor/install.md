@@ -180,6 +180,7 @@ A GitHub App installation token does not have this restriction. Shopfloor mints 
    - **Pull requests**: Read & write (open PRs, post reviews, update bodies)
    - **Commit statuses**: Read & write (`shopfloor/review` status)
    - **Metadata**: Read (mandatory baseline)
+   - **Packages**: Read (optional — only if you plan to use the [pre-agent setup hook](#optional-pre-agent-setup-hook) and want its `SHOPFLOOR_GITHUB_TOKEN` to authenticate against GitHub Packages, e.g. `pnpm config set //npm.pkg.github.com/:_authToken=$SHOPFLOOR_GITHUB_TOKEN`. If you would rather not extend the App's scope, pass a separately-scoped PAT through `setup_env_json` instead.)
 3. **Subscribe to events**: none. The App is a write client only; webhook delivery is irrelevant.
 4. Generate a private key and download the `.pem` file. Treat it like any other secret: do not commit it.
 5. Install the app on your target repository (or org-wide).
