@@ -118,6 +118,17 @@ today and ignores `setup_env_json` entirely.
   `inputs:` is allowed but unused. Shopfloor never passes inputs.
 - Malformed JSON in `setup_env_json` causes the export step to fail with
   a `jq` parse error. This is a fail-loud, fail-early signal.
+- `setup_env_json` values must be JSON strings. Nested objects, arrays,
+  numbers, and booleans are unsupported; the export step assumes string
+  values when piping to `$GITHUB_ENV` and the masking pass would mask the
+  JSON-stringified form rather than substring values, which is rarely
+  what the caller wants.
+- The four `SHOPFLOOR_*` env names are reserved. If `setup_env_json`
+  contains a key named `SHOPFLOOR_STAGE`, `SHOPFLOOR_ISSUE_NUMBER`,
+  `SHOPFLOOR_BRANCH_NAME`, or `SHOPFLOOR_GITHUB_TOKEN`, the export step
+  drops those keys with a warning rather than letting the caller-supplied
+  value clobber the Shopfloor-controlled one (preserves the contract that
+  these four are always Shopfloor-authored).
 
 ## Architecture
 
@@ -170,6 +181,10 @@ jobs, gated additionally on `inputs.setup_review_enabled`.
     SHOPFLOOR_STAGE: triage  # literal, varies per job
     SHOPFLOOR_ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
     SHOPFLOOR_BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+    # NOTE: the App-token step id varies by job. See the per-job mapping
+    # table below — it is `app_token` for triage/spec/plan and the four
+    # review jobs, but `app_token_pre` for implement (which mints two
+    # tokens around the long-running agent step).
     SHOPFLOOR_GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
   run: |
     {
@@ -179,19 +194,30 @@ jobs, gated additionally on `inputs.setup_review_enabled`.
       printf 'SHOPFLOOR_GITHUB_TOKEN=%s\n' "$SHOPFLOOR_GITHUB_TOKEN"
     } >> "$GITHUB_ENV"
     if [ -n "$SETUP_ENV_JSON" ]; then
+      # Reject reserved keys so caller cannot clobber Shopfloor's
+      # contract for the four SHOPFLOOR_* variables. jq's `del(...)`
+      # silently drops them; emit a warning per dropped key so the
+      # caller notices.
+      RESERVED='["SHOPFLOOR_STAGE","SHOPFLOOR_ISSUE_NUMBER","SHOPFLOOR_BRANCH_NAME","SHOPFLOOR_GITHUB_TOKEN"]'
+      printf '%s' "$SETUP_ENV_JSON" | jq -r --argjson r "$RESERVED" '
+        keys_unsorted as $ks | $r[] | select(. as $k | $ks | index($k))
+      ' | while IFS= read -r dropped; do
+        [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
+      done
+      SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
       # Register every value for log masking BEFORE writing them anywhere
       # the runner could log. secrets.setup_env_json is masked as a single
       # blob; substring values inside it are not, so they would otherwise
       # leak in clear text in subsequent logs.
       while IFS= read -r v; do
         [ -n "$v" ] && echo "::add-mask::$v"
-      done < <(printf '%s' "$SETUP_ENV_JSON" | jq -r '.[] | tostring')
+      done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
       # Use the GITHUB_ENV multi-line delimiter form so PEM keys and .env
       # content survive intact. The delimiter is randomized per run to
       # avoid the (vanishingly unlikely) collision with a value that
       # contains the literal delimiter token.
-      DELIM="SHOPFLOOR_ENV_$(date +%s%N)_$RANDOM"
-      printf '%s' "$SETUP_ENV_JSON" | jq -r --arg d "$DELIM" '
+      DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
+      printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
         to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
       ' >> "$GITHUB_ENV"
     fi
@@ -201,10 +227,23 @@ jobs, gated additionally on `inputs.setup_review_enabled`.
   uses: ./.github/actions/shopfloor-setup
 ```
 
+### Per-job App-token step id mapping
+
+Shopfloor's App-token mint step id is not uniform across jobs, so the
+`SHOPFLOOR_GITHUB_TOKEN` expression has to differ accordingly. Implementers
+must use the right id when copy-pasting the snippet above:
+
+| Job                                 | Step id used in `SHOPFLOOR_GITHUB_TOKEN` expression |
+| ----------------------------------- | ---------------------------------------------------- |
+| `triage`, `spec`, `plan`            | `steps.app_token.outputs.token`                      |
+| `implement`                         | `steps.app_token_pre.outputs.token`                  |
+| `review-{compliance,bugs,security,smells}` | `steps.app_token.outputs.token`               |
+
 For review jobs the gate becomes
-`inputs.setup_enabled && inputs.setup_review_enabled`, the
-`SHOPFLOOR_STAGE` literal becomes the review job name, and there is no
+`inputs.setup_enabled && inputs.setup_review_enabled` and there is no
 `steps.precheck.outputs.skip` clause (review jobs have no precheck step).
+The `SHOPFLOOR_STAGE` literal becomes the review job name (e.g.
+`review-bugs`).
 
 ### Insertion point per stage
 
@@ -213,7 +252,7 @@ For review jobs the gate becomes
 | `triage`        | `Mark triage as running` ↔ `Build triage context`                                 |
 | `spec`          | `Mark spec as running` ↔ `Build spec context` (or revision builder, whichever runs) |
 | `plan`          | `Mark plan as running` ↔ `Build plan context` (or revision builder, whichever runs) |
-| `implement`     | `Mark implement as running` ↔ `Create impl branch`                                |
+| `implement`     | `Mark implement as running` ↔ (`Create impl branch` on first runs / `Checkout existing impl branch` on revision runs) |
 | `review-*` (×4) | Immediately after `actions/checkout`, gated on `setup_review_enabled`             |
 
 For `implement` specifically, setup runs **before** the impl branch is
