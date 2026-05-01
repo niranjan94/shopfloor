@@ -1476,6 +1476,40 @@ jobs:
         with:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Export Shopfloor setup env
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        env:
+          SETUP_ENV_JSON: ${{ secrets.setup_env_json }}
+          SHOPFLOOR_STAGE: review-compliance
+          SHOPFLOOR_ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          SHOPFLOOR_BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          SHOPFLOOR_GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf 'SHOPFLOOR_STAGE=%s\n' "$SHOPFLOOR_STAGE"
+            printf 'SHOPFLOOR_ISSUE_NUMBER=%s\n' "$SHOPFLOOR_ISSUE_NUMBER"
+            printf 'SHOPFLOOR_BRANCH_NAME=%s\n' "$SHOPFLOOR_BRANCH_NAME"
+            printf 'SHOPFLOOR_GITHUB_TOKEN=%s\n' "$SHOPFLOOR_GITHUB_TOKEN"
+          } >> "$GITHUB_ENV"
+          if [ -n "$SETUP_ENV_JSON" ]; then
+            RESERVED='["SHOPFLOOR_STAGE","SHOPFLOOR_ISSUE_NUMBER","SHOPFLOOR_BRANCH_NAME","SHOPFLOOR_GITHUB_TOKEN"]'
+            printf '%s' "$SETUP_ENV_JSON" | jq -r --argjson r "$RESERVED" '
+              keys_unsorted as $ks | $r[] | select(. as $k | $ks | index($k))
+            ' | while IFS= read -r dropped; do
+              [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
+            done
+            SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
+            while IFS= read -r v; do
+              [ -n "$v" ] && echo "::add-mask::$v"
+            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
+            printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
+              to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
+            ' >> "$GITHUB_ENV"
+          fi
+      - name: Run consumer setup
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        uses: ./.github/actions/shopfloor-setup
       - name: Build review context
         id: ctx
         env:
@@ -1572,6 +1606,40 @@ jobs:
         with:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Export Shopfloor setup env
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        env:
+          SETUP_ENV_JSON: ${{ secrets.setup_env_json }}
+          SHOPFLOOR_STAGE: review-bugs
+          SHOPFLOOR_ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          SHOPFLOOR_BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          SHOPFLOOR_GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf 'SHOPFLOOR_STAGE=%s\n' "$SHOPFLOOR_STAGE"
+            printf 'SHOPFLOOR_ISSUE_NUMBER=%s\n' "$SHOPFLOOR_ISSUE_NUMBER"
+            printf 'SHOPFLOOR_BRANCH_NAME=%s\n' "$SHOPFLOOR_BRANCH_NAME"
+            printf 'SHOPFLOOR_GITHUB_TOKEN=%s\n' "$SHOPFLOOR_GITHUB_TOKEN"
+          } >> "$GITHUB_ENV"
+          if [ -n "$SETUP_ENV_JSON" ]; then
+            RESERVED='["SHOPFLOOR_STAGE","SHOPFLOOR_ISSUE_NUMBER","SHOPFLOOR_BRANCH_NAME","SHOPFLOOR_GITHUB_TOKEN"]'
+            printf '%s' "$SETUP_ENV_JSON" | jq -r --argjson r "$RESERVED" '
+              keys_unsorted as $ks | $r[] | select(. as $k | $ks | index($k))
+            ' | while IFS= read -r dropped; do
+              [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
+            done
+            SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
+            while IFS= read -r v; do
+              [ -n "$v" ] && echo "::add-mask::$v"
+            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
+            printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
+              to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
+            ' >> "$GITHUB_ENV"
+          fi
+      - name: Run consumer setup
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        uses: ./.github/actions/shopfloor-setup
       - name: Build review context
         id: ctx
         env:
@@ -1668,6 +1736,40 @@ jobs:
         with:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Export Shopfloor setup env
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        env:
+          SETUP_ENV_JSON: ${{ secrets.setup_env_json }}
+          SHOPFLOOR_STAGE: review-security
+          SHOPFLOOR_ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          SHOPFLOOR_BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          SHOPFLOOR_GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf 'SHOPFLOOR_STAGE=%s\n' "$SHOPFLOOR_STAGE"
+            printf 'SHOPFLOOR_ISSUE_NUMBER=%s\n' "$SHOPFLOOR_ISSUE_NUMBER"
+            printf 'SHOPFLOOR_BRANCH_NAME=%s\n' "$SHOPFLOOR_BRANCH_NAME"
+            printf 'SHOPFLOOR_GITHUB_TOKEN=%s\n' "$SHOPFLOOR_GITHUB_TOKEN"
+          } >> "$GITHUB_ENV"
+          if [ -n "$SETUP_ENV_JSON" ]; then
+            RESERVED='["SHOPFLOOR_STAGE","SHOPFLOOR_ISSUE_NUMBER","SHOPFLOOR_BRANCH_NAME","SHOPFLOOR_GITHUB_TOKEN"]'
+            printf '%s' "$SETUP_ENV_JSON" | jq -r --argjson r "$RESERVED" '
+              keys_unsorted as $ks | $r[] | select(. as $k | $ks | index($k))
+            ' | while IFS= read -r dropped; do
+              [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
+            done
+            SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
+            while IFS= read -r v; do
+              [ -n "$v" ] && echo "::add-mask::$v"
+            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
+            printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
+              to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
+            ' >> "$GITHUB_ENV"
+          fi
+      - name: Run consumer setup
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        uses: ./.github/actions/shopfloor-setup
       - name: Build review context
         id: ctx
         env:
@@ -1764,6 +1866,40 @@ jobs:
         with:
           client-id: ${{ secrets.shopfloor_github_app_client_id }}
           private-key: ${{ secrets.shopfloor_github_app_private_key }}
+      - name: Export Shopfloor setup env
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        env:
+          SETUP_ENV_JSON: ${{ secrets.setup_env_json }}
+          SHOPFLOOR_STAGE: review-smells
+          SHOPFLOOR_ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
+          SHOPFLOOR_BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
+          SHOPFLOOR_GITHUB_TOKEN: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf 'SHOPFLOOR_STAGE=%s\n' "$SHOPFLOOR_STAGE"
+            printf 'SHOPFLOOR_ISSUE_NUMBER=%s\n' "$SHOPFLOOR_ISSUE_NUMBER"
+            printf 'SHOPFLOOR_BRANCH_NAME=%s\n' "$SHOPFLOOR_BRANCH_NAME"
+            printf 'SHOPFLOOR_GITHUB_TOKEN=%s\n' "$SHOPFLOOR_GITHUB_TOKEN"
+          } >> "$GITHUB_ENV"
+          if [ -n "$SETUP_ENV_JSON" ]; then
+            RESERVED='["SHOPFLOOR_STAGE","SHOPFLOOR_ISSUE_NUMBER","SHOPFLOOR_BRANCH_NAME","SHOPFLOOR_GITHUB_TOKEN"]'
+            printf '%s' "$SETUP_ENV_JSON" | jq -r --argjson r "$RESERVED" '
+              keys_unsorted as $ks | $r[] | select(. as $k | $ks | index($k))
+            ' | while IFS= read -r dropped; do
+              [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
+            done
+            SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
+            while IFS= read -r v; do
+              [ -n "$v" ] && echo "::add-mask::$v"
+            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
+            printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
+              to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
+            ' >> "$GITHUB_ENV"
+          fi
+      - name: Run consumer setup
+        if: inputs.setup_enabled && inputs.setup_review_enabled
+        uses: ./.github/actions/shopfloor-setup
       - name: Build review context
         id: ctx
         env:
