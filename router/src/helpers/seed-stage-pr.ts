@@ -53,7 +53,7 @@ export async function seedStagePr(
     base: baseBranch,
     head: branchName,
     title: prTitle,
-    body: `${prSummary}\n\nCloses #${issueNumber}`,
+    body: `${prSummary}\n\nRefs #${issueNumber}`,
     stage,
     issueNumber,
     preserveBodyIfExists: false,

@@ -25548,7 +25548,7 @@ async function seedStagePr(adapter, params) {
     title: prTitle,
     body: `${prSummary}
 
-Closes #${issueNumber}`,
+Refs #${issueNumber}`,
     stage,
     issueNumber,
     preserveBodyIfExists: false
@@ -25810,9 +25810,7 @@ async function applyReviewRevision(adapter, params) {
   await adapter.removeLabel(params.issueNumber, "shopfloor:review-stuck");
 }
 async function runApplyReviewRevision(adapter) {
-  const issueNumber = Number(
-    core13.getInput("issue_number", { required: true })
-  );
+  const issueNumber = Number(core13.getInput("issue_number", { required: true }));
   await applyReviewRevision(adapter, { issueNumber });
 }
 
