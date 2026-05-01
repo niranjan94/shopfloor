@@ -123,6 +123,22 @@ on:
         description: >-
           Runner for review agent jobs (review-compliance, review-bugs,
           review-security, review-smells).
+      setup_enabled:
+        type: boolean
+        default: false
+        description: >-
+          When true, Shopfloor invokes ./.github/actions/shopfloor-setup
+          on every agent stage between precheck and the agent step. The
+          action must exist at exactly that path. When false (default),
+          no setup runs and setup_env_json is ignored.
+      setup_review_enabled:
+        type: boolean
+        default: false
+        description: >-
+          When true AND setup_enabled is true, also runs the setup action
+          on the four review stages (review-compliance, review-bugs,
+          review-security, review-smells). Off by default since reviews
+          are read-only PR commenters that rarely need a built workspace.
     secrets:
       anthropic_api_key: { required: false }
       claude_code_oauth_token: { required: false }
@@ -147,6 +163,15 @@ on:
       shopfloor_github_app_review_client_id: { required: false }
       shopfloor_github_app_review_private_key: { required: false }
       ssh_signing_key: { required: false }
+      setup_env_json:
+        required: false
+        description: >-
+          JSON object whose keys/values are exported as env vars in every
+          job that runs setup. Use toJSON() in the caller workflow for
+          multi-line values (PEM keys, .env blobs). Each value is
+          registered for log masking via ::add-mask::. Reserved keys
+          (SHOPFLOOR_STAGE, SHOPFLOOR_ISSUE_NUMBER, SHOPFLOOR_BRANCH_NAME,
+          SHOPFLOOR_GITHUB_TOKEN) are dropped with a workflow warning.
 
 env:
   SHOPFLOOR_PLUGIN_MARKETPLACES: |-
