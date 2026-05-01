@@ -353,9 +353,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -533,9 +533,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -783,9 +783,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -1029,9 +1029,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -1499,9 +1499,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -1629,9 +1629,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -1759,9 +1759,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
@@ -1889,9 +1889,9 @@ jobs:
               [ -n "$dropped" ] && echo "::warning title=Shopfloor setup::Ignoring reserved key '$dropped' in setup_env_json"
             done
             SAFE_JSON=$(printf '%s' "$SETUP_ENV_JSON" | jq -c --argjson r "$RESERVED" 'with_entries(select(.key as $k | $r | index($k) | not))')
-            while IFS= read -r v; do
+            printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
               [ -n "$v" ] && echo "::add-mask::$v"
-            done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+            done
             DELIM="SHOPFLOOR_ENV_$(openssl rand -hex 8)"
             printf '%s' "$SAFE_JSON" | jq -r --arg d "$DELIM" '
               to_entries[] | "\(.key)<<\($d)\n\(.value)\n\($d)"
