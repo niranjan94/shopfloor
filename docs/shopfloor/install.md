@@ -239,6 +239,45 @@ on:
     types: [opened, synchronize, closed, unlabeled, ready_for_review]
 ```
 
+## Optional: pre-agent setup hook
+
+Some repositories need work done in the runner before each agent stage — install dependencies, write a `.env`, start a Postgres container, fetch private peer repos, and so on. Shopfloor exposes an opt-in hook for this.
+
+When `setup_enabled: true`, Shopfloor invokes `./.github/actions/shopfloor-setup` (a composite action at exactly that path in your repository) immediately after the GitHub App token is minted and before each agent's context-build step. The action takes no inputs; it reads from environment variables.
+
+Four `SHOPFLOOR_*` env vars are always exported into the action:
+
+- `SHOPFLOOR_STAGE` — the stage name (`triage`, `spec`, `plan`, `implement`, `review-compliance`, etc.)
+- `SHOPFLOOR_ISSUE_NUMBER` — the issue driving the run
+- `SHOPFLOOR_BRANCH_NAME` — the stage branch (where applicable)
+- `SHOPFLOOR_GITHUB_TOKEN` — a fresh GitHub App installation token, suitable for cloning private peer repositories
+
+Caller-supplied env vars come from the `setup_env_json` secret, a JSON object whose values are exported into the same step. Each value is registered with `::add-mask::` so it does not leak in subsequent step logs. Values must be JSON strings (not nested objects); use `toJSON()` in your caller workflow for multi-line content like PEM keys or `.env` blobs. The four `SHOPFLOOR_*` names above are reserved — keys colliding with them are dropped with a workflow warning.
+
+Review jobs (`review-compliance`, `review-bugs`, `review-security`, `review-smells`) are read-only PR commenters that rarely need a built workspace, so they are gated separately by `setup_review_enabled` (default `false`). Setting `setup_review_enabled: true` while `setup_enabled` is `false` has no effect.
+
+Example caller:
+
+```yaml
+jobs:
+  shopfloor:
+    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@main
+    with:
+      setup_enabled: true
+      # setup_review_enabled: true  # only if review jobs need a built workspace
+    secrets:
+      # ...existing Shopfloor secrets...
+      setup_env_json: |
+        {
+          "APP_ID": "${{ vars.GH_APP_ID }}",
+          "PRIVATE_KEY": ${{ toJSON(secrets.GH_APP_PRIVATE_KEY) }},
+          "DOT_ENV": ${{ toJSON(vars.DOT_ENV) }},
+          "CLERK_SECRET_KEY": "${{ secrets.CLERK_SECRET_KEY }}"
+        }
+```
+
+When `setup_enabled` is `false` (the default), Shopfloor behaves exactly as before and ignores `setup_env_json` entirely. Malformed JSON in `setup_env_json` fails the export step with a `jq` parse error — a deliberate fail-loud signal.
+
 ## Troubleshooting
 
 See [troubleshooting.md](troubleshooting.md) for common first-run issues, including branch protection, CODEOWNERS conflicts, and signed-commit requirements.
