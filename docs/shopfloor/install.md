@@ -243,7 +243,7 @@ on:
 
 Some repositories need work done in the runner before each agent stage — install dependencies, write a `.env`, start a Postgres container, fetch private peer repos, and so on. Shopfloor exposes an opt-in hook for this.
 
-When `setup_enabled: true`, Shopfloor invokes `./.github/actions/shopfloor-setup` (a composite action at exactly that path in your repository) immediately after the GitHub App token is minted and before each agent's context-build step. The action takes no inputs; it reads from environment variables.
+When `setup_enabled: true`, Shopfloor invokes `./.github/actions/shopfloor-setup` (a composite action at exactly that path in your repository) after precheck has confirmed the stage will execute and before each agent's context-build step. The action takes no inputs; it reads from environment variables.
 
 Four `SHOPFLOOR_*` env vars are always exported into the action:
 
