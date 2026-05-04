@@ -37,8 +37,8 @@ secrets) into the action's environment.
   for every existing consumer.
 - Secrets and multi-line values (PEM keys, `.env` blobs) flow safely from
   the caller workflow into the consumer's setup action without log leaks.
-- Setup runs on the four agent stages by default. Review stages
-  (read-only PR commenters) only run setup when explicitly opted in.
+- Setup runs on whichever stages the caller enumerates. Review stages
+  (read-only PR commenters) only run setup when explicitly listed.
 - Zero changes required to `router/`, `prompts/`, or `mcp-servers/`.
 
 ## Non-goals
@@ -90,8 +90,8 @@ jobs:
   shopfloor:
     uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@main
     with:
-      setup_enabled: true
-      # setup_review_enabled: true  # only if review jobs need a built workspace
+      setup_stages: 'triage,spec,plan,implement'
+      # setup_required: true  # fail the stage if setup fails (default: false)
     secrets:
       ...existing Shopfloor secrets...
       setup_env_json: |
@@ -107,13 +107,11 @@ jobs:
 (PEM keys, multi-line `.env` blobs). Single-line scalars use the
 double-quoted string form.
 
-When `setup_enabled` is false (the default) Shopfloor behaves exactly as
+When `setup_stages` is empty (the default) Shopfloor behaves exactly as
 today and ignores `setup_env_json` entirely.
 
 ### Disallowed configurations
 
-- `setup_review_enabled: true` while `setup_enabled: false` is a no-op,
-  not an error. The review hook is gated on both.
 - A composite action at `./.github/actions/shopfloor-setup` declaring
   `inputs:` is allowed but unused. Shopfloor never passes inputs.
 - Malformed JSON in `setup_env_json` causes the export step to fail with
@@ -137,23 +135,27 @@ today and ignores `setup_env_json` entirely.
 Two new inputs and one new secret declared at the top of `workflow_call`:
 
 ```yaml
-setup_enabled:
-  type: boolean
-  default: false
+setup_stages:
+  type: string
+  default: ""
   description: >-
-    When true, Shopfloor invokes ./.github/actions/shopfloor-setup on every
-    agent stage between precheck and the agent step. The action must exist
-    at exactly that path. When false (default), no setup runs and
-    setup_env_json is ignored.
+    Comma-separated list of stage names where Shopfloor invokes
+    ./.github/actions/shopfloor-setup before the agent step. Valid
+    values: triage, spec, plan, implement, review-compliance,
+    review-bugs, review-security, review-smells. Empty (default)
+    disables the hook everywhere; setup_env_json is then ignored.
+    Strict CSV - no spaces between entries.
 
-setup_review_enabled:
+setup_required:
   type: boolean
   default: false
   description: >-
-    When true AND setup_enabled is true, also runs the setup action on the
-    four review stages (review-compliance, review-bugs, review-security,
-    review-smells). Off by default since reviews are read-only PR
-    commenters that rarely need a built workspace.
+    When true, a non-zero exit from the consumer setup action fails the
+    entire stage. When false (default), the stage continues even if setup
+    fails - useful when setup is a best-effort optimisation rather than a
+    hard requirement. The internal export step (which decodes
+    setup_env_json) always fails loudly on malformed JSON regardless of
+    this flag.
 ```
 
 ```yaml
@@ -171,11 +173,13 @@ setup_env_json:
 
 Each agent job (`triage`, `spec`, `plan`, `implement`) gains two
 contiguous steps. The same two steps are inserted into the four review
-jobs, gated additionally on `inputs.setup_review_enabled`.
+jobs when their stage name is present in `setup_stages`.
 
 ```yaml
 - name: Export Shopfloor setup env
-  if: inputs.setup_enabled && steps.precheck.outputs.skip != 'true'
+  if: contains(format(',{0},', inputs.setup_stages), ',triage,') && steps.precheck.outputs.skip != 'true'
+  # Gate varies per job: replace 'triage' with the job's stage name.
+  # Review jobs omit the precheck clause (no precheck step in those jobs).
   env:
     SETUP_ENV_JSON: ${{ secrets.setup_env_json }}
     SHOPFLOOR_STAGE: triage  # literal, varies per job
@@ -223,7 +227,8 @@ jobs, gated additionally on `inputs.setup_review_enabled`.
     fi
 
 - name: Run consumer setup
-  if: inputs.setup_enabled && steps.precheck.outputs.skip != 'true'
+  if: contains(format(',{0},', inputs.setup_stages), ',triage,') && steps.precheck.outputs.skip != 'true'
+  continue-on-error: ${{ !inputs.setup_required }}
   uses: ./.github/actions/shopfloor-setup
 ```
 
@@ -240,10 +245,10 @@ must use the right id when copy-pasting the snippet above:
 | `review-{compliance,bugs,security,smells}` | `steps.app_token.outputs.token`               |
 
 For review jobs the gate becomes
-`inputs.setup_enabled && inputs.setup_review_enabled` and there is no
-`steps.precheck.outputs.skip` clause (review jobs have no precheck step).
-The `SHOPFLOOR_STAGE` literal becomes the review job name (e.g.
-`review-bugs`).
+`contains(format(',{0},', inputs.setup_stages), ',review-bugs,')` (stage
+name varies per job) and there is no `steps.precheck.outputs.skip` clause
+(review jobs have no precheck step). The `SHOPFLOOR_STAGE` literal becomes
+the review job name (e.g. `review-bugs`).
 
 ### Insertion point per stage
 
@@ -253,7 +258,7 @@ The `SHOPFLOOR_STAGE` literal becomes the review job name (e.g.
 | `spec`          | `Mark spec as running` ↔ `Build spec context` (or revision builder, whichever runs) |
 | `plan`          | `Mark plan as running` ↔ `Build plan context` (or revision builder, whichever runs) |
 | `implement`     | `Mark implement as running` ↔ (`Create impl branch` on first runs / `Checkout existing impl branch` on revision runs) |
-| `review-*` (×4) | Immediately after `actions/checkout`, gated on `setup_review_enabled`             |
+| `review-*` (×4) | Immediately after `actions/checkout`, gated on `setup_stages` containing the stage name |
 
 For `implement` specifically, setup runs **before** the impl branch is
 created. Two reasons:
@@ -439,7 +444,7 @@ jobs:
       runner_router: 'the-outpost-small-1g-plain'
       runner_review: 'the-outpost-small-1g-plain'
       trigger_label: 'shopfloor:trigger'
-      setup_enabled: true
+      setup_stages: 'triage,spec,plan,implement'
 ```
 
 ## Security considerations
@@ -501,7 +506,7 @@ issue. Verify:
    bash if requested.
 4. The implement job runs setup before `Create impl branch` and the
    untracked files survive the branch checkout.
-5. Disabling `setup_enabled` returns the workflow to today's behavior
+5. Setting `setup_stages: ''` (empty) returns the workflow to today's behavior
    exactly.
 
 ### Workflow lint
@@ -516,8 +521,6 @@ Setup is pure workflow YAML. `router/` (TypeScript helpers) and
 
 ## Out of scope for this change
 
-- `setup_review_enabled` plumbed through but no consumer needs it on day
-  one. Ship the input; document; leave default off.
 - A trampoline-based `setup_action_path` input. Additive; can ship later.
 - Caching coordination across stages. Consumers handle via their own
   setup-node / setup-pnpm cache directives.
