@@ -244,7 +244,9 @@ on:
 
 Some repositories need work done in the runner before each agent stage — install dependencies, write a `.env`, start a Postgres container, fetch private peer repos, and so on. Shopfloor exposes an opt-in hook for this.
 
-When `setup_enabled: true`, Shopfloor invokes `./.github/actions/shopfloor-setup` (a composite action at exactly that path in your repository) after precheck has confirmed the stage will execute and before each agent's context-build step. The action takes no inputs; it reads from environment variables.
+Set `setup_stages` to a comma-separated list of stage names where Shopfloor should invoke `./.github/actions/shopfloor-setup` (a composite action at exactly that path in your repository) after precheck has confirmed the stage will execute and before each agent's context-build step. The action takes no inputs; it reads from environment variables.
+
+Valid stage values: `triage`, `spec`, `plan`, `implement`, `review-compliance`, `review-bugs`, `review-security`, `review-smells`. No spaces between entries.
 
 Four `SHOPFLOOR_*` env vars are always exported into the action:
 
@@ -255,7 +257,7 @@ Four `SHOPFLOOR_*` env vars are always exported into the action:
 
 Caller-supplied env vars come from the `setup_env_json` secret, a JSON object whose values are exported into the same step. Each value is registered with `::add-mask::` so it does not leak in subsequent step logs. Values must be JSON strings (not nested objects); use `toJSON()` in your caller workflow for multi-line content like PEM keys or `.env` blobs. The four `SHOPFLOOR_*` names above are reserved — keys colliding with them are dropped with a workflow warning.
 
-Review jobs (`review-compliance`, `review-bugs`, `review-security`, `review-smells`) are read-only PR commenters that rarely need a built workspace, so they are gated separately by `setup_review_enabled` (default `false`). Setting `setup_review_enabled: true` while `setup_enabled` is `false` has no effect.
+By default, a setup failure does not fail the stage (`setup_required: false`). Set `setup_required: true` to make setup failures fatal — useful when the agent cannot do meaningful work without a configured workspace.
 
 Example caller:
 
@@ -264,8 +266,8 @@ jobs:
   shopfloor:
     uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@main
     with:
-      setup_enabled: true
-      # setup_review_enabled: true  # only if review jobs need a built workspace
+      setup_stages: 'triage,spec,plan,implement'
+      # setup_required: true  # fail the stage if setup fails (default: false)
     secrets:
       # ...existing Shopfloor secrets...
       setup_env_json: |
@@ -277,7 +279,7 @@ jobs:
         }
 ```
 
-When `setup_enabled` is `false` (the default), Shopfloor behaves exactly as before and ignores `setup_env_json` entirely. Malformed JSON in `setup_env_json` fails the export step with a `jq` parse error — a deliberate fail-loud signal.
+When `setup_stages` is empty (the default), Shopfloor behaves exactly as before and ignores `setup_env_json` entirely. Malformed JSON in `setup_env_json` fails the export step with a `jq` parse error — a deliberate fail-loud signal.
 
 ## Troubleshooting
 
