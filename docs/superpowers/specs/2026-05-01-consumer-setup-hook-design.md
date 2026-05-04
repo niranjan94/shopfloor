@@ -209,9 +209,9 @@ jobs, gated additionally on `inputs.setup_review_enabled`.
       # the runner could log. secrets.setup_env_json is masked as a single
       # blob; substring values inside it are not, so they would otherwise
       # leak in clear text in subsequent logs.
-      while IFS= read -r v; do
+      printf '%s' "$SAFE_JSON" | jq -r '.[]' | while IFS= read -r v; do
         [ -n "$v" ] && echo "::add-mask::$v"
-      done < <(printf '%s' "$SAFE_JSON" | jq -r '.[]')
+      done
       # Use the GITHUB_ENV multi-line delimiter form so PEM keys and .env
       # content survive intact. The delimiter is randomized per run to
       # avoid the (vanishingly unlikely) collision with a value that
