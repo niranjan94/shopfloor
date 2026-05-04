@@ -373,7 +373,7 @@ describe("buildRevisionContext", () => {
         {
           id: 1,
           user: { login: "x" },
-          body: "",
+          body: "please address",
           commit_id: "x",
           state: "changes_requested",
           submitted_at: null,
@@ -620,5 +620,178 @@ describe("buildRevisionContext", () => {
     expect(written).not.toHaveProperty("progress_comment_id");
     expect(written).not.toHaveProperty("bash_allowlist");
     expect(written).not.toHaveProperty("triage_rationale");
+  });
+
+  test("surfaces review summary body when no inline comments exist", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open", title: "t", body: "b" },
+    });
+    mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "x" },
+        body: "Shopfloor-Review-Iteration: 1",
+      },
+    });
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 500,
+          user: { login: "human-reviewer" },
+          body: "pnpm run build is failing",
+          commit_id: "sha1",
+          state: "changes_requested",
+          submitted_at: "2026-05-04T12:01:52Z",
+        },
+      ],
+    });
+    mocks.listReviewComments.mockResolvedValueOnce({ data: [] });
+    mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
+
+    await buildRevisionContext(adapter, {
+      stage: "implement",
+      issueNumber: 42,
+      prNumber: 45,
+      branchName: "shopfloor/impl/42-x",
+      specFilePath: "docs/shopfloor/specs/42-x.md",
+      planFilePath: "docs/shopfloor/plans/42-x.md",
+      progressCommentId: "0",
+      bashAllowlist: "",
+      repoOwner: "o",
+      repoName: "r",
+      outputPath,
+      promptFragmentPath: "prompts/implement-revision-fragment.md",
+    });
+
+    const written = JSON.parse(readFileSync(outputPath, "utf-8")) as Record<
+      string,
+      string
+    >;
+    expect(written.review_summary).toBe("pnpm run build is failing");
+    expect(JSON.parse(written.review_comments_json)).toEqual([]);
+    expect(written.revision_block).toContain("pnpm run build is failing");
+  });
+
+  test("throws when latest CHANGES_REQUESTED review has empty body and no inline comments", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open", title: "t", body: "b" },
+    });
+    mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "x" },
+        body: "Shopfloor-Review-Iteration: 1",
+      },
+    });
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 600,
+          user: { login: "h" },
+          body: "   ",
+          commit_id: "x",
+          state: "changes_requested",
+          submitted_at: "2026-05-04T12:00:00Z",
+        },
+      ],
+    });
+    mocks.listReviewComments.mockResolvedValueOnce({ data: [] });
+
+    await expect(
+      buildRevisionContext(adapter, {
+        stage: "implement",
+        issueNumber: 42,
+        prNumber: 45,
+        branchName: "shopfloor/impl/42-x",
+        specFilePath: "docs/shopfloor/specs/42-x.md",
+        planFilePath: "docs/shopfloor/plans/42-x.md",
+        progressCommentId: "0",
+        bashAllowlist: "",
+        repoOwner: "o",
+        repoName: "r",
+        outputPath,
+        promptFragmentPath: "prompts/implement-revision-fragment.md",
+      }),
+    ).rejects.toThrow(/no actionable feedback/);
+  });
+
+  test("surfaces both review summary and inline comments when both present", async () => {
+    const { adapter, mocks } = makeMockAdapter();
+    mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [], state: "open", title: "t", body: "b" },
+    });
+    mocks.getPr.mockResolvedValueOnce({
+      data: {
+        state: "open",
+        draft: false,
+        merged: false,
+        labels: [],
+        head: { sha: "x" },
+        body: "Shopfloor-Review-Iteration: 1",
+      },
+    });
+    mocks.listReviews.mockResolvedValueOnce({
+      data: [
+        {
+          id: 700,
+          user: { login: "h" },
+          body: "Overall: tighten the validation.",
+          commit_id: "c",
+          state: "changes_requested",
+          submitted_at: "2026-05-04T12:00:00Z",
+        },
+      ],
+    });
+    mocks.listReviewComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          pull_request_review_id: 700,
+          path: "src/foo.ts",
+          line: 10,
+          side: "RIGHT",
+          start_line: null,
+          start_side: null,
+          body: "rename this var",
+        },
+      ],
+    });
+    mocks.listIssueComments.mockResolvedValueOnce({ data: [] });
+
+    await buildRevisionContext(adapter, {
+      stage: "implement",
+      issueNumber: 42,
+      prNumber: 45,
+      branchName: "shopfloor/impl/42-x",
+      specFilePath: "docs/shopfloor/specs/42-x.md",
+      planFilePath: "docs/shopfloor/plans/42-x.md",
+      progressCommentId: "0",
+      bashAllowlist: "",
+      repoOwner: "o",
+      repoName: "r",
+      outputPath,
+      promptFragmentPath: "prompts/implement-revision-fragment.md",
+    });
+
+    const written = JSON.parse(readFileSync(outputPath, "utf-8")) as Record<
+      string,
+      string
+    >;
+    expect(written.review_summary).toBe("Overall: tighten the validation.");
+    const inline = JSON.parse(written.review_comments_json) as Array<{
+      body: string;
+    }>;
+    expect(inline).toHaveLength(1);
+    expect(inline[0].body).toBe("rename this var");
+    expect(written.revision_block).toContain("Overall: tighten the validation.");
+    expect(written.revision_block).toContain("rename this var");
   });
 });
