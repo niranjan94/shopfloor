@@ -71,12 +71,12 @@ A composite action at exactly:
 The action takes **no `inputs:`**. It reads everything from environment
 variables. Shopfloor exports four well-known variables on every invocation:
 
-| Variable                | Source                                        |
-| ----------------------- | --------------------------------------------- |
-| `SHOPFLOOR_STAGE`       | Literal job name (`triage`, `spec`, `plan`, `implement`, `review-compliance`, `review-bugs`, `review-security`, `review-smells`) |
-| `SHOPFLOOR_ISSUE_NUMBER`| `needs.route.outputs.issue_number`            |
-| `SHOPFLOOR_BRANCH_NAME` | `needs.route.outputs.branch_name`             |
-| `SHOPFLOOR_GITHUB_TOKEN`| Stage's pre-agent App installation token, or `secrets.GITHUB_TOKEN` if no Shopfloor App is configured |
+| Variable                 | Source                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SHOPFLOOR_STAGE`        | Literal job name (`triage`, `spec`, `plan`, `implement`, `review-compliance`, `review-bugs`, `review-security`, `review-smells`) |
+| `SHOPFLOOR_ISSUE_NUMBER` | `needs.route.outputs.issue_number`                                                                                               |
+| `SHOPFLOOR_BRANCH_NAME`  | `needs.route.outputs.branch_name`                                                                                                |
+| `SHOPFLOOR_GITHUB_TOKEN` | Stage's pre-agent App installation token, or `secrets.GITHUB_TOKEN` if no Shopfloor App is configured                            |
 
 Any further values the action needs (Clerk keys, `.env` content, peer-App
 credentials) come from the `setup_env_json` secret described below. Each
@@ -182,7 +182,7 @@ jobs when their stage name is present in `setup_stages`.
   # Review jobs omit the precheck clause (no precheck step in those jobs).
   env:
     SETUP_ENV_JSON: ${{ secrets.setup_env_json }}
-    SHOPFLOOR_STAGE: triage  # literal, varies per job
+    SHOPFLOOR_STAGE: triage # literal, varies per job
     SHOPFLOOR_ISSUE_NUMBER: ${{ needs.route.outputs.issue_number }}
     SHOPFLOOR_BRANCH_NAME: ${{ needs.route.outputs.branch_name }}
     # NOTE: the App-token step id varies by job. See the per-job mapping
@@ -238,11 +238,11 @@ Shopfloor's App-token mint step id is not uniform across jobs, so the
 `SHOPFLOOR_GITHUB_TOKEN` expression has to differ accordingly. Implementers
 must use the right id when copy-pasting the snippet above:
 
-| Job                                 | Step id used in `SHOPFLOOR_GITHUB_TOKEN` expression |
-| ----------------------------------- | ---------------------------------------------------- |
-| `triage`, `spec`, `plan`            | `steps.app_token.outputs.token`                      |
-| `implement`                         | `steps.app_token_pre.outputs.token`                  |
-| `review-{compliance,bugs,security,smells}` | `steps.app_token.outputs.token`               |
+| Job                                        | Step id used in `SHOPFLOOR_GITHUB_TOKEN` expression |
+| ------------------------------------------ | --------------------------------------------------- |
+| `triage`, `spec`, `plan`                   | `steps.app_token.outputs.token`                     |
+| `implement`                                | `steps.app_token_pre.outputs.token`                 |
+| `review-{compliance,bugs,security,smells}` | `steps.app_token.outputs.token`                     |
 
 For review jobs the gate becomes
 `contains(format(',{0},', inputs.setup_stages), ',review-bugs,')` (stage
@@ -252,13 +252,13 @@ the review job name (e.g. `review-bugs`).
 
 ### Insertion point per stage
 
-| Job             | Inserted between                                                                  |
-| --------------- | --------------------------------------------------------------------------------- |
-| `triage`        | `Mark triage as running` ↔ `Build triage context`                                 |
-| `spec`          | `Mark spec as running` ↔ `Build spec context` (or revision builder, whichever runs) |
-| `plan`          | `Mark plan as running` ↔ `Build plan context` (or revision builder, whichever runs) |
+| Job             | Inserted between                                                                                                      |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `triage`        | `Mark triage as running` ↔ `Build triage context`                                                                     |
+| `spec`          | `Mark spec as running` ↔ `Build spec context` (or revision builder, whichever runs)                                   |
+| `plan`          | `Mark plan as running` ↔ `Build plan context` (or revision builder, whichever runs)                                   |
 | `implement`     | `Mark implement as running` ↔ (`Create impl branch` on first runs / `Checkout existing impl branch` on revision runs) |
-| `review-*` (×4) | Immediately after `actions/checkout`, gated on `setup_stages` containing the stage name |
+| `review-*` (×4) | Immediately after `actions/checkout`, gated on `setup_stages` containing the stage name                               |
 
 For `implement` specifically, setup runs **before** the impl branch is
 created. Two reasons:
@@ -301,10 +301,10 @@ If a consumer cannot rename their existing `./.github/actions/setup`
 
 ```yaml
 # .github/actions/shopfloor-setup/action.yml
-name: 'Shopfloor setup wrapper'
-description: 'Delegates to the canonical project setup action.'
+name: "Shopfloor setup wrapper"
+description: "Delegates to the canonical project setup action."
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - uses: ./.github/actions/setup
 ```
@@ -327,11 +327,11 @@ checkout discipline). The action itself moves to (or is wrapped at)
 `./.github/actions/shopfloor-setup`.
 
 ```yaml
-name: 'Setup Project'
-description: 'Install dependencies and setup project for Shopfloor agents'
+name: "Setup Project"
+description: "Install dependencies and setup project for Shopfloor agents"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       with:
@@ -391,7 +391,7 @@ runs:
     - name: Start storybook server
       shell: bash
       env:
-        STORYBOOK_DISABLE_TELEMETRY: '1'
+        STORYBOOK_DISABLE_TELEMETRY: "1"
       run: |
         cd .bricks
         pnpm run storybook &
@@ -439,12 +439,12 @@ jobs:
           "CLERK_MACHINE_SECRET_KEY": "${{ secrets.CLERK_MACHINE_SECRET_KEY }}"
         }
     with:
-      runner_agent: 'the-outpost-small-plain'
-      runner_impl: 'the-outpost-medium-6g-plain'
-      runner_router: 'the-outpost-small-1g-plain'
-      runner_review: 'the-outpost-small-1g-plain'
-      trigger_label: 'shopfloor:trigger'
-      setup_stages: 'triage,spec,plan,implement'
+      runner_agent: "the-outpost-small-plain"
+      runner_impl: "the-outpost-medium-6g-plain"
+      runner_router: "the-outpost-small-1g-plain"
+      runner_review: "the-outpost-small-1g-plain"
+      trigger_label: "shopfloor:trigger"
+      setup_stages: "triage,spec,plan,implement"
 ```
 
 ## Security considerations

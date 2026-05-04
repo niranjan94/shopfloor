@@ -266,7 +266,7 @@ jobs:
   shopfloor:
     uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@main
     with:
-      setup_stages: 'triage,spec,plan,implement'
+      setup_stages: "triage,spec,plan,implement"
       # setup_required: true  # fail the stage if setup fails (default: false)
     secrets:
       # ...existing Shopfloor secrets...
