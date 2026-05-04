@@ -671,4 +671,85 @@ describe("applyTriageDecision", () => {
     ).rejects.toThrow(/shopfloor:needs-impl/);
     expect(bundle.mocks.addLabels).not.toHaveBeenCalled();
   });
+
+  test("classified path with RCA subsection: posts the full subsection verbatim in the triage comment", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    const rationaleWithRca = [
+      "Narrow router bug. The dedupe key collides across issues.",
+      "",
+      "### Suspected root cause",
+      "**Confidence:** medium",
+      "**Hypothesis:** `routeEvent` builds the dedupe key from the label name only.",
+      "**Evidence:**",
+      "- `router/src/state.ts:142` - dedupe key omits issue number",
+      "- `router/src/state.ts:189` - dedupe set is per-process, not per-issue",
+      "**Suspected fix area:** `router/src/state.ts` - `routeEvent` dedupe key construction.",
+    ].join("\n");
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      baseBranch: "main",
+      decision: {
+        status: "classified",
+        complexity: "quick",
+        rationale: rationaleWithRca,
+        clarifying_questions: [],
+      },
+    });
+    expect(bundle.mocks.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("### Suspected root cause"),
+      }),
+    );
+    expect(bundle.mocks.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(
+          "**Suspected fix area:** `router/src/state.ts` - `routeEvent` dedupe key construction.",
+        ),
+      }),
+    );
+    expect(bundle.mocks.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("**Confidence:** medium"),
+      }),
+    );
+  });
+
+  test("classified path with low-confidence RCA placeholder: posts the placeholder line verbatim", async () => {
+    const bundle = makeMockAdapter();
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    bundle.mocks.getIssue.mockResolvedValueOnce({
+      data: { labels: [{ name: "shopfloor:triaging" }], state: "open" },
+    });
+    const rationale = [
+      "Bug-shaped but root cause unclear from static reading.",
+      "",
+      "### Suspected root cause",
+      "Couldn't pin down a likely cause from static reading.",
+    ].join("\n");
+    await applyTriageDecision(bundle.adapter, {
+      issueNumber: 42,
+      baseBranch: "main",
+      decision: {
+        status: "classified",
+        complexity: "quick",
+        rationale,
+        clarifying_questions: [],
+      },
+    });
+    expect(bundle.mocks.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(
+          "Couldn't pin down a likely cause from static reading.",
+        ),
+      }),
+    );
+  });
 });
