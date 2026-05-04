@@ -791,7 +791,9 @@ describe("buildRevisionContext", () => {
     }>;
     expect(inline).toHaveLength(1);
     expect(inline[0].body).toBe("rename this var");
-    expect(written.revision_block).toContain("Overall: tighten the validation.");
+    expect(written.revision_block).toContain(
+      "Overall: tighten the validation.",
+    );
     expect(written.revision_block).toContain("rename this var");
   });
 });

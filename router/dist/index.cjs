@@ -26026,6 +26026,7 @@ async function buildRevisionContext(adapter, params) {
     );
   }
   const latest = requestChangesReviews[0];
+  const reviewSummary = (latest.body ?? "").trim();
   const allReviewComments = await adapter.listPrReviewComments(params.prNumber);
   const filtered = allReviewComments.filter((c) => c.pull_request_review_id === latest.id).map((c) => ({
     path: c.path,
@@ -26035,6 +26036,11 @@ async function buildRevisionContext(adapter, params) {
     start_side: c.start_side,
     body: c.body
   }));
+  if (filtered.length === 0 && reviewSummary === "") {
+    throw new Error(
+      `build-revision-context: PR #${params.prNumber} latest CHANGES_REQUESTED review (id=${latest.id}) has no inline comments and an empty body. There is no actionable feedback for the agent. The reviewer must either leave inline comments or write a non-empty review summary.`
+    );
+  }
   let issueComments = "";
   try {
     const fetched = await adapter.listIssueComments(params.issueNumber);
@@ -26048,6 +26054,7 @@ async function buildRevisionContext(adapter, params) {
   const reviewCommentsJson = JSON.stringify(filtered);
   const fragmentVars = {
     review_comments_json: reviewCommentsJson,
+    review_summary: reviewSummary,
     iteration_count: String(iterationCount),
     spec_file_path: effectiveSpecPath,
     plan_file_path: effectivePlanPath
@@ -26087,6 +26094,7 @@ async function buildRevisionContext(adapter, params) {
         plan_file_path: effectivePlanPath,
         progress_comment_id: params.progressCommentId,
         review_comments_json: reviewCommentsJson,
+        review_summary: reviewSummary,
         iteration_count: String(iterationCount),
         bash_allowlist: params.bashAllowlist
       };
