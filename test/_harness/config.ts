@@ -1,0 +1,31 @@
+import type { Config } from "../../src/config/inputs.js";
+
+export const baseConfig: Config = {
+  anthropicApiKey: "x",
+  claudeCodeOAuthToken: "",
+  githubApp: { clientId: "id", privateKey: "key" },
+  reviewGithubApp: null,
+  sshSigningKey: null,
+  triggerLabel: null,
+  maxReviewIterations: 3,
+  triageModel: "claude-haiku",
+  specModel: "claude-opus",
+  planModel: "claude-opus",
+  implModel: "claude-opus",
+  reviewModels: {
+    compliance: "claude-opus",
+    bugs: "claude-opus",
+    security: "claude-opus",
+    smells: "claude-opus",
+  },
+  triageMaxBudgetUsd: 0.25,
+  specMaxBudgetUsd: 1.5,
+  planMaxBudgetUsd: 1.5,
+  implMaxBudgetUsd: 2.5,
+  reviewMaxBudgetUsdPerLens: 0.75,
+  triageTimeoutMs: 60_000,
+  specTimeoutMs: 120_000,
+  planTimeoutMs: 120_000,
+  implTimeoutMs: 360_000,
+  reviewTimeoutMsPerLens: 90_000,
+};
