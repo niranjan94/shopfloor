@@ -98,6 +98,7 @@ export async function runOrchestrator(args: OrchestratorArgs): Promise<void> {
   };
   if (issue !== null) ctx.issue = issue;
   if (pr !== null) ctx.pr = pr;
+  if (args.reviewOnly === true) ctx.reviewOnly = true;
 
   const precheck = precheckStage(stage, new Set(issue?.labels ?? []));
   if (!precheck.ok) {

@@ -248,6 +248,11 @@ describe("orchestrator e2e against v1 fixtures", () => {
     const resolved = audit.find((e) => e.type === "stage_resolved");
     expect(resolved?.stage).toBe("review");
     expect(audit.some((e) => e.type === "review_posted")).toBe(true);
+    // Review-only mode is stateless: no Shopfloor labels and no PR body
+    // mutation on a human-authored PR.
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(mg.removeLabel).not.toHaveBeenCalled();
+    expect(mg.updatePrBody).not.toHaveBeenCalled();
   });
 
   it("pull_request.ready_for_review on impl PR routes to review and approves when all lenses clean", async () => {

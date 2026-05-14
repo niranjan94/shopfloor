@@ -31,4 +31,9 @@ export interface StageContext {
   audit: AuditEmitter;
   config: Config;
   runId: string;
+  // True when the orchestrator was invoked in review-only mode against a
+  // human-authored PR. Review stage treats the PR as stateless: no iteration
+  // counter, no Shopfloor label flips, no PR body mutation. Every push gets a
+  // fresh review.
+  reviewOnly?: boolean;
 }

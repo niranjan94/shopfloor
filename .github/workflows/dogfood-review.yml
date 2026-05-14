@@ -13,36 +13,25 @@ jobs:
     if: "!contains(github.event.pull_request.body, 'Shopfloor-Stage:')"
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Review-only mode runs against human-authored PRs and never advances a
+    # Shopfloor pipeline, so the workflow's default GITHUB_TOKEN is enough:
+    # the cascading-trigger limitation (no downstream workflows fire) is moot
+    # because there is nothing downstream, and the self-PR rule (github-
+    # actions[bot] cannot review its own PR) does not apply because the PR
+    # author is the human. Write scopes are needed for pulls.createReview and
+    # repos.createCommitStatus only.
     permissions:
       contents: read
-      issues: read
-      pull-requests: read
+      pull-requests: write
+      statuses: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Mint Shopfloor App token
-        id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          app-id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
-      - name: Mint Shopfloor review App token (optional)
-        id: review_app_token
-        if: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID != '' }}
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          app-id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
-          private-key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
       - name: Run Shopfloor (review only)
         uses: ./
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-          shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
-          github_app_token: ${{ steps.app_token.outputs.token }}
-          shopfloor_github_app_review_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
-          shopfloor_github_app_review_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
-          github_app_review_token: ${{ steps.review_app_token.outputs.token }}
+          github_token: ${{ github.token }}
           review_only: "true"

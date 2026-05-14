@@ -185,7 +185,13 @@ export const RUNNERS: Record<Stage, StageHandler> = {
   review: {
     async execute(ctx, routed) {
       if (!ctx.pr) throw new Error("review stage requires ctx.pr");
-      const iteration = routed.reviewIteration ?? 0;
+      // In reviewOnly mode the PR is human-authored and Shopfloor acts as a
+      // stateless reviewer: no iteration counter is persisted, every push
+      // gets a fresh review, and the iteration cap never fires.
+      const iteration = ctx.reviewOnly ? 0 : (routed.reviewIteration ?? 0);
+      const maxIterations = ctx.reviewOnly
+        ? Number.POSITIVE_INFINITY
+        : ctx.config.maxReviewIterations;
       const patches = await ctx.github.listChangedFilePatches(ctx.pr.number);
       const changedFiles = patches.map((p) => p.filename);
 
@@ -223,7 +229,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
           status: p.status,
         })),
         currentIteration: iteration,
-        maxIterations: ctx.config.maxReviewIterations,
+        maxIterations,
         confidenceThreshold: CONFIDENCE_THRESHOLD,
       });
 

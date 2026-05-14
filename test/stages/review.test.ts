@@ -347,4 +347,49 @@ describe("applyReview", () => {
     });
     expect(mg.postReview).toHaveBeenCalled();
   });
+
+  it("reviewOnly: APPROVE skips Shopfloor label flips", async () => {
+    const { ctx, mg } = ctxFor(null);
+    ctx.reviewOnly = true;
+    await applyReview(ctx, {
+      outcome: { kind: "approve", body: "clean", successfulLenses: 4 },
+      labelTarget: 42,
+    });
+    expect(mg.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "APPROVE" }),
+    );
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(mg.removeLabel).not.toHaveBeenCalled();
+  });
+
+  it("reviewOnly: REQUEST_CHANGES skips labels and PR body mutation", async () => {
+    const { ctx, mg } = ctxFor(null);
+    ctx.reviewOnly = true;
+    await applyReview(ctx, {
+      outcome: {
+        kind: "request_changes",
+        body: "changes",
+        anchoredComments: [
+          {
+            path: "src/x.ts",
+            line: 2,
+            side: "RIGHT",
+            body: "fix",
+            confidence: 95,
+            category: "compliance",
+          },
+        ],
+        droppedComments: [],
+        nextIteration: 1,
+        lensWarnings: [],
+      },
+      labelTarget: 42,
+    });
+    expect(mg.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "REQUEST_CHANGES" }),
+    );
+    expect(mg.updatePrBody).not.toHaveBeenCalled();
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(mg.removeLabel).not.toHaveBeenCalled();
+  });
 });

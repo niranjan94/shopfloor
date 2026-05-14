@@ -55,9 +55,13 @@ export async function applyReview(
       "Shopfloor review passed",
       workflowRunUrl,
     );
-    await ctx.github.addLabel(labelTarget, LABELS.reviewApproved);
-    await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
-    await ctx.github.removeLabel(labelTarget, LABELS.reviewRequestedChanges);
+    // Shopfloor labels are pipeline-state markers and have no meaning on a
+    // human-authored PR routed through reviewOnly mode.
+    if (!ctx.reviewOnly) {
+      await ctx.github.addLabel(labelTarget, LABELS.reviewApproved);
+      await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
+      await ctx.github.removeLabel(labelTarget, LABELS.reviewRequestedChanges);
+    }
     ctx.audit({
       type: "review_posted",
       prNumber,
@@ -105,16 +109,24 @@ export async function applyReview(
       body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`,
     })),
   });
+  const statusDescription = ctx.reviewOnly
+    ? "Shopfloor review requested changes"
+    : `Shopfloor review requested changes (iteration ${outcome.nextIteration})`;
   await ctx.github.setReviewStatus(
     headSha,
     "failure",
-    `Shopfloor review requested changes (iteration ${outcome.nextIteration})`,
+    statusDescription,
     workflowRunUrl,
   );
-  await ctx.github.addLabel(labelTarget, LABELS.reviewRequestedChanges);
-  await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
-  const newBody = writeIterationToBody(ctx.pr.body, outcome.nextIteration);
-  await ctx.github.updatePrBody(prNumber, newBody);
+  // In reviewOnly mode we treat each push as an independent review pass: no
+  // Shopfloor labels (the human did not opt into the pipeline), and no
+  // iteration counter written into the PR body.
+  if (!ctx.reviewOnly) {
+    await ctx.github.addLabel(labelTarget, LABELS.reviewRequestedChanges);
+    await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
+    const newBody = writeIterationToBody(ctx.pr.body, outcome.nextIteration);
+    await ctx.github.updatePrBody(prNumber, newBody);
+  }
   ctx.audit({
     type: "review_posted",
     prNumber,
