@@ -1,0 +1,101 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+vi.mock("@actions/core", async (orig) => {
+  const real = (await orig()) as typeof import("@actions/core");
+  return {
+    ...real,
+    getInput: vi.fn(),
+    setFailed: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+  };
+});
+
+import * as core from "@actions/core";
+import { runEntry } from "../src/entry.js";
+import type { AuditEvent } from "../src/audit/events.js";
+
+describe("runEntry", () => {
+  let tmpEventPath: string;
+
+  beforeEach(() => {
+    tmpEventPath = path.join(os.tmpdir(), `shopfloor-event-${Date.now()}.json`);
+    process.env.GITHUB_EVENT_PATH = tmpEventPath;
+    process.env.GITHUB_EVENT_NAME = "issues";
+    process.env.GITHUB_REPOSITORY = "octo/demo";
+    process.env.GITHUB_RUN_ID = "9001";
+    delete process.env.GITHUB_STEP_SUMMARY;
+    vi.mocked(core.getInput).mockReset();
+    vi.mocked(core.setFailed).mockReset();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpEventPath, { force: true });
+  });
+
+  it("parses inputs, dispatches the orchestrator, and exits cleanly for a no-route event", async () => {
+    fs.writeFileSync(
+      tmpEventPath,
+      JSON.stringify({
+        action: "edited",
+        issue: {
+          number: 7,
+          title: "x",
+          body: "y",
+          labels: [],
+          state: "open",
+        },
+        repository: { owner: { login: "octo" }, name: "demo" },
+      }),
+    );
+
+    vi.mocked(core.getInput).mockImplementation((name: string) => {
+      const inputs: Record<string, string> = {
+        anthropic_api_key: "sk-test",
+        shopfloor_github_app_client_id: "Iv23x",
+        shopfloor_github_app_private_key:
+          "-----BEGIN RSA PRIVATE KEY-----\nx\n-----END RSA PRIVATE KEY-----\n",
+        github_app_token: "ghs_preminted",
+      };
+      return inputs[name] ?? "";
+    });
+
+    const audit: AuditEvent[] = [];
+    await runEntry({
+      octokitFactory: () =>
+        ({
+          rest: {
+            issues: {},
+            pulls: {},
+            repos: {},
+            git: {},
+          },
+          graphql: () => Promise.resolve({}),
+        }) as never,
+      auditSink: (e) => audit.push(e),
+    });
+
+    expect(core.setFailed).not.toHaveBeenCalled();
+    expect(audit.some((e) => e.type === "stage_resolved")).toBe(true);
+  });
+
+  it("calls setFailed on missing GITHUB_REPOSITORY", async () => {
+    delete process.env.GITHUB_REPOSITORY;
+    fs.writeFileSync(tmpEventPath, JSON.stringify({}));
+    vi.mocked(core.getInput).mockImplementation((name: string) => {
+      const inputs: Record<string, string> = {
+        anthropic_api_key: "sk-test",
+        shopfloor_github_app_client_id: "Iv23x",
+        shopfloor_github_app_private_key: "key",
+        github_app_token: "ghs_x",
+      };
+      return inputs[name] ?? "";
+    });
+    await runEntry({ octokitFactory: () => ({}) as never });
+    expect(core.setFailed).toHaveBeenCalled();
+  });
+});

@@ -55,11 +55,47 @@ export async function mintInstallationToken(args: MintArgs): Promise<string> {
 }
 
 async function resolveInstallationId(_args: MintArgs): Promise<number> {
-  // Plan 3 wires the entry point and supplies installation id from the
-  // GitHub Actions event payload (or actions/create-github-app-token output).
-  // Tests inject `authFactory` and pass an explicit `installationId`, so this
-  // path is unreachable in Plan 1.
+  // The workflow is expected to mint App tokens via
+  // actions/create-github-app-token@v3 and pass them in as github_app_token /
+  // github_app_review_token. resolveAppToken's "preminted" path is the
+  // supported entry; the mint path here remains for tests that inject
+  // authFactory + installationId.
   throw new Error(
-    "resolveInstallationId: not implemented in Plan 1 — supply installationId explicitly when wiring entry.ts in Plan 3",
+    "resolveInstallationId: not implemented; mint App tokens via actions/create-github-app-token in the caller workflow and pass them as github_app_token/github_app_review_token inputs",
   );
+}
+
+// The action accepts a preminted installation token (produced by
+// actions/create-github-app-token in the caller workflow). The mint path is
+// kept for tests that inject `authFactory`; production callers always go
+// through "preminted".
+export type AppTokenInput =
+  | { mode: "preminted"; token: string }
+  | {
+      mode: "mint";
+      clientId: string;
+      privateKey: string;
+      owner: string;
+      repo: string;
+      installationId?: number;
+      authFactory?: MintArgs["authFactory"];
+    };
+
+export async function resolveAppToken(input: AppTokenInput): Promise<string> {
+  if (input.mode === "preminted") {
+    if (!input.token) throw new Error("resolveAppToken: empty preminted token");
+    return input.token;
+  }
+  return mintInstallationToken({
+    clientId: input.clientId,
+    privateKey: input.privateKey,
+    owner: input.owner,
+    repo: input.repo,
+    ...(input.installationId !== undefined
+      ? { installationId: input.installationId }
+      : {}),
+    ...(input.authFactory !== undefined
+      ? { authFactory: input.authFactory }
+      : {}),
+  });
 }
