@@ -90,6 +90,15 @@ export async function runOrchestrator(
     return { stage: decision.stage, executed: false };
   }
 
+  if (
+    args.config.mode === "execute" &&
+    args.config.stages.length > 0 &&
+    decision.stage !== "none" &&
+    !args.config.stages.includes(decision.stage as Stage)
+  ) {
+    return { stage: decision.stage, executed: false };
+  }
+
   if (decision.stage === "none") {
     return { stage: "none", executed: false };
   }

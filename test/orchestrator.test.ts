@@ -176,6 +176,57 @@ describe("runOrchestrator", () => {
     expect(mg.addLabel).not.toHaveBeenCalled();
   });
 
+  it("mode=execute with stages filter miss exits without running the agent", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    const agent = new MockAgentAdapter([]);
+    const runStageSpy = vi.spyOn(agent, "runStage");
+    const result = await runOrchestrator({
+      event: makeIssuesOpenedEvent({ number: 8, title: "Feature" }),
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent,
+      audit: audit.emit,
+      config: { ...baseConfig, mode: "execute", stages: ["implement"] },
+      runId: "r3",
+    });
+    expect(result).toEqual({ stage: "triage", executed: false });
+    expect(runStageSpy).not.toHaveBeenCalled();
+    expect(mg.addLabel).not.toHaveBeenCalled();
+  });
+
+  it("mode=execute with empty stages list runs the resolved stage", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    const agent = new MockAgentAdapter([
+      {
+        matchUserPromptIncludes: "Feature title",
+        decision: {
+          status: "classified",
+          complexity: "quick",
+          rationale:
+            "A small change touching one file with obvious behavior, easy to verify.",
+          clarifying_questions: [],
+          supplied_spec: null,
+          supplied_plan: null,
+        },
+      },
+    ]);
+    const result = await runOrchestrator({
+      event: makeIssuesOpenedEvent({ number: 9, title: "Feature title" }),
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent,
+      audit: audit.emit,
+      config: { ...baseConfig, mode: "execute", stages: [] },
+      runId: "r4",
+    });
+    expect(result.executed).toBe(true);
+    expect(result.stage).toBe("triage");
+  });
+
   it("mode=resolve emits stage_resolved and exits without mutex or agent calls", async () => {
     const audit = makeAudit();
     const mg = makeMockGithub();
