@@ -8,6 +8,7 @@ vi.mock("@actions/core", async (orig) => {
   return {
     ...real,
     getInput: vi.fn(),
+    setOutput: vi.fn(),
     setFailed: vi.fn(),
     info: vi.fn(),
     warning: vi.fn(),
@@ -30,6 +31,7 @@ describe("runEntry", () => {
     process.env.GITHUB_RUN_ID = "9001";
     delete process.env.GITHUB_STEP_SUMMARY;
     vi.mocked(core.getInput).mockReset();
+    vi.mocked(core.setOutput).mockReset();
     vi.mocked(core.setFailed).mockReset();
   });
 
@@ -81,6 +83,46 @@ describe("runEntry", () => {
 
     expect(core.setFailed).not.toHaveBeenCalled();
     expect(audit.some((e) => e.type === "stage_resolved")).toBe(true);
+  });
+
+  it("emits stage and executed action outputs after the orchestrator returns", async () => {
+    fs.writeFileSync(
+      tmpEventPath,
+      JSON.stringify({
+        action: "edited",
+        issue: {
+          number: 7,
+          title: "x",
+          body: "y",
+          labels: [],
+          state: "open",
+        },
+        repository: { owner: { login: "octo" }, name: "demo" },
+      }),
+    );
+
+    vi.mocked(core.getInput).mockImplementation((name: string) => {
+      const inputs: Record<string, string> = {
+        anthropic_api_key: "sk-test",
+        github_app_client_id: "Iv23x",
+        github_app_private_key:
+          "-----BEGIN RSA PRIVATE KEY-----\nx\n-----END RSA PRIVATE KEY-----\n",
+        github_app_token: "ghs_preminted",
+      };
+      return inputs[name] ?? "";
+    });
+
+    await runEntry({
+      octokitFactory: (_auth) =>
+        ({
+          rest: { issues: {}, pulls: {}, repos: {}, git: {} },
+          graphql: () => Promise.resolve({}),
+        }) as never,
+    });
+
+    expect(core.setFailed).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith("stage", "none");
+    expect(core.setOutput).toHaveBeenCalledWith("executed", "false");
   });
 
   it("calls setFailed on missing GITHUB_REPOSITORY", async () => {
