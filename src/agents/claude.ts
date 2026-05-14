@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import * as core from "@actions/core";
 import type { AgentAdapter, RunStageArgs } from "./adapter.js";
 import { AgentError } from "./adapter.js";
 import { ensureClaudeCli } from "../setup/ensure-claude-cli.js";
@@ -50,6 +51,8 @@ export class ClaudeAgentAdapter implements AgentAdapter {
         version: "2.0.0",
         tools: args.tools as any,
       });
+
+      logAgentInput(args);
 
       const stream = query({
         prompt: args.userPrompt,
@@ -108,6 +111,25 @@ export class ClaudeAgentAdapter implements AgentAdapter {
     } finally {
       if (timer) clearTimeout(timer);
     }
+  }
+}
+
+function logAgentInput<T>(args: RunStageArgs<T>): void {
+  core.startGroup(`Claude agent input (${args.model})`);
+  try {
+    core.info(`model: ${args.model}`);
+    if (args.effort !== undefined) core.info(`effort: ${args.effort}`);
+    if (args.budgetUsd !== undefined)
+      core.info(`budgetUsd: ${args.budgetUsd}`);
+    if (args.timeoutMs !== undefined) core.info(`timeoutMs: ${args.timeoutMs}`);
+    const toolList = args.tools.length
+      ? args.tools.map((t) => `- ${t.name}: ${t.description ?? ""}`).join("\n")
+      : "(none)";
+    core.info(`tools:\n${toolList}`);
+    core.info(`systemPrompt:\n${args.systemPrompt}`);
+    core.info(`userPrompt:\n${args.userPrompt}`);
+  } finally {
+    core.endGroup();
   }
 }
 
