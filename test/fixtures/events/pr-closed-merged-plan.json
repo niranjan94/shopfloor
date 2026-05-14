@@ -1,0 +1,23 @@
+{
+  "action": "closed",
+  "pull_request": {
+    "number": 44,
+    "body": "Plan for #42.\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: plan\n",
+    "state": "closed",
+    "draft": false,
+    "merged": true,
+    "head": {
+      "ref": "shopfloor/plan/42-add-foo",
+      "sha": "bbbbbb0000000000000000000000000000000000"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "1234567890abcdef1234567890abcdef12345678"
+    },
+    "labels": [{ "name": "shopfloor:plan-in-review" }]
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}

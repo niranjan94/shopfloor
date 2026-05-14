@@ -1,0 +1,16 @@
+{
+  "action": "labeled",
+  "label": { "name": "shopfloor:needs-plan" },
+  "issue": {
+    "number": 42,
+    "title": "Add OAuth login",
+    "body": "Body.\n\n<!-- shopfloor:metadata\nShopfloor-Slug: add-oauth-login\nShopfloor-Spec-Path: docs/specs/external.md\n-->",
+    "labels": [{ "name": "shopfloor:needs-plan" }],
+    "state": "open",
+    "pull_request": null
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}

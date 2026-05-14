@@ -1,0 +1,16 @@
+{
+  "action": "labeled",
+  "label": { "name": "shopfloor:needs-plan" },
+  "issue": {
+    "number": 42,
+    "title": "Fix: can't log in!",
+    "body": "Auth is broken.",
+    "labels": [{ "name": "shopfloor:needs-plan" }],
+    "state": "open",
+    "pull_request": null
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}

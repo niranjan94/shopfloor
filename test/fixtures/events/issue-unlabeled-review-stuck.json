@@ -1,0 +1,16 @@
+{
+  "action": "unlabeled",
+  "label": { "name": "shopfloor:review-stuck" },
+  "issue": {
+    "number": 42,
+    "title": "Add GitHub OAuth login",
+    "body": "We need OAuth login via GitHub App.",
+    "labels": [{ "name": "shopfloor:needs-impl" }],
+    "state": "open",
+    "pull_request": null
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}

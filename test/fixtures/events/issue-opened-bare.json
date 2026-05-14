@@ -1,0 +1,15 @@
+{
+  "action": "opened",
+  "issue": {
+    "number": 42,
+    "title": "Add GitHub OAuth login",
+    "body": "We need OAuth login via GitHub App.",
+    "labels": [],
+    "state": "open",
+    "pull_request": null
+  },
+  "repository": {
+    "owner": { "login": "niranjan94" },
+    "name": "shopfloor"
+  }
+}
