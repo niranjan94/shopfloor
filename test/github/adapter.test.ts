@@ -166,6 +166,58 @@ describe("GitHubAdapter", () => {
     expect(mocks.addLabels).toHaveBeenCalledTimes(1);
   });
 
+  test("addLabel / removeLabel / replaceLabels emit label_mutated audit events", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    const events: Array<{ type: string; op?: string; label?: string }> = [];
+    const adapter = new GitHubAdapter(octokit, repo, (e) => events.push(e));
+
+    await adapter.addLabel(42, "shopfloor:trigger");
+    await adapter.removeLabel(42, "shopfloor:trigger");
+
+    // 404 on remove is a no-op, so no audit entry should fire.
+    mocks.removeLabel.mockRejectedValueOnce({ status: 404 });
+    await adapter.removeLabel(42, "shopfloor:absent");
+
+    await adapter.replaceLabels(42, {
+      add: ["shopfloor:needs-spec", "shopfloor:large"],
+      remove: ["shopfloor:triaging"],
+    });
+
+    expect(events).toEqual([
+      {
+        type: "label_mutated",
+        issueNumber: 42,
+        op: "add",
+        label: "shopfloor:trigger",
+      },
+      {
+        type: "label_mutated",
+        issueNumber: 42,
+        op: "remove",
+        label: "shopfloor:trigger",
+      },
+      // (the 404 removeLabel call emitted nothing — see assertion above)
+      {
+        type: "label_mutated",
+        issueNumber: 42,
+        op: "remove",
+        label: "shopfloor:triaging",
+      },
+      {
+        type: "label_mutated",
+        issueNumber: 42,
+        op: "add",
+        label: "shopfloor:needs-spec",
+      },
+      {
+        type: "label_mutated",
+        issueNumber: 42,
+        op: "add",
+        label: "shopfloor:large",
+      },
+    ]);
+  });
+
   test("postIssueComment returns comment id", async () => {
     const { octokit } = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);

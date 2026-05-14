@@ -130,19 +130,20 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       );
     }
 
-    const octokitFactory = deps.octokitFactory ?? defaultOctokitFactory;
-    const github = new GitHubAdapter(octokitFactory(primaryAuth), {
-      owner,
-      repo,
-    });
-    const reviewGithub = reviewAuth
-      ? new GitHubAdapter(octokitFactory(reviewAuth), { owner, repo })
-      : null;
-
     const runId = process.env.GITHUB_RUN_ID ?? `local-${Date.now()}`;
     const audit =
       deps.auditSink ??
       combineEmitters(createAuditEmitter({ runId }), createStepSummaryMirror());
+
+    const octokitFactory = deps.octokitFactory ?? defaultOctokitFactory;
+    const github = new GitHubAdapter(
+      octokitFactory(primaryAuth),
+      { owner, repo },
+      audit,
+    );
+    const reviewGithub = reviewAuth
+      ? new GitHubAdapter(octokitFactory(reviewAuth), { owner, repo }, audit)
+      : null;
 
     const agent = deps.agentFactory
       ? deps.agentFactory()

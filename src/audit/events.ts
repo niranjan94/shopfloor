@@ -31,6 +31,18 @@ export type AuditEvent =
       add: string[];
       remove: string[];
     }
+  | {
+      // Low-level mutation record emitted by the GitHub adapter for every
+      // single addLabel / removeLabel API call. label_applied (above) carries
+      // the orchestrator's INTENT for a transition; label_mutated is the
+      // ground-truth API write. Both are emitted: the high-level event tells
+      // you what the stage wanted; the low-level events tell you what
+      // actually hit GitHub (including mutex acquire/release and any retries).
+      type: "label_mutated";
+      issueNumber: number;
+      op: "add" | "remove";
+      label: string;
+    }
   | { type: "pr_opened"; stage: Stage; prNumber: number }
   | {
       type: "review_posted";

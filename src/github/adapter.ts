@@ -1,4 +1,5 @@
 import { parseIssueMetadata } from "../state/metadata.js";
+import type { AuditEmitter } from "../audit/events.js";
 
 export interface OctokitLike {
   rest: {
@@ -307,6 +308,7 @@ export class GitHubAdapter {
   constructor(
     private readonly octokit: OctokitLike,
     private readonly repo: RepoContext,
+    private readonly audit?: AuditEmitter,
   ) {}
 
   async addLabel(issueNumber: number, label: string): Promise<void> {
@@ -315,6 +317,7 @@ export class GitHubAdapter {
       issue_number: issueNumber,
       labels: [label],
     });
+    this.audit?.({ type: "label_mutated", issueNumber, op: "add", label });
   }
 
   async removeLabel(issueNumber: number, label: string): Promise<void> {
@@ -325,9 +328,12 @@ export class GitHubAdapter {
         name: label,
       });
     } catch (err: unknown) {
+      // The label was already absent. Skip the audit entry: no mutation
+      // actually happened, and emitting one would falsely imply a write.
       if ((err as { status?: number }).status === 404) return;
       throw err;
     }
+    this.audit?.({ type: "label_mutated", issueNumber, op: "remove", label });
   }
 
   // Batches a label transition: remove the listed labels (404-tolerant via
@@ -347,6 +353,9 @@ export class GitHubAdapter {
         issue_number: issueNumber,
         labels: change.add,
       });
+      for (const label of change.add) {
+        this.audit?.({ type: "label_mutated", issueNumber, op: "add", label });
+      }
     }
   }
 
