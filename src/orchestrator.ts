@@ -122,7 +122,17 @@ export async function runOrchestrator(
   if (pr !== null) ctx.pr = pr;
   if (args.reviewOnly === true) ctx.reviewOnly = true;
 
-  const precheck = precheckStage(stage, new Set(issue?.labels ?? []));
+  // In execute mode, the resolve->execute gap can be 30-60s, long enough for
+  // labels to flip after the event fired. Fetch live labels from the API so
+  // precheck sees current state. v1 commit aaef95f.
+  let precheckLabels: Set<string>;
+  if (args.config.mode === "execute" && decision.issueNumber !== undefined) {
+    const live = await args.github.getIssue(decision.issueNumber);
+    precheckLabels = new Set(live.labels.map((l) => l.name));
+  } else {
+    precheckLabels = new Set(issue?.labels ?? []);
+  }
+  const precheck = precheckStage(stage, precheckLabels);
   if (!precheck.ok) {
     args.audit({ type: "precheck_failed", stage, reason: precheck.reason });
     return { stage, executed: false };

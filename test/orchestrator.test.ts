@@ -227,6 +227,106 @@ describe("runOrchestrator", () => {
     expect(result.stage).toBe("triage");
   });
 
+  it("mode=execute uses live API labels (live shows clean state when payload looks blocked)", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    mg.getIssue.mockResolvedValueOnce({
+      labels: [],
+      state: "open",
+      title: "Feature",
+      body: null,
+    });
+    const agent = new MockAgentAdapter([
+      {
+        matchUserPromptIncludes: "Feature",
+        decision: {
+          status: "classified",
+          complexity: "quick",
+          rationale:
+            "Small isolated change, no architectural impact, fast to verify.",
+          clarifying_questions: [],
+          supplied_spec: null,
+          supplied_plan: null,
+        },
+      },
+    ]);
+    const result = await runOrchestrator({
+      event: makeIssuesOpenedEvent({
+        number: 11,
+        title: "Feature",
+        labels: ["shopfloor:quick"],
+      }),
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent,
+      audit: audit.emit,
+      config: { ...baseConfig, mode: "execute", stages: ["triage"] },
+      runId: "r5",
+    });
+    expect(mg.getIssue).toHaveBeenCalledWith(11);
+    expect(result).toEqual({ stage: "triage", executed: true });
+  });
+
+  it("mode=execute uses live API labels (live shows blocked state when payload looks clean)", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    mg.getIssue.mockResolvedValueOnce({
+      labels: [{ name: "shopfloor:quick" }],
+      state: "open",
+      title: "Feature",
+      body: null,
+    });
+    const agent = new MockAgentAdapter([]);
+    const runStageSpy = vi.spyOn(agent, "runStage");
+    const result = await runOrchestrator({
+      event: makeIssuesOpenedEvent({ number: 12, title: "Feature" }),
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent,
+      audit: audit.emit,
+      config: { ...baseConfig, mode: "execute", stages: ["triage"] },
+      runId: "r6",
+    });
+    expect(mg.getIssue).toHaveBeenCalledWith(12);
+    expect(runStageSpy).not.toHaveBeenCalled();
+    expect(result).toEqual({ stage: "triage", executed: false });
+    const precheckFail = audit.events.find((e) => e.type === "precheck_failed");
+    expect(precheckFail).toBeDefined();
+  });
+
+  it("mode=auto continues to use event payload labels for precheck (no extra getIssue call)", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    const agent = new MockAgentAdapter([
+      {
+        matchUserPromptIncludes: "Simple task",
+        decision: {
+          status: "classified",
+          complexity: "quick",
+          rationale:
+            "Small isolated change, no architectural impact, fast to verify.",
+          clarifying_questions: [],
+          supplied_spec: null,
+          supplied_plan: null,
+        },
+      },
+    ]);
+    const result = await runOrchestrator({
+      event: makeIssuesOpenedEvent({ number: 13, title: "Simple task" }),
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent,
+      audit: audit.emit,
+      config: baseConfig,
+      runId: "r7",
+    });
+    expect(mg.getIssue).not.toHaveBeenCalled();
+    expect(result.executed).toBe(true);
+  });
+
   it("mode=resolve emits stage_resolved and exits without mutex or agent calls", async () => {
     const audit = makeAudit();
     const mg = makeMockGithub();
