@@ -127,6 +127,45 @@ describe("GitHubAdapter", () => {
     ).resolves.toBeUndefined();
   });
 
+  test("replaceLabels removes then adds, tolerates 404 on remove", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    mocks.removeLabel.mockRejectedValueOnce({ status: 404 });
+    const adapter = new GitHubAdapter(octokit, repo);
+    await adapter.replaceLabels(42, {
+      add: ["shopfloor:needs-spec"],
+      remove: ["shopfloor:triaging", "shopfloor:needs-impl"],
+    });
+    expect(mocks.removeLabel).toHaveBeenNthCalledWith(1, {
+      owner: "niranjan94",
+      repo: "shopfloor",
+      issue_number: 42,
+      name: "shopfloor:triaging",
+    });
+    expect(mocks.removeLabel).toHaveBeenNthCalledWith(2, {
+      owner: "niranjan94",
+      repo: "shopfloor",
+      issue_number: 42,
+      name: "shopfloor:needs-impl",
+    });
+    expect(mocks.addLabels).toHaveBeenCalledWith({
+      owner: "niranjan94",
+      repo: "shopfloor",
+      issue_number: 42,
+      labels: ["shopfloor:needs-spec"],
+    });
+  });
+
+  test("replaceLabels skips no-op sides", async () => {
+    const { octokit, mocks } = makeMockOctokit();
+    const adapter = new GitHubAdapter(octokit, repo);
+    await adapter.replaceLabels(42, { add: ["shopfloor:done"], remove: [] });
+    expect(mocks.removeLabel).not.toHaveBeenCalled();
+    expect(mocks.addLabels).toHaveBeenCalledTimes(1);
+    await adapter.replaceLabels(42, { add: [], remove: ["shopfloor:done"] });
+    expect(mocks.removeLabel).toHaveBeenCalledTimes(1);
+    expect(mocks.addLabels).toHaveBeenCalledTimes(1);
+  });
+
   test("postIssueComment returns comment id", async () => {
     const { octokit } = makeMockOctokit();
     const adapter = new GitHubAdapter(octokit, repo);

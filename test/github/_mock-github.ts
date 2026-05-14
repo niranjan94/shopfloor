@@ -9,6 +9,7 @@ export function makeMockGithub() {
   return {
     addLabel: vi.fn().mockResolvedValue(undefined),
     removeLabel: vi.fn().mockResolvedValue(undefined),
+    replaceLabels: vi.fn().mockResolvedValue(undefined),
     postIssueComment: vi.fn().mockResolvedValue(1),
     updateComment: vi.fn().mockResolvedValue(undefined),
     findOpenPrByHead: vi.fn().mockResolvedValue(null),

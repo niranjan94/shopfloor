@@ -330,6 +330,26 @@ export class GitHubAdapter {
     }
   }
 
+  // Batches a label transition: remove the listed labels (404-tolerant via
+  // removeLabel) and then add the listed labels. The orchestrator uses this so
+  // each stage transition is a single call site that mirrors a single
+  // label_applied audit event.
+  async replaceLabels(
+    issueNumber: number,
+    change: { add: string[]; remove: string[] },
+  ): Promise<void> {
+    for (const label of change.remove) {
+      await this.removeLabel(issueNumber, label);
+    }
+    if (change.add.length > 0) {
+      await this.octokit.rest.issues.addLabels({
+        ...this.repo,
+        issue_number: issueNumber,
+        labels: change.add,
+      });
+    }
+  }
+
   async postIssueComment(issueNumber: number, body: string): Promise<number> {
     const res = await this.octokit.rest.issues.createComment({
       ...this.repo,
