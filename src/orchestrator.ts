@@ -86,6 +86,10 @@ export async function runOrchestrator(
       : {}),
   });
 
+  if (args.config.mode === "resolve") {
+    return { stage: decision.stage, executed: false };
+  }
+
   if (decision.stage === "none") {
     return { stage: "none", executed: false };
   }

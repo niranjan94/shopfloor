@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { runOrchestrator } from "../src/orchestrator.js";
 import { MockAgentAdapter } from "../src/agents/mock.js";
 import { asAdapter, makeMockGithub } from "./github/_mock-github.js";
@@ -174,5 +174,28 @@ describe("runOrchestrator", () => {
     const types = audit.events.map((e) => e.type);
     expect(types).toEqual(["stage_resolved"]);
     expect(mg.addLabel).not.toHaveBeenCalled();
+  });
+
+  it("mode=resolve emits stage_resolved and exits without mutex or agent calls", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    const agent = new MockAgentAdapter([]);
+    const runStageSpy = vi.spyOn(agent, "runStage");
+    const result = await runOrchestrator({
+      event: makeIssuesOpenedEvent({ number: 7, title: "A new feature" }),
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent,
+      audit: audit.emit,
+      config: { ...baseConfig, mode: "resolve" },
+      runId: "r2",
+    });
+    expect(result).toEqual({ stage: "triage", executed: false });
+    expect(runStageSpy).not.toHaveBeenCalled();
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(mg.getIssue).not.toHaveBeenCalled();
+    const types = audit.events.map((e) => e.type);
+    expect(types).toEqual(["stage_resolved"]);
   });
 });
