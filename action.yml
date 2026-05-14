@@ -152,6 +152,46 @@ inputs:
     description: When "true" and the event is a pull_request, run only the review stage against PRs that do not carry Shopfloor metadata (e.g. human-authored PRs). Skip the full pipeline.
     required: false
     default: "false"
+  mode:
+    description: |
+      Action invocation mode.
+
+      - `auto` (default): resolve the stage and execute it in one process.
+        Backwards-compatible with single-job consumer workflows.
+      - `resolve`: run only the state-machine routing and emit the `stage`
+        output. No mutex, no agent, no GitHub mutations. Intended for a cheap
+        "router" job in a two-job split workflow.
+      - `execute`: resolve the stage, apply the optional `stages` filter, and
+        run the stage end-to-end if it passes. Intended for one or more
+        per-stage execute jobs that gate on the router's `stage` output.
+
+      See examples/shopfloor-split-runners.yml for the two-job pattern.
+    required: false
+    default: "auto"
+  stages:
+    description: |
+      Comma-separated list of stage names this `execute` invocation will run.
+      Empty (default) means all stages. When non-empty and the resolved stage
+      is not in this list, the action exits 0 silently without acquiring the
+      mutex or running the agent. Ignored when `mode` is not `execute`.
+
+      Valid stage names: triage, spec, plan, implement, review.
+    required: false
+    default: ""
+
+outputs:
+  stage:
+    description: |
+      The stage the action's state machine resolved for this event:
+      one of `triage`, `spec`, `plan`, `implement`, `review`, or `none`.
+      Always set, regardless of `mode`. Use this output from a `mode: resolve`
+      router job to gate downstream `mode: execute` jobs via `if:` expressions.
+  executed:
+    description: |
+      `"true"` if the action actually ran a stage's agent and applied its
+      decision, `"false"` otherwise. False covers: `mode: resolve` invocations,
+      `mode: execute` filter misses, `none` routes, precheck failures, and
+      any other early-exit cases.
 
 runs:
   using: node24
