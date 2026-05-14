@@ -55,8 +55,8 @@ inputs:
   github_token:
     description: |
       Last-resort fallback used when no App credentials and no preminted
-      installation token are provided. Pass `${{ github.token }}` (or
-      `${{ secrets.GITHUB_TOKEN }}`) to give Shopfloor access to the
+      installation token are provided. Pass `github.token` (or
+      `secrets.GITHUB_TOKEN`) to give Shopfloor access to the
       workflow's default token. Limitations: mutations made with this token
       do not trigger downstream workflows (label flips and pushes will not
       advance the pipeline), and the token cannot APPROVE or REQUEST_CHANGES
