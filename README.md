@@ -2,9 +2,11 @@
 
 > **Early alpha -- under active development.** APIs, workflow inputs, label conventions, and prompt templates may change without notice between commits. Pin to a specific commit SHA if you use this today, and expect breaking changes. Bug reports and feedback are welcome via [Issues](https://github.com/niranjan94/shopfloor/issues).
 
-A reusable GitHub Actions workflow that turns `anthropics/claude-code-action` into a staged, human-gated AI delivery pipeline. Drop it into a repository and every new issue is routed through **triage → spec → plan → implement → review**, with a human approving each stage by merging the pull request it produces.
+A GitHub Action that runs a staged, human-gated AI delivery pipeline against your repository. Drop it into a workflow and every new issue is routed through **triage → spec → plan → implement → review**, with a human approving each stage by merging the pull request it produces.
 
 Shopfloor is deliberately boring where it counts: a pure TypeScript state machine owns every label flip, comment, and PR mutation. Agents only emit structured JSON. That keeps GitHub state predictable, stage behaviour auditable, and the blast radius of a confused model small.
+
+> **v2:** Shopfloor is now a single GitHub Action (`niranjan94/shopfloor@v2`) backed by the Claude Agent SDK. v1's reusable workflow remains available at `@v1`; see [Migrating from v1](#migrating-from-v1) below.
 
 ## How it works
 
@@ -24,29 +26,31 @@ Shopfloor is deliberately boring where it counts: a pure TypeScript state machin
 
 ## Repository layout
 
-| Path                              | What lives there                                                            |
-| --------------------------------- | --------------------------------------------------------------------------- |
-| `.github/workflows/shopfloor.yml` | The reusable workflow callers consume                                       |
-| `router/`                         | TypeScript GitHub Action: state machine, helpers, compiled bundle in `dist` |
-| `prompts/`                        | Stage prompt templates, rendered by the router                              |
-| `mcp-servers/shopfloor-mcp/`      | MCP server exposing the `update_progress` tool to the implementation agent  |
-| `docs/shopfloor/`                 | Install, configuration, architecture, troubleshooting, FAQ                  |
+| Path                    | What lives there                                                        |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `action.yml`            | The GitHub Action manifest                                              |
+| `examples/`             | Sample caller workflow (`examples/shopfloor.yml`)                       |
+| `src/`                  | Action source: state machine, orchestrator, stages, adapters, agent SDK |
+| `src/stages/*/prompt.*` | Stage prompt templates (inlined into the bundle at build time)          |
+| `dist/index.cjs`        | Committed action bundle (reproducible from `src/` via `pnpm build`)     |
+| `docs/shopfloor/`       | Install, configuration, architecture, troubleshooting, FAQ              |
 
 ## Before you install: read the source
 
 Shopfloor runs inside your repository with write access to branches, pull requests, issues, labels, and commit statuses. It also spawns Claude agents that can execute Bash on your CI runners. That is a lot of authority to hand a third-party action, so Shopfloor is [MIT licensed](LICENSE) and fully open source precisely so you can verify what it does before you turn it on.
 
-The entire runtime is a few thousand lines of TypeScript and YAML. You can read it in an afternoon. We recommend you do, in this order:
+The entire runtime is a few thousand lines of TypeScript. You can read it in an afternoon. We recommend you do, in this order:
 
-1. [`router/src/state.ts`](router/src/state.ts) is the pure state machine. Every stage decision lives here.
-2. [`router/src/helpers/`](router/src/helpers/) is every GitHub mutation Shopfloor performs. If it writes to your repository, it is in this directory.
-3. [`.github/workflows/shopfloor.yml`](.github/workflows/shopfloor.yml) is the wiring: which model runs, which tools are allowed, which secrets are forwarded.
-4. [`prompts/`](prompts/) is what the LLM actually sees at each stage.
+1. [`src/state/machine.ts`](src/state/machine.ts) is the pure state machine. Every stage decision lives here.
+2. [`src/github/adapter.ts`](src/github/adapter.ts) is every GitHub mutation Shopfloor performs. If it writes to your repository, it is in this file.
+3. [`src/orchestrator.ts`](src/orchestrator.ts) is the route → run → apply loop, plus precheck and failure reporting.
+4. [`action.yml`](action.yml) and [`examples/shopfloor.yml`](examples/shopfloor.yml) are the wiring: which model runs, which secrets are forwarded.
+5. [`src/stages/`](src/stages/) is what the LLM sees at each stage, including inlined `prompt.system.md` / `prompt.user.md.tmpl` files.
 
 Two more precautions before production use:
 
-- **Audit the bundled artifact.** `router/dist/index.cjs` is the compiled action that actually executes on your runners. It is committed (standard practice for JS actions) and reproducible from `router/src/` via `pnpm --filter @shopfloor/router build`. Diff against the committed file to confirm.
-- **Pin to a verified commit SHA, not a moving tag.** The `@v1` tag in the snippet below is convenient for evaluation but a supply-chain risk in production. Replace it with a 40-character SHA you have inspected, and let Dependabot or Renovate propose bumps you review like any other dependency.
+- **Audit the bundled artifact.** `dist/index.cjs` is the compiled action that actually executes on your runners. It is committed (standard practice for JS actions) and reproducible from `src/` via `pnpm build`. Diff against the committed file to confirm.
+- **Pin to a verified commit SHA, not a moving tag.** The `@v2` tag in the snippet below is convenient for evaluation but a supply-chain risk in production. Replace it with a 40-character SHA you have inspected, and let Dependabot or Renovate propose bumps you review like any other dependency.
 
 If you are not willing to do any of the above, Shopfloor is probably not a good fit for your threat model. Use it on scratch repositories first.
 
@@ -66,46 +70,47 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
    | `SHOPFLOOR_GITHUB_APP_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY` | **Required.** The custom router App's credentials          |
    | `SSH_SIGNING_KEY`                                                    | Optional. Signed commits from Shopfloor's branches         |
 
-3. **Create `.github/workflows/shopfloor.yml`** in your repository:
+3. **Create `.github/workflows/shopfloor.yml`** in your repository. The full sample lives in [`examples/shopfloor.yml`](examples/shopfloor.yml); the minimum is:
 
    ```yaml
    name: Shopfloor
    on:
      issues:
-       types: [opened, edited, closed, labeled, unlabeled]
+       types: [opened, labeled, unlabeled]
      issue_comment:
        types: [created]
      pull_request:
        types:
-         [opened, synchronize, closed, labeled, unlabeled, ready_for_review]
+         [opened, synchronize, ready_for_review, closed, labeled, unlabeled]
      pull_request_review:
        types: [submitted]
 
+   permissions:
+     contents: read
+     issues: read
+     pull-requests: read
+
    jobs:
      shopfloor:
-       # SECURITY: @v1 is a moving tag. For production, pin to a 40-char SHA
-       # you have audited. See "Before you install" above.
-       uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
-       # All writes go through the Shopfloor GitHub App installation token,
-       # so the workflow itself only needs read permissions.
-       permissions:
-         contents: read
-         issues: read
-         pull-requests: read
-       secrets:
-         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-         shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-         shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
-         # Optional: enables the automated review matrix.
-         # Requires a second GitHub App so the reviewer identity differs
-         # from the PR author. Omit to skip automated reviews.
-         shopfloor_github_app_review_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
-         shopfloor_github_app_review_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
-         # Optional: signed commits
-         ssh_signing_key: ${{ secrets.SSH_SIGNING_KEY }}
-   ```
+       runs-on: ubuntu-latest
+       steps:
+         - name: Mint Shopfloor App token
+           id: app_token
+           uses: actions/create-github-app-token@v3
+           with:
+             app-id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+             private-key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
 
-   > **Note:** Reusable workflows do not support `secrets: inherit` from external callers. You must pass each secret explicitly as shown above. Only `anthropic_api_key` (or one of its provider equivalents) and the two `shopfloor_github_app_*` secrets are required -- the rest can be omitted.
+         - name: Run Shopfloor
+           # SECURITY: @v2 is a moving tag. For production, pin to a 40-char SHA
+           # you have audited. See "Before you install" above.
+           uses: niranjan94/shopfloor@v2
+           with:
+             anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+             shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+             shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+             github_app_token: ${{ steps.app_token.outputs.token }}
+   ```
 
 Open an issue and watch it go. The first run bootstraps all `shopfloor:*` labels.
 
@@ -124,21 +129,35 @@ Every stage's model, effort, turn budget, timeout, tool allowlist, review confid
 Common overrides:
 
 ```yaml
-jobs:
-  shopfloor:
-    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
-    with:
-      triage_model: haiku
-      impl_model: opus
-      max_review_iterations: 2
-      review_confidence_threshold: 85
-      # Only enter the pipeline for issues carrying this label.
-      trigger_label: shopfloor
-    secrets:
-      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-      shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-      shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+- uses: niranjan94/shopfloor@v2
+  with:
+    triage_model: claude-haiku
+    impl_model: claude-opus
+    max_review_iterations: 2
+    # Only enter the pipeline for issues carrying this label.
+    trigger_label: shopfloor
+    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+    shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+    github_app_token: ${{ steps.app_token.outputs.token }}
 ```
+
+## Migrating from v1
+
+v1 was installed as a reusable workflow at `niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1`. v2 is a regular GitHub Action.
+
+1. Delete the `uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1` line from your workflow.
+2. Copy [`examples/shopfloor.yml`](examples/shopfloor.yml) into `.github/workflows/shopfloor.yml`.
+3. Mint the App installation token in your own workflow via `actions/create-github-app-token@v3` and pass it as `github_app_token` (the action no longer mints in-process). The same applies to the optional review App.
+4. Label vocabulary, PR conventions, and artifact paths are unchanged.
+
+For supply-chain hardening, pin to a specific SHA instead of `@v2`:
+
+```yaml
+uses: niranjan94/shopfloor@<sha> # v2.0.0
+```
+
+v1 remains available at the `@v1` tag for repos that have not migrated.
 
 ## Escape hatches
 
