@@ -16,6 +16,10 @@ const num = (min = 0) =>
 const STAGE_NAMES = ["triage", "spec", "plan", "implement", "review"] as const;
 type StageName = (typeof STAGE_NAMES)[number];
 
+const EFFORT_LEVELS = ["low", "medium", "high", "xhigh"] as const;
+export type Effort = (typeof EFFORT_LEVELS)[number];
+const effort = () => z.enum(EFFORT_LEVELS).default("high");
+
 function parseStagesList(raw: string): StageName[] {
   if (!raw.trim()) return [];
   const parts = raw
@@ -43,14 +47,22 @@ const RawInputs = z
     ssh_signing_key: z.string().optional().default(""),
     trigger_label: z.string().default(""),
     max_review_iterations: num(1).default("3"),
-    triage_model: z.string().default("claude-haiku"),
-    spec_model: z.string().default("claude-opus"),
-    plan_model: z.string().default("claude-opus"),
-    impl_model: z.string().default("claude-opus"),
-    review_compliance_model: z.string().default("claude-opus"),
-    review_bugs_model: z.string().default("claude-opus"),
-    review_security_model: z.string().default("claude-opus"),
-    review_smells_model: z.string().default("claude-opus"),
+    triage_model: z.string().default("claude-sonnet-4-6"),
+    spec_model: z.string().default("claude-opus-4-7[1m]"),
+    plan_model: z.string().default("claude-opus-4-7[1m]"),
+    impl_model: z.string().default("claude-opus-4-7[1m]"),
+    review_compliance_model: z.string().default("claude-opus-4-7[1m]"),
+    review_bugs_model: z.string().default("claude-opus-4-7[1m]"),
+    review_security_model: z.string().default("claude-opus-4-7[1m]"),
+    review_smells_model: z.string().default("claude-opus-4-7[1m]"),
+    triage_effort: effort(),
+    spec_effort: effort(),
+    plan_effort: effort(),
+    impl_effort: effort(),
+    review_compliance_effort: effort(),
+    review_bugs_effort: effort(),
+    review_security_effort: effort(),
+    review_smells_effort: effort(),
     triage_max_budget_usd: num(0).default("0.25"),
     spec_max_budget_usd: num(0).default("1.50"),
     plan_max_budget_usd: num(0).default("1.50"),
@@ -103,6 +115,16 @@ export function parseConfig(raw: Record<string, string | undefined>) {
       bugs: parsed.review_bugs_model,
       security: parsed.review_security_model,
       smells: parsed.review_smells_model,
+    },
+    triageEffort: parsed.triage_effort,
+    specEffort: parsed.spec_effort,
+    planEffort: parsed.plan_effort,
+    implEffort: parsed.impl_effort,
+    reviewEfforts: {
+      compliance: parsed.review_compliance_effort,
+      bugs: parsed.review_bugs_effort,
+      security: parsed.review_security_effort,
+      smells: parsed.review_smells_effort,
     },
     triageMaxBudgetUsd: parsed.triage_max_budget_usd,
     specMaxBudgetUsd: parsed.spec_max_budget_usd,

@@ -38,6 +38,7 @@ export async function runImplement(
     tools: implementTools(ctx, { progressCommentId: args.progressCommentId }),
     decisionSchema: ImplementDecision,
     model: ctx.config.implModel,
+    effort: ctx.config.implEffort,
     budgetUsd: ctx.config.implMaxBudgetUsd,
     timeoutMs: ctx.config.implTimeoutMs,
   });

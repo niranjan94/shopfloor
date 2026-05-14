@@ -18,6 +18,11 @@ const SUBTYPE_TO_KIND: Record<
 };
 
 export class ClaudeAgentAdapter implements AgentAdapter {
+  // The env (when set) is forwarded to the SDK's `query()` so it scopes the
+  // Anthropic credential and any allowlisted host vars to SDK subprocesses
+  // instead of relying on `process.env`. See src/config/agent-env.ts.
+  constructor(private readonly env?: Record<string, string>) {}
+
   async runStage<T>(args: RunStageArgs<T>): Promise<T> {
     const controller = args.abortController ?? new AbortController();
     const timer =
@@ -51,6 +56,8 @@ export class ClaudeAgentAdapter implements AgentAdapter {
           ...(args.budgetUsd !== undefined
             ? { maxBudgetUsd: args.budgetUsd }
             : {}),
+          ...(args.effort !== undefined ? { effort: args.effort } : {}),
+          ...(this.env ? { env: this.env } : {}),
           abortController: controller,
         },
       });

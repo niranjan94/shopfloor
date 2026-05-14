@@ -21,6 +21,7 @@ export async function runTriage(ctx: StageContext): Promise<TriageDecision> {
     tools: triageTools(ctx),
     decisionSchema: TriageDecision,
     model: ctx.config.triageModel,
+    effort: ctx.config.triageEffort,
     budgetUsd: ctx.config.triageMaxBudgetUsd,
     timeoutMs: ctx.config.triageTimeoutMs,
   });

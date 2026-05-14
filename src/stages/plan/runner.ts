@@ -36,6 +36,7 @@ export async function runPlan(
     tools: planTools(ctx),
     decisionSchema: PlanDecision,
     model: ctx.config.planModel,
+    effort: ctx.config.planEffort,
     budgetUsd: ctx.config.planMaxBudgetUsd,
     timeoutMs: ctx.config.planTimeoutMs,
   });

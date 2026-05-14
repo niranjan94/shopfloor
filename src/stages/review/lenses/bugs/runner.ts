@@ -15,6 +15,7 @@ export async function runBugsLens(
     tools: bugsTools(ctx),
     decisionSchema: LensDecision,
     model: ctx.config.reviewModels.bugs,
+    effort: ctx.config.reviewEfforts.bugs,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });

@@ -36,6 +36,7 @@ export async function runSpec(
     tools: specTools(ctx),
     decisionSchema: SpecDecision,
     model: ctx.config.specModel,
+    effort: ctx.config.specEffort,
     budgetUsd: ctx.config.specMaxBudgetUsd,
     timeoutMs: ctx.config.specTimeoutMs,
   });

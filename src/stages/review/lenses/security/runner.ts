@@ -15,6 +15,7 @@ export async function runSecurityLens(
     tools: securityTools(ctx),
     decisionSchema: LensDecision,
     model: ctx.config.reviewModels.security,
+    effort: ctx.config.reviewEfforts.security,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });

@@ -75,35 +75,67 @@ inputs:
   triage_model:
     description: Model id for the triage stage.
     required: false
-    default: "claude-haiku"
+    default: "claude-sonnet-4-6"
   spec_model:
     description: Model id for the spec stage.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
   plan_model:
     description: Model id for the plan stage.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
   impl_model:
     description: Model id for the implement stage.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
   review_compliance_model:
     description: Model id for the compliance review lens.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
   review_bugs_model:
     description: Model id for the bugs review lens.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
   review_security_model:
     description: Model id for the security review lens.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
   review_smells_model:
     description: Model id for the smells review lens.
     required: false
-    default: "claude-opus"
+    default: "claude-opus-4-7[1m]"
+  triage_effort:
+    description: Reasoning effort for the triage stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  spec_effort:
+    description: Reasoning effort for the spec stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  plan_effort:
+    description: Reasoning effort for the plan stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  impl_effort:
+    description: Reasoning effort for the implement stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_compliance_effort:
+    description: Reasoning effort for the compliance review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_bugs_effort:
+    description: Reasoning effort for the bugs review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_security_effort:
+    description: Reasoning effort for the security review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_smells_effort:
+    description: Reasoning effort for the smells review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
   triage_max_budget_usd:
     description: USD budget cap for the triage stage.
     required: false

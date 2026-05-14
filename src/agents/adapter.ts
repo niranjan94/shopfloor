@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { SdkTool } from "../tools/types.js";
+import type { Effort } from "../config/inputs.js";
 
 export type AgentErrorKind =
   | "agent_timeout"
@@ -27,6 +28,7 @@ export interface RunStageArgs<T> {
   // is a partial of the output) still satisfy the constraint.
   decisionSchema: z.ZodType<T, z.ZodTypeDef, unknown>;
   model: string;
+  effort?: Effort;
   budgetUsd?: number;
   timeoutMs?: number;
   abortController?: AbortController;

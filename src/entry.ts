@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { Octokit } from "@octokit/rest";
 import { createAppAuth } from "@octokit/auth-app";
 import { parseConfig } from "./config/inputs.js";
+import { buildAgentEnvFromConfig } from "./config/agent-env.js";
 import { resolveAuth, type AuthSpec } from "./github/app-token.js";
 import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
 import { ClaudeAgentAdapter } from "./agents/claude.js";
@@ -45,6 +46,14 @@ const INPUT_KEYS = [
   "review_bugs_model",
   "review_security_model",
   "review_smells_model",
+  "triage_effort",
+  "spec_effort",
+  "plan_effort",
+  "impl_effort",
+  "review_compliance_effort",
+  "review_bugs_effort",
+  "review_security_effort",
+  "review_smells_effort",
   "triage_max_budget_usd",
   "spec_max_budget_usd",
   "plan_max_budget_usd",
@@ -137,7 +146,7 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
 
     const agent = deps.agentFactory
       ? deps.agentFactory()
-      : new ClaudeAgentAdapter();
+      : new ClaudeAgentAdapter(buildAgentEnvFromConfig(config));
 
     const reviewOnly = rawInputs.review_only === "true";
 

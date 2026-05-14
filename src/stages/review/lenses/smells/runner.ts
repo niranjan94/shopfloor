@@ -15,6 +15,7 @@ export async function runSmellsLens(
     tools: smellsTools(ctx),
     decisionSchema: LensDecision,
     model: ctx.config.reviewModels.smells,
+    effort: ctx.config.reviewEfforts.smells,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });

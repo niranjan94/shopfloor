@@ -8,14 +8,14 @@ const baseInputs: Record<string, string> = {
     "-----BEGIN RSA PRIVATE KEY-----\nx\n-----END RSA PRIVATE KEY-----\n",
   trigger_label: "shopfloor",
   max_review_iterations: "3",
-  triage_model: "claude-haiku",
-  spec_model: "claude-opus",
-  plan_model: "claude-opus",
-  impl_model: "claude-opus",
-  review_compliance_model: "claude-opus",
-  review_bugs_model: "claude-opus",
-  review_security_model: "claude-opus",
-  review_smells_model: "claude-opus",
+  triage_model: "claude-sonnet-4-6",
+  spec_model: "claude-opus-4-7[1m]",
+  plan_model: "claude-opus-4-7[1m]",
+  impl_model: "claude-opus-4-7[1m]",
+  review_compliance_model: "claude-opus-4-7[1m]",
+  review_bugs_model: "claude-opus-4-7[1m]",
+  review_security_model: "claude-opus-4-7[1m]",
+  review_smells_model: "claude-opus-4-7[1m]",
   triage_max_budget_usd: "0.25",
   impl_max_budget_usd: "2.50",
   triage_timeout_ms: "120000",
@@ -24,7 +24,7 @@ const baseInputs: Record<string, string> = {
 describe("parseConfig", () => {
   it("parses valid inputs", () => {
     const cfg = parseConfig(baseInputs);
-    expect(cfg.triageModel).toBe("claude-haiku");
+    expect(cfg.triageModel).toBe("claude-sonnet-4-6");
     expect(cfg.maxReviewIterations).toBe(3);
     expect(cfg.implMaxBudgetUsd).toBe(2.5);
   });

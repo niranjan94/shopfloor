@@ -15,6 +15,7 @@ export async function runComplianceLens(
     tools: complianceTools(ctx),
     decisionSchema: LensDecision,
     model: ctx.config.reviewModels.compliance,
+    effort: ctx.config.reviewEfforts.compliance,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });
