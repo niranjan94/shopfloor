@@ -23,7 +23,9 @@ export interface RunStageArgs<T> {
   systemPrompt: string;
   userPrompt: string;
   tools: SdkTool[];
-  decisionSchema: z.ZodType<T>;
+  // Loosened input type to `unknown` so schemas with `.default()` (whose input
+  // is a partial of the output) still satisfy the constraint.
+  decisionSchema: z.ZodType<T, z.ZodTypeDef, unknown>;
   model: string;
   budgetUsd?: number;
   timeoutMs?: number;
