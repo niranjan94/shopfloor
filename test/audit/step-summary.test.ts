@@ -3,7 +3,11 @@ import { writeFileSync, readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createStepSummaryMirror } from "../../src/audit/step-summary.js";
-import { combineEmitters, createAuditEmitter, type AuditEvent } from "../../src/audit/events.js";
+import {
+  combineEmitters,
+  createAuditEmitter,
+  type AuditEvent,
+} from "../../src/audit/events.js";
 
 describe("step-summary mirror", () => {
   it("appends a markdown row for curated event types", () => {
@@ -11,9 +15,24 @@ describe("step-summary mirror", () => {
     const path = join(dir, "summary.md");
     writeFileSync(path, "");
     const mirror = createStepSummaryMirror({ path });
-    mirror({ type: "stage_started", stage: "triage", model: "claude-haiku", runId: "r1" });
-    mirror({ type: "label_applied", issueNumber: 42, add: ["shopfloor:triaging"], remove: [] });
-    mirror({ type: "agent_tool_call", stage: "triage", tool: "update_progress", argsPreview: "..." });
+    mirror({
+      type: "stage_started",
+      stage: "triage",
+      model: "claude-haiku",
+      runId: "r1",
+    });
+    mirror({
+      type: "label_applied",
+      issueNumber: 42,
+      add: ["shopfloor:triaging"],
+      remove: [],
+    });
+    mirror({
+      type: "agent_tool_call",
+      stage: "triage",
+      tool: "update_progress",
+      argsPreview: "...",
+    });
 
     const out = readFileSync(path, "utf8");
     expect(out).toContain("triage");
@@ -27,7 +46,12 @@ describe("step-summary mirror", () => {
     try {
       const mirror = createStepSummaryMirror();
       expect(() =>
-        mirror({ type: "stage_started", stage: "spec", model: "x", runId: "r" }),
+        mirror({
+          type: "stage_started",
+          stage: "spec",
+          model: "x",
+          runId: "r",
+        }),
       ).not.toThrow();
     } finally {
       if (prev !== undefined) process.env.GITHUB_STEP_SUMMARY = prev;

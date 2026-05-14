@@ -1,4 +1,10 @@
-export const STAGES = ["triage", "spec", "plan", "implement", "review"] as const;
+export const STAGES = [
+  "triage",
+  "spec",
+  "plan",
+  "implement",
+  "review",
+] as const;
 export type Stage = (typeof STAGES)[number];
 
 export const COMPLEXITIES = ["quick", "medium", "large"] as const;

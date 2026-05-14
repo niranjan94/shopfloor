@@ -9,7 +9,11 @@ export type AgentErrorKind =
   | "agent_execution";
 
 export class AgentError extends Error {
-  constructor(public readonly kind: AgentErrorKind, message: string, public readonly subtype?: string) {
+  constructor(
+    public readonly kind: AgentErrorKind,
+    message: string,
+    public readonly subtype?: string,
+  ) {
     super(message);
     this.name = "AgentError";
   }

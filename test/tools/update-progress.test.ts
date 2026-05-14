@@ -6,9 +6,18 @@ describe("updateProgressTool", () => {
     const github = {
       updateIssueComment: vi.fn().mockResolvedValue(undefined),
     };
-    const tool = updateProgressTool({ github, commentId: 12345, issueNumber: 7 });
-    const result = await tool.handler({ body: "## Progress\n- [x] step one\n- [ ] step two\n" });
-    expect(github.updateIssueComment).toHaveBeenCalledWith(12345, "## Progress\n- [x] step one\n- [ ] step two\n");
+    const tool = updateProgressTool({
+      github,
+      commentId: 12345,
+      issueNumber: 7,
+    });
+    const result = await tool.handler({
+      body: "## Progress\n- [x] step one\n- [ ] step two\n",
+    });
+    expect(github.updateIssueComment).toHaveBeenCalledWith(
+      12345,
+      "## Progress\n- [x] step one\n- [ ] step two\n",
+    );
     expect(result.isError).not.toBe(true);
   });
 

@@ -6,7 +6,10 @@ import { AgentError } from "./adapter.js";
 
 const SUBTYPE_TO_KIND: Record<
   string,
-  "agent_budget" | "agent_max_turns" | "agent_invalid_output" | "agent_execution"
+  | "agent_budget"
+  | "agent_max_turns"
+  | "agent_invalid_output"
+  | "agent_execution"
 > = {
   error_max_budget_usd: "agent_budget",
   error_max_turns: "agent_max_turns",
@@ -40,7 +43,9 @@ export class ClaudeAgentAdapter implements AgentAdapter {
             type: "json_schema",
             schema: zodToJsonSchema(args.decisionSchema as z.ZodTypeAny),
           },
-          ...(args.budgetUsd !== undefined ? { maxBudgetUsd: args.budgetUsd } : {}),
+          ...(args.budgetUsd !== undefined
+            ? { maxBudgetUsd: args.budgetUsd }
+            : {}),
           abortController: controller,
         },
       });
@@ -50,7 +55,8 @@ export class ClaudeAgentAdapter implements AgentAdapter {
         if (msg.subtype === "success") {
           return args.decisionSchema.parse(msg.structured_output);
         }
-        const kind = SUBTYPE_TO_KIND[msg.subtype as string] ?? "agent_execution";
+        const kind =
+          SUBTYPE_TO_KIND[msg.subtype as string] ?? "agent_execution";
         throw new AgentError(
           kind,
           `claude session ended with ${msg.subtype}`,

@@ -4,7 +4,10 @@ const num = (min = 0) =>
   z.string().transform((s, ctx) => {
     const n = Number(s);
     if (!Number.isFinite(n) || n < min) {
-      ctx.addIssue({ code: "custom", message: `expected number >= ${min}, got ${s}` });
+      ctx.addIssue({
+        code: "custom",
+        message: `expected number >= ${min}, got ${s}`,
+      });
       return z.NEVER;
     }
     return n;

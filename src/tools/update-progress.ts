@@ -20,7 +20,10 @@ export function updateProgressTool(args: UpdateProgressArgs): SdkTool {
         await args.github.updateIssueComment(args.commentId, input.body);
         return { content: [{ type: "text" as const, text: "ok" }] };
       } catch (err) {
-        return { content: [{ type: "text" as const, text: String(err) }], isError: true };
+        return {
+          content: [{ type: "text" as const, text: String(err) }],
+          isError: true,
+        };
       }
     },
   ) as unknown as SdkTool;

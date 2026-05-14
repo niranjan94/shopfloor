@@ -26,7 +26,11 @@ describe("renderPrBodyWithMetadata", () => {
       userBody: "body",
     });
     const parsed = parsePrMetadata(out);
-    expect(parsed).toEqual({ issueNumber: 42, stage: "spec", reviewIteration: 0 });
+    expect(parsed).toEqual({
+      issueNumber: 42,
+      stage: "spec",
+      reviewIteration: 0,
+    });
   });
 
   it("trims trailing whitespace from user body before appending", () => {

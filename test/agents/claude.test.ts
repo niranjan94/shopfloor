@@ -8,13 +8,28 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => {
     __calls: calls,
     query: vi.fn((opts: any) => {
       calls.push(opts);
-      const stream = opts.__nextStream as Array<{ type: string; [k: string]: unknown }>;
-      return (async function* () { for (const m of stream ?? []) yield m; })();
+      const stream = opts.__nextStream as Array<{
+        type: string;
+        [k: string]: unknown;
+      }>;
+      return (async function* () {
+        for (const m of stream ?? []) yield m;
+      })();
     }),
     createSdkMcpServer: vi.fn((opts: any) => ({ __server: opts })),
-    tool: vi.fn((name: string, description: string, inputSchema: unknown, handler: unknown) => ({
-      name, description, inputSchema, handler,
-    })),
+    tool: vi.fn(
+      (
+        name: string,
+        description: string,
+        inputSchema: unknown,
+        handler: unknown,
+      ) => ({
+        name,
+        description,
+        inputSchema,
+        handler,
+      }),
+    ),
   };
 });
 
@@ -30,60 +45,104 @@ describe("ClaudeAgentAdapter", () => {
     (sdk as any).query.mockImplementation((_opts: any) => {
       const stream = [
         { type: "system" },
-        { type: "result", subtype: "success", structured_output: { verdict: "ok" } },
+        {
+          type: "result",
+          subtype: "success",
+          structured_output: { verdict: "ok" },
+        },
       ];
-      return (async function* () { for (const m of stream) yield m; })();
+      return (async function* () {
+        for (const m of stream) yield m;
+      })();
     });
     const agent = new ClaudeAgentAdapter();
     const result = await agent.runStage({
-      systemPrompt: "S", userPrompt: "U", tools: [], decisionSchema: Decision, model: "claude-haiku",
+      systemPrompt: "S",
+      userPrompt: "U",
+      tools: [],
+      decisionSchema: Decision,
+      model: "claude-haiku",
     });
     expect(result).toEqual({ verdict: "ok" });
   });
 
   it("maps error_max_budget_usd to AgentError(agent_budget)", async () => {
-    (sdk as any).query.mockImplementation(() => (async function* () {
-      yield { type: "result", subtype: "error_max_budget_usd" };
-    })());
+    (sdk as any).query.mockImplementation(() =>
+      (async function* () {
+        yield { type: "result", subtype: "error_max_budget_usd" };
+      })(),
+    );
     const agent = new ClaudeAgentAdapter();
     await expect(
       agent.runStage({
-        systemPrompt: "S", userPrompt: "U", tools: [], decisionSchema: Decision, model: "claude-haiku", budgetUsd: 1,
-      })
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+        budgetUsd: 1,
+      }),
     ).rejects.toBeInstanceOf(AgentError);
   });
 
   it("maps error_max_turns to AgentError(agent_max_turns)", async () => {
-    (sdk as any).query.mockImplementation(() => (async function* () {
-      yield { type: "result", subtype: "error_max_turns" };
-    })());
+    (sdk as any).query.mockImplementation(() =>
+      (async function* () {
+        yield { type: "result", subtype: "error_max_turns" };
+      })(),
+    );
     const agent = new ClaudeAgentAdapter();
-    const err = await agent.runStage({
-      systemPrompt: "S", userPrompt: "U", tools: [], decisionSchema: Decision, model: "claude-haiku",
-    }).catch((e) => e);
+    const err = await agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+      })
+      .catch((e) => e);
     expect(err).toBeInstanceOf(AgentError);
     expect(err.kind).toBe("agent_max_turns");
   });
 
   it("maps error_max_structured_output_retries to AgentError(agent_invalid_output)", async () => {
-    (sdk as any).query.mockImplementation(() => (async function* () {
-      yield { type: "result", subtype: "error_max_structured_output_retries" };
-    })());
+    (sdk as any).query.mockImplementation(() =>
+      (async function* () {
+        yield {
+          type: "result",
+          subtype: "error_max_structured_output_retries",
+        };
+      })(),
+    );
     const agent = new ClaudeAgentAdapter();
-    const err = await agent.runStage({
-      systemPrompt: "S", userPrompt: "U", tools: [], decisionSchema: Decision, model: "claude-haiku",
-    }).catch((e) => e);
+    const err = await agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+      })
+      .catch((e) => e);
     expect(err.kind).toBe("agent_invalid_output");
   });
 
   it("throws agent_execution when no result message arrives", async () => {
-    (sdk as any).query.mockImplementation(() => (async function* () {
-      yield { type: "system" };
-    })());
+    (sdk as any).query.mockImplementation(() =>
+      (async function* () {
+        yield { type: "system" };
+      })(),
+    );
     const agent = new ClaudeAgentAdapter();
-    const err = await agent.runStage({
-      systemPrompt: "S", userPrompt: "U", tools: [], decisionSchema: Decision, model: "claude-haiku",
-    }).catch((e) => e);
+    const err = await agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+      })
+      .catch((e) => e);
     expect(err.kind).toBe("agent_execution");
   });
 
@@ -92,10 +151,19 @@ describe("ClaudeAgentAdapter", () => {
     (sdk as any).query.mockImplementation((opts: any) => {
       (sdk as any).__lastOpts = opts;
       return (async function* () {
-        yield { type: "result", subtype: "success", structured_output: { verdict: "ok" } };
+        yield {
+          type: "result",
+          subtype: "success",
+          structured_output: { verdict: "ok" },
+        };
       })();
     });
-    const Tool = { name: "demo", description: "", inputSchema: {}, handler: async () => ({ content: [] }) };
+    const Tool = {
+      name: "demo",
+      description: "",
+      inputSchema: {},
+      handler: async () => ({ content: [] }),
+    };
     const agent = new ClaudeAgentAdapter();
     await agent.runStage({
       systemPrompt: "S",

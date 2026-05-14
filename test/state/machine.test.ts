@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { resolveReviewOnly, resolveStage } from "../../src/state/machine.js";
-import type { PullRequestPayload, StateContext } from "../../src/state/types.js";
+import type {
+  PullRequestPayload,
+  StateContext,
+} from "../../src/state/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

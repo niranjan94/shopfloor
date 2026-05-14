@@ -13,7 +13,10 @@ export interface MintArgs {
   authFactory?: (opts: {
     appId: string;
     privateKey: string;
-  }) => (req: { type: "installation"; installationId: number }) => Promise<{ token: string; expiresAt: string }>;
+  }) => (req: {
+    type: "installation";
+    installationId: number;
+  }) => Promise<{ token: string; expiresAt: string }>;
   /** Refresh tokens that expire within this margin. Default 5 minutes. */
   expiryMarginMs?: number;
 }
@@ -40,10 +43,14 @@ export async function mintInstallationToken(args: MintArgs): Promise<string> {
   // stub. Real callers must supply installationId explicitly until Plan 3
   // wires resolveInstallationId from the Actions event payload.
   const installationId =
-    args.installationId ?? (args.authFactory ? 0 : await resolveInstallationId(args));
+    args.installationId ??
+    (args.authFactory ? 0 : await resolveInstallationId(args));
 
   const result = await authFn({ type: "installation", installationId });
-  cache.set(key, { token: result.token, expiresAt: new Date(result.expiresAt).getTime() });
+  cache.set(key, {
+    token: result.token,
+    expiresAt: new Date(result.expiresAt).getTime(),
+  });
   return result.token;
 }
 

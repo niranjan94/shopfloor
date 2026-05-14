@@ -1,3 +1,6 @@
 router/dist/*
 docs/shopfloor/specs/
 docs/shopfloor/plans/
+docs/superpowers/specs/
+docs/superpowers/plans/
+pnpm-lock.yaml

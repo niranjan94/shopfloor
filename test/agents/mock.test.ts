@@ -23,17 +23,30 @@ describe("MockAgentAdapter", () => {
     const agent = new MockAgentAdapter([]);
     await expect(
       agent.runStage({
-        systemPrompt: "", userPrompt: "unmatched", tools: [], decisionSchema: Schema, model: "claude-haiku",
-      })
+        systemPrompt: "",
+        userPrompt: "unmatched",
+        tools: [],
+        decisionSchema: Schema,
+        model: "claude-haiku",
+      }),
     ).rejects.toThrow(/no canned decision/i);
   });
 
   it("supports throwing a canned error", async () => {
-    const agent = new MockAgentAdapter([{ matchUserPromptIncludes: "boom", error: { kind: "agent_budget", message: "over" } }]);
+    const agent = new MockAgentAdapter([
+      {
+        matchUserPromptIncludes: "boom",
+        error: { kind: "agent_budget", message: "over" },
+      },
+    ]);
     await expect(
       agent.runStage({
-        systemPrompt: "", userPrompt: "boom", tools: [], decisionSchema: Schema, model: "claude-haiku",
-      })
+        systemPrompt: "",
+        userPrompt: "boom",
+        tools: [],
+        decisionSchema: Schema,
+        model: "claude-haiku",
+      }),
     ).rejects.toMatchObject({ kind: "agent_budget" });
   });
 });

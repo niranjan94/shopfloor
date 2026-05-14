@@ -4,5 +4,8 @@ export type SdkTool = {
   name: string;
   description: string;
   inputSchema: unknown;
-  handler: (input: unknown) => Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }>;
+  handler: (input: unknown) => Promise<{
+    content: Array<{ type: "text"; text: string }>;
+    isError?: boolean;
+  }>;
 };

@@ -3,7 +3,10 @@ import { AgentError } from "./adapter.js";
 
 export type CannedResponse =
   | { matchUserPromptIncludes: string; decision: unknown }
-  | { matchUserPromptIncludes: string; error: { kind: AgentErrorKind; message: string } };
+  | {
+      matchUserPromptIncludes: string;
+      error: { kind: AgentErrorKind; message: string };
+    };
 
 export class MockAgentAdapter implements AgentAdapter {
   constructor(private readonly responses: CannedResponse[]) {}
@@ -14,6 +17,8 @@ export class MockAgentAdapter implements AgentAdapter {
       if ("error" in r) throw new AgentError(r.error.kind, r.error.message);
       return args.decisionSchema.parse(r.decision);
     }
-    throw new Error(`MockAgentAdapter: no canned decision matched prompt: ${args.userPrompt.slice(0, 80)}`);
+    throw new Error(
+      `MockAgentAdapter: no canned decision matched prompt: ${args.userPrompt.slice(0, 80)}`,
+    );
   }
 }
