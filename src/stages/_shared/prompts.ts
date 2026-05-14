@@ -1,11 +1,7 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-export function readPrompt(metaUrl: string, file: string): string {
-  const here = dirname(fileURLToPath(metaUrl));
-  return readFileSync(join(here, file), "utf8");
-}
+// Prompt files are inlined as text imports at build time (esbuild text loader)
+// and at test time (vitest inline-text plugin), so no runtime fs read is
+// needed. renderTemplate stays — it interpolates `{{ key }}` placeholders
+// from the inlined prompt strings.
 
 export function renderTemplate(
   tpl: string,

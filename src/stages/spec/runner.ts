@@ -1,10 +1,9 @@
-import { readPrompt, renderTemplate } from "../_shared/prompts.js";
+import { renderTemplate } from "../_shared/prompts.js";
 import { specTools } from "./tools.js";
 import { SpecDecision } from "./decision.js";
 import type { StageContext } from "../_shared/context.js";
-
-const SYSTEM = readPrompt(import.meta.url, "prompt.system.md");
-const USER_TMPL = readPrompt(import.meta.url, "prompt.user.md.tmpl");
+import SYSTEM from "./prompt.system.md";
+import USER_TMPL from "./prompt.user.md.tmpl";
 
 export interface RunSpecArgs {
   branchName: string;
