@@ -2,18 +2,14 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    setupFiles: ["router/test/e2e/setup.ts"],
-    include: [
-      "router/test/**/*.test.ts",
-      "mcp-servers/**/test/**/*.test.ts",
-      "test/e2e/**/*.test.ts",
-    ],
+    globals: true,
     environment: "node",
-    globals: false,
+    include: ["test/**/*.test.ts"],
+    exclude: ["test/**/*.live.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["router/src/**", "mcp-servers/shopfloor-mcp/index.ts"],
-      exclude: ["**/test/**"],
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.d.ts"],
     },
   },
 });
