@@ -33,7 +33,7 @@ Do NOT flag:
 - Security hardening — the security reviewer owns those.
 - Style or readability — the smells reviewer owns those.
 - Missing tests the spec did not require.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a `confidence` score from 0-100. Use:
@@ -49,6 +49,7 @@ When in doubt, open the file and trace the control flow before deciding.
 Return your decision via the structured-output channel.
 
 Schema:
+
 - `verdict`: "clean" | "issues_found"
 - `summary`: one-sentence summary
 - `comments`: array of review-comment objects (see below)
@@ -56,6 +57,7 @@ Schema:
 Each comment object includes `path`, `line`, `side` ("LEFT" or "RIGHT"), optional `start_line` + `start_side` (multi-line only), `body`, `confidence` (0-100), and `category` MUST be the literal string `bug`.
 
 Rules:
+
 - `verdict: "clean"` requires `comments: []`.
 - Every bug comment must cite the execution path or expected-vs-actual behavior explicitly in the body. "This might be wrong because X and Y would cause Z" is acceptable; "Looks off" is not.
-</output>
+  </output>

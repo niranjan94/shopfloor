@@ -56,6 +56,7 @@ Call `mcp__shopfloor__update_progress` again each time you complete a task, flip
 Return your decision via the structured-output channel. Do not narrate the JSON in your reply.
 
 Schema:
+
 - `pr_title`: final title for the implementation PR. MUST follow Conventional Commits: start with a valid type (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`, or `revert`), an optional scope in parens, then `: description`. Pick the type that best describes the actual change. Include the issue reference at the end in parens. Example: `feat: add GitHub OAuth login (#42)` or `fix(router): dedupe double-fired labeled events (#17)`.
 - `pr_body`: markdown body for the PR describing what changed, what tests run, and anything the reviewer should know.
 - `summary_for_issue_comment`: 1-3 sentences the router will post on the origin issue.

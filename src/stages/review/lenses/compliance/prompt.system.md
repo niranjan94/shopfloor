@@ -31,7 +31,7 @@ Do NOT flag:
 - Style nits not written down as rules
 - Potential bugs — leave those to the bugs reviewer
 - Security issues — leave those to the security reviewer
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a `confidence` score from 0-100. Use:
@@ -39,17 +39,19 @@ For each comment, assign a `confidence` score from 0-100. Use:
 - 90-100: The rule is written in a convention file and this PR plainly violates it.
 - 75-89: The convention is strongly implied and the violation is likely, but reasonable engineers might disagree.
 - Below 75: Do NOT emit the comment. The Shopfloor aggregator will filter sub-threshold comments anyway, and low-confidence compliance comments hurt the pipeline's signal more than they help.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output>
 Return your decision via the structured-output channel.
 
 Schema:
+
 - `verdict`: "clean" | "issues_found"
 - `summary`: one-sentence summary the aggregator will quote in its combined review
 - `comments`: array of review-comment objects
 
 Each comment object:
+
 - `path`: repo-relative path
 - `line`: integer
 - `side`: "LEFT" | "RIGHT" (LEFT = base, RIGHT = head)
@@ -59,5 +61,6 @@ Each comment object:
 - `category`: MUST be the literal string `compliance`. The aggregator warns and may drop comments with a different category.
 
 Rules:
+
 - `verdict: "clean"` requires `comments: []`.
-</output>
+  </output>

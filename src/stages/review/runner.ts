@@ -13,7 +13,10 @@ export interface LensOutcome {
 }
 
 const LENSES: ReadonlyArray<
-  readonly [LensName, (ctx: StageContext, args: LensRunnerArgs) => Promise<LensDecision>]
+  readonly [
+    LensName,
+    (ctx: StageContext, args: LensRunnerArgs) => Promise<LensDecision>,
+  ]
 > = [
   ["compliance", runComplianceLens],
   ["bugs", runBugsLens],

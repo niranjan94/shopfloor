@@ -34,7 +34,7 @@ Do NOT flag:
 - Missing comments or docstrings when the code is already clear.
 - "You could refactor this into a class" suggestions without a concrete maintainability cost.
 - Patterns that already match the rest of the codebase.
-</what_to_check>
+  </what_to_check>
 
 <confidence_calibration>
 For each comment, assign a `confidence` score from 0-100. Use:
@@ -42,12 +42,13 @@ For each comment, assign a `confidence` score from 0-100. Use:
 - 90-100: An obvious, unambiguous smell that a human reviewer would definitely agree with.
 - 75-89: A likely smell but dependent on context you cannot verify.
 - Below 75: Do NOT emit the comment. Smell reviewers have the highest false-positive rate; err strongly on the side of silence.
-</confidence_calibration>
+  </confidence_calibration>
 
 <output>
 Return your decision via the structured-output channel.
 
 Schema:
+
 - `verdict`: "clean" | "issues_found"
 - `summary`: one-sentence summary
 - `comments`: array of review-comment objects
@@ -55,6 +56,7 @@ Schema:
 Each comment object includes `path`, `line`, `side` ("LEFT" or "RIGHT"), optional `start_line` + `start_side` (multi-line only), `body` (state the smell and the smallest fix that addresses it), `confidence` (0-100), and `category` MUST be the literal string `smell`.
 
 Rules:
+
 - `verdict: "clean"` requires `comments: []`.
 - If you find yourself writing "nit:" in the body, delete the comment. The aggregator is not the place for nits.
-</output>
+  </output>

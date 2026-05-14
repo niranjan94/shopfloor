@@ -78,8 +78,12 @@ function dedupeComments(all: ReviewComment[]): ReviewComment[] {
 }
 
 export function aggregateFindings(input: AggregateInput): AggregateOutcome {
-  const succeeded: Array<{ lens: LensName; decision: NonNullable<LensOutcome["decision"]> }> = [];
-  const failedLenses: Array<{ lens: LensName; kind: string; message: string }> = [];
+  const succeeded: Array<{
+    lens: LensName;
+    decision: NonNullable<LensOutcome["decision"]>;
+  }> = [];
+  const failedLenses: Array<{ lens: LensName; kind: string; message: string }> =
+    [];
   for (const o of input.outcomes) {
     if (o.decision) {
       succeeded.push({ lens: o.lens, decision: o.decision });

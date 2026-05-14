@@ -7,12 +7,17 @@ const SuppliedArtifact = z
     content: z.string().optional(),
   })
   .refine(
-    (v) => (v.source === "path" ? typeof v.path === "string" && v.path.length > 0 : true),
+    (v) =>
+      v.source === "path"
+        ? typeof v.path === "string" && v.path.length > 0
+        : true,
     { message: "path is required when source='path'" },
   )
   .refine(
     (v) =>
-      v.source === "body" ? typeof v.content === "string" && v.content.length > 0 : true,
+      v.source === "body"
+        ? typeof v.content === "string" && v.content.length > 0
+        : true,
     { message: "content is required when source='body'" },
   );
 

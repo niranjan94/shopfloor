@@ -2,10 +2,7 @@ import type { StageContext } from "../_shared/context.js";
 import type { SuppliedArtifact, TriageDecision } from "./decision.js";
 import { LABELS, complexityLabel } from "../../state/labels.js";
 import { branchSlug } from "../../state/metadata.js";
-import {
-  seedStagePr,
-  validateOverridePath,
-} from "../_shared/seed-stage-pr.js";
+import { seedStagePr, validateOverridePath } from "../_shared/seed-stage-pr.js";
 
 const NEXT_STAGE_LABEL: Record<TriageDecision["complexity"], string> = {
   quick: LABELS.needsImpl,

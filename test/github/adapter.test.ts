@@ -493,7 +493,9 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
     await adapter.upsertIssueMetadata(7, { slug: "do-thing" });
     const call = updateIssue.mock.calls[0]![0] as { body: string };
     expect(call.body).toContain("Original body.");
-    expect(call.body).toMatch(/<!-- shopfloor:metadata[\s\S]*Shopfloor-Slug: do-thing[\s\S]*-->/);
+    expect(call.body).toMatch(
+      /<!-- shopfloor:metadata[\s\S]*Shopfloor-Slug: do-thing[\s\S]*-->/,
+    );
   });
 
   test("upsertIssueMetadata merges fields with an existing block", async () => {

@@ -35,9 +35,10 @@ You may use ONLY: Read, Glob, Grep, WebFetch, and read-only git Bash (`git log`,
 Return your decision via the structured-output channel. Do not narrate the JSON in your reply.
 
 Schema:
+
 - `file_path`: must equal the `plan_file_path` value from the context
 - `plan_markdown`: the full markdown content of the plan (this is what the router commits)
 - `pr_title`: the title the router will use when opening the plan PR
 - `pr_body`: markdown body summarizing the plan shape and how to review it
 - `summary_for_issue_comment`: 1-3 sentences the router will post on the origin issue
-</output>
+  </output>

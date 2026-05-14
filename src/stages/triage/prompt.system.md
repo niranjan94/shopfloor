@@ -47,7 +47,7 @@ Resolution rules:
 - If both an H2 marker AND a path marker are present for the same stage, return `status: "needs_clarification"` asking the user which one to honor.
 - If both `Shopfloor-Spec-Path:` and `Shopfloor-Plan-Path:` are present, that is allowed and routes the issue directly to implementation.
 - Be conservative: if the body discusses a spec without containing one ("we need a spec for X"), do NOT report a spec.
-</artifact_detection>
+  </artifact_detection>
 
 <investigation>
 Before classifying, read enough of the repository to ground your decision. Grep for relevant file paths and module names mentioned in the issue. Open any file the issue explicitly references. Do not exhaustively read the codebase — read only what is necessary to decide complexity and spot conflicts with existing conventions.
@@ -102,7 +102,7 @@ Hard rules:
 - Use plain ASCII hyphen-minus characters in the format. Do not use em-dashes anywhere in the subsection.
 - The H3 heading text is exactly `### Suspected root cause`. Do not localize, abbreviate, or change capitalization.
 - The subsection appears at the very end of the `rationale` string, separated from the preceding sentences by exactly one blank line.
-</root_cause_analysis>
+  </root_cause_analysis>
 
 <output>
 Return your decision via the structured-output channel. Do not narrate the JSON in your reply.
@@ -123,4 +123,4 @@ Rules:
 - Every string in `clarifying_questions` must be a single, specific, answerable question. No multi-part questions.
 - If the issue is bug-shaped per `<root_cause_analysis>` and `status` is `classified` and no `supplied_spec` or `supplied_plan` is detected, the `rationale` string MUST end with a `### Suspected root cause` subsection. Otherwise the `rationale` MUST NOT contain such a subsection.
 - `supplied_spec` and `supplied_plan` default to `null`. Set them only when you detect a supplied artifact per `<artifact_detection>`. When `source` is `path`, omit `content`; when `source` is `body`, omit `path`.
-</output>
+  </output>

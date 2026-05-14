@@ -11,7 +11,8 @@ export const ImplementDecision = z.object({
     .string()
     .min(5)
     .refine((s) => CC_PREFIX_RE.test(s), {
-      message: "pr_title must follow Conventional Commits (type(scope)?: subject)",
+      message:
+        "pr_title must follow Conventional Commits (type(scope)?: subject)",
     }),
   pr_body: z.string().min(1),
   summary_for_issue_comment: z.string().min(1),

@@ -35,9 +35,10 @@ You may use ONLY: Read, Glob, Grep, WebFetch. You must NOT use: Edit, Write, Bas
 Return your decision via the structured-output channel. Do not narrate the JSON in your reply.
 
 Schema:
+
 - `file_path`: must equal the `spec_file_path` value from the context
 - `spec_markdown`: the full markdown content of the spec (this is what the router commits)
 - `pr_title`: the title the router will use when opening the spec PR
 - `pr_body`: markdown body for the spec PR, 5-15 lines summarizing what the spec decides and how to review it
 - `summary_for_issue_comment`: 1-3 sentences the router will post on the origin issue
-</output>
+  </output>

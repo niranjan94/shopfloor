@@ -105,10 +105,7 @@ describe("applyTriage", () => {
     });
     const decision = await runTriage(ctx);
     await applyTriage(ctx, { decision, baseBranch: "main" });
-    expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
-      7,
-      "shopfloor:large",
-    );
+    expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(7, "shopfloor:large");
     expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
       7,
       "shopfloor:needs-spec",
@@ -258,7 +255,9 @@ describe("applyTriage", () => {
     });
     const d = await runTriage(ctx);
     await applyTriage(ctx, { decision: d, baseBranch: "main" });
-    const types = ctx.audit.mock.calls.map((c) => (c[0] as { type: string }).type);
+    const types = ctx.audit.mock.calls.map(
+      (c) => (c[0] as { type: string }).type,
+    );
     expect(types).toContain("label_applied");
     expect(types).toContain("stage_decided");
   });
