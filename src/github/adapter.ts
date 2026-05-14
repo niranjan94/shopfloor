@@ -1,3 +1,5 @@
+import { parseIssueMetadata } from "../state/metadata.js";
+
 export interface OctokitLike {
   rest: {
     issues: {
@@ -106,7 +108,7 @@ export interface OctokitLike {
         owner: string;
         repo: string;
         pull_number: number;
-      }): Promise<{ data: unknown }>;
+      }): Promise<{ data: { node_id?: string } & Record<string, unknown> }>;
       listFiles(params: {
         owner: string;
         repo: string;
@@ -205,6 +207,10 @@ export interface OctokitLike {
       }): Promise<unknown>;
     };
   };
+  graphql<T = unknown>(
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<T>;
 }
 
 export interface RepoContext {
@@ -264,6 +270,38 @@ type IssueCommentRow = {
   created_at: string;
   body: string | null;
 };
+
+const METADATA_OPENER = "<!-- shopfloor:metadata";
+const METADATA_CLOSER = "-->";
+const METADATA_WELL_FORMED = /<!--\s*shopfloor:metadata[\s\S]*?-->/;
+const METADATA_MALFORMED_TAIL = /<!--\s*shopfloor:metadata[\s\S]*$/;
+
+function renderIssueMetadataBlock(fields: {
+  slug?: string;
+  specPath?: string;
+  planPath?: string;
+}): string {
+  const lines = [METADATA_OPENER];
+  if (fields.slug !== undefined) lines.push(`Shopfloor-Slug: ${fields.slug}`);
+  if (fields.specPath !== undefined)
+    lines.push(`Shopfloor-Spec-Path: ${fields.specPath}`);
+  if (fields.planPath !== undefined)
+    lines.push(`Shopfloor-Plan-Path: ${fields.planPath}`);
+  lines.push(METADATA_CLOSER);
+  return lines.join("\n");
+}
+
+function applyMetadataBlock(body: string | null, block: string): string {
+  if (body === null || body.length === 0) return block;
+  if (METADATA_WELL_FORMED.test(body)) {
+    return body.replace(METADATA_WELL_FORMED, block);
+  }
+  if (METADATA_MALFORMED_TAIL.test(body)) {
+    return body.replace(METADATA_MALFORMED_TAIL, block);
+  }
+  const sep = body.endsWith("\n") ? "\n" : "\n\n";
+  return `${body}${sep}${block}`;
+}
 
 export class GitHubAdapter {
   constructor(
@@ -567,6 +605,48 @@ export class GitHubAdapter {
       issue_number: issueNumber,
       body,
     });
+  }
+
+  // Read the current shopfloor:metadata block from the issue body, merge the
+  // supplied fields on top, and write the resulting body back. Merging means
+  // a caller can upsert one field at a time (e.g. triage writes slug, plan
+  // later writes planPath) without clobbering earlier fields. The block lives
+  // in an HTML comment so it does not render in GitHub's web UI.
+  async upsertIssueMetadata(
+    issueNumber: number,
+    fields: { slug?: string; specPath?: string; planPath?: string },
+  ): Promise<void> {
+    const current = await this.getIssue(issueNumber);
+    const existing = parseIssueMetadata(current.body);
+    const merged = { ...(existing ?? {}), ...fields };
+    const block = renderIssueMetadataBlock(merged);
+    const nextBody = applyMetadataBlock(current.body, block);
+    await this.updateIssueBody(issueNumber, nextBody);
+  }
+
+  // The GitHub REST API does not expose a way to flip a PR from draft to
+  // ready-for-review. The GraphQL mutation markPullRequestReadyForReview is
+  // the only path. We first fetch the PR's node_id via REST to avoid a second
+  // GraphQL lookup.
+  async markPullRequestReadyForReview(prNumber: number): Promise<void> {
+    const res = await this.octokit.rest.pulls.get({
+      ...this.repo,
+      pull_number: prNumber,
+    });
+    const nodeId = res.data.node_id;
+    if (!nodeId) {
+      throw new Error(
+        `markPullRequestReadyForReview: PR #${prNumber} has no node_id`,
+      );
+    }
+    await this.octokit.graphql(
+      `mutation($id: ID!) {
+         markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+           pullRequest { id isDraft }
+         }
+       }`,
+      { id: nodeId },
+    );
   }
 
   async getPrReviewsAtSha(

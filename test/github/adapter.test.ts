@@ -98,6 +98,7 @@ function makeMockOctokit(): {
         createRef: mocks.createRef,
       },
     },
+    graphql: vi.fn().mockResolvedValue({}),
   };
   return { octokit, mocks };
 }
@@ -474,6 +475,95 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
     expect(
       await adapterOk.getFileSha("path/to/x.md", "shopfloor/spec/1-x"),
     ).toBe("blob123");
+  });
+
+  test("upsertIssueMetadata writes a fresh block when body has none", async () => {
+    const getIssue = vi.fn().mockResolvedValue({
+      data: { labels: [], state: "open", title: "t", body: "Original body." },
+    });
+    const updateIssue = vi.fn().mockResolvedValue({ data: {} });
+    const adapter = new GitHubAdapter(
+      {
+        rest: {
+          issues: { get: getIssue, update: updateIssue },
+        },
+      } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await adapter.upsertIssueMetadata(7, { slug: "do-thing" });
+    const call = updateIssue.mock.calls[0]![0] as { body: string };
+    expect(call.body).toContain("Original body.");
+    expect(call.body).toMatch(/<!-- shopfloor:metadata[\s\S]*Shopfloor-Slug: do-thing[\s\S]*-->/);
+  });
+
+  test("upsertIssueMetadata merges fields with an existing block", async () => {
+    const existingBody = [
+      "Issue desc.",
+      "",
+      "<!-- shopfloor:metadata",
+      "Shopfloor-Slug: original-slug",
+      "-->",
+    ].join("\n");
+    const getIssue = vi.fn().mockResolvedValue({
+      data: { labels: [], state: "open", title: "t", body: existingBody },
+    });
+    const updateIssue = vi.fn().mockResolvedValue({ data: {} });
+    const adapter = new GitHubAdapter(
+      {
+        rest: {
+          issues: { get: getIssue, update: updateIssue },
+        },
+      } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await adapter.upsertIssueMetadata(7, {
+      planPath: "docs/shopfloor/plans/7-x.md",
+    });
+    const call = updateIssue.mock.calls[0]![0] as { body: string };
+    expect(call.body).toContain("Shopfloor-Slug: original-slug");
+    expect(call.body).toContain(
+      "Shopfloor-Plan-Path: docs/shopfloor/plans/7-x.md",
+    );
+    // Only one block exists.
+    expect(call.body.match(/<!-- shopfloor:metadata/g)?.length).toBe(1);
+  });
+
+  test("markPullRequestReadyForReview fetches node_id then sends the GraphQL mutation", async () => {
+    const getPr = vi
+      .fn()
+      .mockResolvedValue({ data: { node_id: "PR_node_42" } });
+    const graphql = vi.fn().mockResolvedValue({});
+    const adapter = new GitHubAdapter(
+      {
+        rest: { pulls: { get: getPr } },
+        graphql,
+      } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await adapter.markPullRequestReadyForReview(42);
+    expect(getPr).toHaveBeenCalledWith({
+      owner: "o",
+      repo: "r",
+      pull_number: 42,
+    });
+    expect(graphql).toHaveBeenCalledWith(
+      expect.stringMatching(/markPullRequestReadyForReview/),
+      { id: "PR_node_42" },
+    );
+  });
+
+  test("markPullRequestReadyForReview throws when node_id is missing", async () => {
+    const getPr = vi.fn().mockResolvedValue({ data: {} });
+    const adapter = new GitHubAdapter(
+      {
+        rest: { pulls: { get: getPr } },
+        graphql: vi.fn(),
+      } as unknown as OctokitLike,
+      { owner: "o", repo: "r" },
+    );
+    await expect(adapter.markPullRequestReadyForReview(42)).rejects.toThrow(
+      /node_id/,
+    );
   });
 
   test("putFileContents creates a file (no sha) and updates one (with sha)", async () => {
