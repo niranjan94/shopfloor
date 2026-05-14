@@ -9,34 +9,95 @@ on:
   pull_request_review:
     types: [submitted]
 
+# Serialize events that touch the same issue. Without this, a label flip from
+# one stage's apply() can race the next stage's start across the resolve and
+# execute jobs. v1 commit aaef95f covers this class of bug.
+concurrency:
+  group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+# All writes go through the Shopfloor GitHub App installation token, so the
+# workflow itself stays on read-only scopes. Shopfloor mints (and refreshes)
+# the App installation token in-process from the client id + private key --
+# no actions/create-github-app-token step needed.
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
 jobs:
-  shopfloor:
+  # Cheap router job: resolves the stage from the event and emits it as an
+  # output. No mutex, no agent, no GitHub mutations.
+  router:
     # Mutually exclusive with dogfood-review.yml on the PR event surface.
     # Non-PR events (issues, issue_comment) always proceed; PR/PR-review events
     # proceed only when the PR was authored by Shopfloor (body carries the
-    # `Shopfloor-Stage:` marker set by src/github/adapter.ts). This keeps
-    # the full pipeline off human-authored PRs; dogfood-review.yml handles
-    # those with review_only=true.
+    # `Shopfloor-Stage:` marker set by src/github/adapter.ts). This keeps the
+    # full pipeline off human-authored PRs; dogfood-review.yml handles those
+    # with review_only=true.
     if: >-
       !(github.event_name == 'pull_request' || github.event_name == 'pull_request_review')
       || contains(github.event.pull_request.body, 'Shopfloor-Stage:')
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    # All writes go through the Shopfloor GitHub App installation token, so
-    # the workflow itself stays on read-only scopes. Shopfloor mints (and
-    # refreshes) the App installation token in-process from the client id +
-    # private key — no actions/create-github-app-token step needed.
-    permissions:
-      contents: read
-      issues: read
-      pull-requests: read
+    timeout-minutes: 5
+    outputs:
+      stage: ${{ steps.shopfloor.outputs.stage }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Run Shopfloor
+      - name: Resolve stage
+        id: shopfloor
         uses: ./
         with:
+          mode: resolve
+          # Resolve mode does not call the GitHub API, but entry.ts still
+          # constructs the adapter at startup, so credentials must be present.
+          github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+          github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+          trigger_label: "shopfloor:trigger"
+
+  # Light stages: triage, spec, plan, review. Default runner is fine; these
+  # stages are cheap and short.
+  light:
+    needs: router
+    if: contains(fromJSON('["triage","spec","plan","review"]'), needs.router.outputs.stage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run Shopfloor (light stages)
+        uses: ./
+        with:
+          mode: execute
+          stages: triage,spec,plan,review
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+          github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+          github_app_review_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
+          github_app_review_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
+          ssh_signing_key: ${{ secrets.SSH_SIGNING_KEY }}
+          trigger_label: "shopfloor:trigger"
+
+  # Implement stage: split out so a consumer can swap in a beefier runner here
+  # without touching the light job. Same default runner for this dogfood.
+  impl:
+    needs: router
+    if: needs.router.outputs.stage == 'implement'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run Shopfloor (implement)
+        uses: ./
+        with:
+          mode: execute
+          stages: implement
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
