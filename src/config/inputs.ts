@@ -79,8 +79,7 @@ export function parseConfig(raw: Record<string, string | undefined>) {
     anthropicApiKey: parsed.anthropic_api_key,
     claudeCodeOAuthToken: parsed.claude_code_oauth_token,
     githubApp:
-      parsed.github_app_client_id &&
-      parsed.github_app_private_key
+      parsed.github_app_client_id && parsed.github_app_private_key
         ? {
             clientId: parsed.github_app_client_id,
             privateKey: parsed.github_app_private_key,

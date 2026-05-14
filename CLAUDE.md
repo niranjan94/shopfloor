@@ -42,6 +42,16 @@ The `dist/index.cjs` bundle is committed (standard JS Action pattern). CI fails 
 
 Controlled entirely by `shopfloor:*` labels on issues. Agents emit structured JSON (Zod-validated); only the apply step in each stage mutates GitHub.
 
+## Modes
+
+`mode` action input gates what an invocation does:
+
+- `auto` (default): single-process resolve + execute. No workflow changes needed.
+- `resolve`: run only `resolveStage()`; emit `stage` output; no mutex / agent / mutations.
+- `execute`: re-resolve, apply `stages` allowlist, fetch live labels via `github.getIssue()` for precheck, then run end-to-end.
+
+Split-runner consumer workflows pair one `resolve` job with one or more `execute` jobs gated on the router's `stage` output. See `examples/shopfloor-split-runners.yml`.
+
 ## PR Metadata Convention
 
 Stage PRs carry this footer (parsed by `parsePrMetadata` in `src/state/metadata.ts`):

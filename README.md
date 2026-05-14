@@ -135,6 +135,40 @@ Common overrides:
     github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
 ```
 
+### Per-stage runners (advanced)
+
+By default Shopfloor runs as a single GitHub Actions job per event (`mode: auto`).
+If you want different stages to run on different runners — typically a small
+runner for triage/spec/plan/review and a beefier one for implement — split the
+workflow into two jobs using the `mode: resolve` / `mode: execute` pattern.
+
+See [`examples/shopfloor-split-runners.yml`](examples/shopfloor-split-runners.yml) for a copy-pasteable workflow.
+
+Inputs:
+
+| Input    | Default | Notes                                                                                                                            |
+| -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`   | `auto`  | `auto` (single-job, current behavior), `resolve` (route only, emit `stage` output), `execute` (run a stage if `stages` permits). |
+| `stages` | `""`    | Comma-separated allowlist for `mode: execute`. Empty means all stages.                                                           |
+
+Outputs (always set):
+
+| Output     | Notes                                                                          |
+| ---------- | ------------------------------------------------------------------------------ |
+| `stage`    | `triage`, `spec`, `plan`, `implement`, `review`, or `none`.                    |
+| `executed` | `"true"` if a stage ran end-to-end, `"false"` for resolve / filter / precheck. |
+
+Notes:
+
+- Execute mode fetches live issue labels from the GitHub API before precheck,
+  not the event payload's snapshot, to close the label-flip race window between
+  the resolve and execute jobs.
+- Use client-credential auth (`github_app_client_id` + `github_app_private_key`)
+  in split mode — preminted installation tokens have a 60-minute TTL that the
+  resolve→execute gap eats into.
+- Always set a workflow-level `concurrency:` group keyed on issue number when
+  splitting; see the example.
+
 ### Authentication modes
 
 Shopfloor resolves credentials for two surfaces — the primary App (every mutation except code reviews) and the optional review App (code reviews posted on Shopfloor-authored PRs) — independently. For each surface, the first available source wins:
