@@ -177,7 +177,12 @@ describe("ClaudeAgentAdapter", () => {
     const opts = (sdk as any).__lastOpts;
     expect(opts.prompt).toBe("U");
     expect(opts.options.model).toBe("claude-haiku");
-    expect(opts.options.systemPrompt).toBe("S");
+    expect(opts.options.systemPrompt).toEqual({
+      type: "preset",
+      preset: "claude_code",
+      append: "S",
+      excludeDynamicSections: true,
+    });
     expect(opts.options.maxBudgetUsd).toBe(1.5);
     expect(opts.options.abortController).toBe(ctrl);
     expect(opts.options.outputFormat?.type).toBe("json_schema");
