@@ -235,8 +235,8 @@ secrets:
   cloud_ml_region:
   google_application_credentials:
   anthropic_foundry_resource:
-  shopfloor_github_app_client_id:
-  shopfloor_github_app_private_key:
+  github_app_client_id:
+  github_app_private_key:
   ssh_signing_key:
 ```
 
@@ -330,7 +330,7 @@ A subset of `shopfloor.yml`'s inputs applies:
 
 ### Secrets
 
-Same set as the full pipeline. The second review App (`shopfloor_github_app_review_*`) is **optional** here. When unset, reviews post under the primary App's identity — which is safe because Shopfloor does not author these PRs, so the self-review restriction does not apply.
+Same set as the full pipeline. The second review App (`github_app_review_*`) is **optional** here. When unset, reviews post under the primary App's identity — which is safe because Shopfloor does not author these PRs, so the self-review restriction does not apply.
 
 ### State tracking
 

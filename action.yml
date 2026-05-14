@@ -14,26 +14,54 @@ inputs:
     description: Anthropic OAuth token. One of anthropic_api_key or claude_code_oauth_token is required.
     required: false
     default: ""
-  shopfloor_github_app_client_id:
-    description: GitHub App client id for Shopfloor's primary App (mutations).
-    required: true
-  shopfloor_github_app_private_key:
-    description: GitHub App private key (PEM) for Shopfloor's primary App.
-    required: true
-  shopfloor_github_app_review_client_id:
-    description: GitHub App client id for Shopfloor's review App (optional).
+  github_app_client_id:
+    description: |
+      GitHub App client id for Shopfloor's primary App (mutations). When set
+      together with github_app_private_key, Shopfloor mints
+      installation tokens in-process and refreshes them automatically before
+      expiry — preferred over preminting, which caps at the 60-minute
+      installation-token TTL and can expire mid-run on long implement stages.
     required: false
     default: ""
-  shopfloor_github_app_review_private_key:
-    description: GitHub App private key (PEM) for Shopfloor's review App (optional).
+  github_app_private_key:
+    description: GitHub App private key (PEM) for Shopfloor's primary App. See github_app_client_id.
+    required: false
+    default: ""
+  github_app_review_client_id:
+    description: |
+      GitHub App client id for Shopfloor's review App (optional). When set
+      with github_app_review_private_key, Shopfloor mints review
+      installation tokens in-process. Use a distinct App so reviews are
+      posted by an identity other than the PR author.
+    required: false
+    default: ""
+  github_app_review_private_key:
+    description: GitHub App private key (PEM) for Shopfloor's review App. See github_app_review_client_id.
     required: false
     default: ""
   github_app_token:
-    description: Preminted primary App installation token (recommended; produced by actions/create-github-app-token in the caller workflow). When set, skips JWT minting in-process.
+    description: |
+      Preminted primary App installation token. Useful when the caller has
+      already minted via actions/create-github-app-token. Note: installation
+      tokens expire after 60 minutes; for long-running implement stages prefer
+      passing github_app_client_id + github_app_private_key
+      so Shopfloor mints and refreshes in-process.
     required: false
     default: ""
   github_app_review_token:
-    description: Preminted review App installation token. When set, skips JWT minting in-process.
+    description: Preminted review App installation token. See github_app_token for the long-run TTL caveat.
+    required: false
+    default: ""
+  github_token:
+    description: |
+      Last-resort fallback used when no App credentials and no preminted
+      installation token are provided. Pass `${{ github.token }}` (or
+      `${{ secrets.GITHUB_TOKEN }}`) to give Shopfloor access to the
+      workflow's default token. Limitations: mutations made with this token
+      do not trigger downstream workflows (label flips and pushes will not
+      advance the pipeline), and the token cannot APPROVE or REQUEST_CHANGES
+      on a PR authored by github-actions[bot]. Intended for review-only runs
+      against human-authored PRs, not for the full pipeline.
     required: false
     default: ""
   trigger_label:

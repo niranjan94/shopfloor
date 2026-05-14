@@ -20,29 +20,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Mint Shopfloor App token
-        id: app_token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.SHOPFLOOR_APP_ID }}
-          private-key: ${{ secrets.SHOPFLOOR_APP_KEY }}
-
-      - name: Mint Shopfloor review App token (optional)
-        id: review_app_token
-        if: ${{ secrets.SHOPFLOOR_REVIEW_APP_ID != '' }}
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.SHOPFLOOR_REVIEW_APP_ID }}
-          private-key: ${{ secrets.SHOPFLOOR_REVIEW_APP_KEY }}
-
       - name: Run Shopfloor
         uses: niranjan94/shopfloor@v2
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_APP_ID }}
-          shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_APP_KEY }}
-          github_app_token: ${{ steps.app_token.outputs.token }}
-          shopfloor_github_app_review_client_id: ${{ secrets.SHOPFLOOR_REVIEW_APP_ID }}
-          shopfloor_github_app_review_private_key: ${{ secrets.SHOPFLOOR_REVIEW_APP_KEY }}
-          github_app_review_token: ${{ steps.review_app_token.outputs.token }}
+          # Shopfloor mints (and refreshes) the App installation token
+          # in-process from these credentials. No actions/create-github-app-token
+          # step needed.
+          github_app_client_id: ${{ secrets.SHOPFLOOR_APP_ID }}
+          github_app_private_key: ${{ secrets.SHOPFLOOR_APP_KEY }}
+          # Optional: a distinct App used to post code reviews so the
+          # reviewer identity differs from the PR author. Omit if you do
+          # not want the review pipeline to APPROVE / REQUEST_CHANGES on
+          # Shopfloor-authored PRs.
+          github_app_review_client_id: ${{ secrets.SHOPFLOOR_REVIEW_APP_ID }}
+          github_app_review_private_key: ${{ secrets.SHOPFLOOR_REVIEW_APP_KEY }}
           trigger_label: shopfloor

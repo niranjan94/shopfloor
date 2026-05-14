@@ -17,10 +17,10 @@ const RawInputs = z
   .object({
     anthropic_api_key: z.string().optional().default(""),
     claude_code_oauth_token: z.string().optional().default(""),
-    shopfloor_github_app_client_id: z.string().min(1),
-    shopfloor_github_app_private_key: z.string().min(1),
-    shopfloor_github_app_review_client_id: z.string().optional().default(""),
-    shopfloor_github_app_review_private_key: z.string().optional().default(""),
+    github_app_client_id: z.string().optional().default(""),
+    github_app_private_key: z.string().optional().default(""),
+    github_app_review_client_id: z.string().optional().default(""),
+    github_app_review_private_key: z.string().optional().default(""),
     ssh_signing_key: z.string().optional().default(""),
     trigger_label: z.string().default(""),
     max_review_iterations: num(1).default("3"),
@@ -57,14 +57,18 @@ export function parseConfig(raw: Record<string, string | undefined>) {
   return {
     anthropicApiKey: parsed.anthropic_api_key,
     claudeCodeOAuthToken: parsed.claude_code_oauth_token,
-    githubApp: {
-      clientId: parsed.shopfloor_github_app_client_id,
-      privateKey: parsed.shopfloor_github_app_private_key,
-    },
-    reviewGithubApp: parsed.shopfloor_github_app_review_client_id
+    githubApp:
+      parsed.github_app_client_id &&
+      parsed.github_app_private_key
+        ? {
+            clientId: parsed.github_app_client_id,
+            privateKey: parsed.github_app_private_key,
+          }
+        : null,
+    reviewGithubApp: parsed.github_app_review_client_id
       ? {
-          clientId: parsed.shopfloor_github_app_review_client_id,
-          privateKey: parsed.shopfloor_github_app_review_private_key,
+          clientId: parsed.github_app_review_client_id,
+          privateKey: parsed.github_app_review_private_key,
         }
       : null,
     sshSigningKey: parsed.ssh_signing_key || null,

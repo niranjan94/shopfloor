@@ -60,7 +60,7 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
 
 1. **Install two GitHub Apps on the repository.**
    - The [Claude GitHub App](https://github.com/apps/claude) gives the agents an identity to read issues, push branches, and open PRs under.
-   - A **custom GitHub App you own** is used by the router to mint tokens for label flips and PR pushes. This is **not optional**. GitHub suppresses workflow triggers for events caused by `secrets.GITHUB_TOKEN`, so without an App-minted token the pipeline runs triage once and then stalls at the first label flip. See the install guide for the required app permissions and the secrets to export from it.
+   - A **custom GitHub App you own** is used by the router to mint tokens for label flips and PR pushes. **Strongly recommended.** GitHub suppresses workflow triggers for events caused by `secrets.GITHUB_TOKEN`, so without an App-minted token the pipeline runs triage once and then stalls at the first label flip. See the install guide for the required app permissions and the secrets to export from it. If you skip this, Shopfloor falls back to the workflow's default `GITHUB_TOKEN` — useful for evaluation, but the cascading-trigger and self-review limitations make it unsuitable for real use.
 
 2. **Add secrets** to the repository at **Settings → Secrets and variables → Actions**:
 
@@ -94,23 +94,17 @@ The short version. The full walkthrough, including the custom GitHub App setup, 
      shopfloor:
        runs-on: ubuntu-latest
        steps:
-         - name: Mint Shopfloor App token
-           id: app_token
-           uses: actions/create-github-app-token@v3
-           with:
-             app-id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-             private-key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
-
          - name: Run Shopfloor
            # SECURITY: @v2 is a moving tag. For production, pin to a 40-char SHA
            # you have audited. See "Before you install" above.
            uses: niranjan94/shopfloor@v2
            with:
              anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-             shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-             shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
-             github_app_token: ${{ steps.app_token.outputs.token }}
+             github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+             github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
    ```
+
+   Shopfloor mints the App installation token in-process from the client id and private key, and refreshes it transparently before the one-hour TTL expires. Implement stages that outrun the TTL stay authenticated for the whole run.
 
 Open an issue and watch it go. The first run bootstraps all `shopfloor:*` labels.
 
@@ -137,10 +131,20 @@ Common overrides:
     # Only enter the pipeline for issues carrying this label.
     trigger_label: shopfloor
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-    shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
-    shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
-    github_app_token: ${{ steps.app_token.outputs.token }}
+    github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+    github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
 ```
+
+### Authentication modes
+
+Shopfloor resolves credentials for two surfaces — the primary App (every mutation except code reviews) and the optional review App (code reviews posted on Shopfloor-authored PRs) — independently. For each surface, the first available source wins:
+
+1. **App client id + private key (preferred).** Provide `github_app_client_id` + `github_app_private_key` (primary) and/or `github_app_review_client_id` + `github_app_review_private_key` (review). Shopfloor mints the installation token in-process via `@octokit/auth-app` and refreshes it before the one-hour TTL expires. This is the only mode that survives implement stages longer than 60 minutes without a token expiry.
+2. **Preminted installation token.** Pass `github_app_token` and/or `github_app_review_token` from a prior `actions/create-github-app-token` step. Simpler if you already mint elsewhere, but the token is static for the run — long implement stages may outlive it.
+3. **Default `GITHUB_TOKEN` fallback.** If neither App credentials nor a preminted token is provided, Shopfloor falls back to the workflow's `GITHUB_TOKEN`. This works for evaluation but carries hard limitations:
+   - Events caused by `GITHUB_TOKEN` **do not trigger downstream workflows**, so label flips, pushes, and review submissions will not advance the pipeline to the next stage.
+   - `GITHUB_TOKEN` cannot APPROVE or REQUEST_CHANGES on a PR authored by `github-actions[bot]` itself, so review aggregation against Shopfloor-authored impl PRs fails.
+   - The action emits an `::warning::` describing exactly which surface is on the fallback.
 
 ## Migrating from v1
 
@@ -148,7 +152,7 @@ v1 was installed as a reusable workflow at `niranjan94/shopfloor/.github/workflo
 
 1. Delete the `uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1` line from your workflow.
 2. Copy [`examples/shopfloor.yml`](examples/shopfloor.yml) into `.github/workflows/shopfloor.yml`.
-3. Mint the App installation token in your own workflow via `actions/create-github-app-token@v3` and pass it as `github_app_token` (the action no longer mints in-process). The same applies to the optional review App.
+3. Pass the App client id and private key directly as `github_app_client_id` and `github_app_private_key` (and the review equivalents). Shopfloor mints and refreshes the installation token in-process — you no longer need an `actions/create-github-app-token` step in the caller workflow. If you still prefer to premint, the `github_app_token` / `github_app_review_token` inputs accept that, with the caveat that those tokens expire after 60 minutes.
 4. Label vocabulary, PR conventions, and artifact paths are unchanged.
 
 For supply-chain hardening, pin to a specific SHA instead of `@v2`:

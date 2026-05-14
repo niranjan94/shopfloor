@@ -1,8 +1,9 @@
 import * as core from "@actions/core";
 import { readFileSync } from "node:fs";
 import { Octokit } from "@octokit/rest";
+import { createAppAuth } from "@octokit/auth-app";
 import { parseConfig } from "./config/inputs.js";
-import { resolveAppToken } from "./github/app-token.js";
+import { resolveAuth, type AuthSpec } from "./github/app-token.js";
 import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
 import { ClaudeAgentAdapter } from "./agents/claude.js";
 import {
@@ -16,7 +17,7 @@ import type { EventPayload } from "./state/types.js";
 
 export interface RunEntryDeps {
   // Inject an Octokit factory in tests so we don't hit the network.
-  octokitFactory?: (token: string) => OctokitLike;
+  octokitFactory?: (auth: AuthSpec) => OctokitLike;
   // Inject the agent adapter in tests; defaults to ClaudeAgentAdapter.
   agentFactory?: () => InstanceType<typeof ClaudeAgentAdapter>;
   // Override audit sink for tests.
@@ -26,12 +27,13 @@ export interface RunEntryDeps {
 const INPUT_KEYS = [
   "anthropic_api_key",
   "claude_code_oauth_token",
-  "shopfloor_github_app_client_id",
-  "shopfloor_github_app_private_key",
-  "shopfloor_github_app_review_client_id",
-  "shopfloor_github_app_review_private_key",
+  "github_app_client_id",
+  "github_app_private_key",
+  "github_app_review_client_id",
+  "github_app_review_private_key",
   "github_app_token",
   "github_app_review_token",
+  "github_token",
   "ssh_signing_key",
   "trigger_label",
   "max_review_iterations",
@@ -74,48 +76,56 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       | Record<string, never>;
     const event = { name: eventName, payload: eventPayload as EventPayload };
 
-    const primaryToken = await resolveAppToken(
-      rawInputs.github_app_token
-        ? { mode: "preminted", token: rawInputs.github_app_token }
-        : {
-            mode: "mint",
-            clientId: config.githubApp.clientId,
-            privateKey: config.githubApp.privateKey,
-            owner,
-            repo,
-          },
-    );
+    // GitHub Actions does not inject GITHUB_TOKEN into Node action steps
+    // automatically; the caller passes it explicitly via the github_token
+    // input (typically `${{ github.token }}`). Fall back to the env var for
+    // callers who set it on the step explicitly.
+    const githubToken =
+      rawInputs.github_token || process.env.GITHUB_TOKEN || null;
 
-    const hasReviewApp =
-      Boolean(rawInputs.github_app_review_token) ||
-      config.reviewGithubApp !== null;
-    const reviewToken = hasReviewApp
-      ? await resolveAppToken(
-          rawInputs.github_app_review_token
-            ? {
-                mode: "preminted",
-                token: rawInputs.github_app_review_token,
-              }
-            : {
-                mode: "mint",
-                clientId: config.reviewGithubApp!.clientId,
-                privateKey: config.reviewGithubApp!.privateKey,
-                owner,
-                repo,
-              },
-        )
-      : null;
-
-    const octokitFactory =
-      deps.octokitFactory ??
-      ((token: string) =>
-        new Octokit({ auth: token }) as unknown as OctokitLike);
-    const github = new GitHubAdapter(octokitFactory(primaryToken), {
+    const primaryAuth = await resolveAuth({
+      preminted: rawInputs.github_app_token ?? null,
+      app: config.githubApp,
+      fallbackToken: githubToken,
       owner,
       repo,
     });
-    const reviewGithub = reviewToken
-      ? new GitHubAdapter(octokitFactory(reviewToken), { owner, repo })
+    if (!primaryAuth) {
+      throw new Error(
+        "No GitHub credentials available. Provide one of: github_app_token (preminted installation token), github_app_client_id+github_app_private_key (App credentials for in-process minting), or ensure GITHUB_TOKEN is set on the job.",
+      );
+    }
+
+    const reviewAuth = await resolveAuth({
+      preminted: rawInputs.github_app_review_token ?? null,
+      app: config.reviewGithubApp,
+      fallbackToken: githubToken,
+      owner,
+      repo,
+    });
+
+    if (primaryAuth.kind === "token" && primaryAuth.source === "github_token") {
+      core.warning(
+        "Shopfloor is running with the workflow's default GITHUB_TOKEN. Mutations made with this token will not trigger downstream workflows (label flips, PR pushes, and review submissions will fail to advance the pipeline). Install a Shopfloor GitHub App and provide github_app_client_id + github_app_private_key for full functionality.",
+      );
+    }
+    if (
+      reviewAuth &&
+      reviewAuth.kind === "token" &&
+      reviewAuth.source === "github_token"
+    ) {
+      core.warning(
+        "Shopfloor's review path is running with the workflow's default GITHUB_TOKEN. Reviews submitted with this token cannot APPROVE or REQUEST_CHANGES on a PR authored by github-actions[bot], and any resulting events will not trigger downstream workflows. Provide a distinct review App via github_app_review_client_id + github_app_review_private_key.",
+      );
+    }
+
+    const octokitFactory = deps.octokitFactory ?? defaultOctokitFactory;
+    const github = new GitHubAdapter(octokitFactory(primaryAuth), {
+      owner,
+      repo,
+    });
+    const reviewGithub = reviewAuth
+      ? new GitHubAdapter(octokitFactory(reviewAuth), { owner, repo })
       : null;
 
     const runId = process.env.GITHUB_RUN_ID ?? `local-${Date.now()}`;
@@ -144,6 +154,24 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
     core.setFailed(err instanceof Error ? err.message : String(err));
     if (err instanceof Error && err.stack) core.error(err.stack);
   }
+}
+
+function defaultOctokitFactory(auth: AuthSpec): OctokitLike {
+  if (auth.kind === "token") {
+    return new Octokit({ auth: auth.token }) as unknown as OctokitLike;
+  }
+  // Octokit's auth-app strategy caches the installation token in-process and
+  // refreshes it transparently before expiry on every request. That keeps the
+  // pipeline alive past the 60-minute installation-token TTL even when an
+  // implement run spans hours.
+  return new Octokit({
+    authStrategy: createAppAuth,
+    auth: {
+      appId: auth.clientId,
+      privateKey: auth.privateKey,
+      installationId: auth.installationId,
+    },
+  }) as unknown as OctokitLike;
 }
 
 function readActionInputs(): Record<string, string> {

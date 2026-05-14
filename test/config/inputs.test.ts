@@ -3,8 +3,8 @@ import { parseConfig } from "../../src/config/inputs.js";
 
 const baseInputs: Record<string, string> = {
   anthropic_api_key: "sk-test",
-  shopfloor_github_app_client_id: "Iv23test",
-  shopfloor_github_app_private_key:
+  github_app_client_id: "Iv23test",
+  github_app_private_key:
     "-----BEGIN RSA PRIVATE KEY-----\nx\n-----END RSA PRIVATE KEY-----\n",
   trigger_label: "shopfloor",
   max_review_iterations: "3",

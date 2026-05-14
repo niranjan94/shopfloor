@@ -56,8 +56,8 @@ describe("runEntry", () => {
     vi.mocked(core.getInput).mockImplementation((name: string) => {
       const inputs: Record<string, string> = {
         anthropic_api_key: "sk-test",
-        shopfloor_github_app_client_id: "Iv23x",
-        shopfloor_github_app_private_key:
+        github_app_client_id: "Iv23x",
+        github_app_private_key:
           "-----BEGIN RSA PRIVATE KEY-----\nx\n-----END RSA PRIVATE KEY-----\n",
         github_app_token: "ghs_preminted",
       };
@@ -66,7 +66,7 @@ describe("runEntry", () => {
 
     const audit: AuditEvent[] = [];
     await runEntry({
-      octokitFactory: () =>
+      octokitFactory: (_auth) =>
         ({
           rest: {
             issues: {},
@@ -89,8 +89,8 @@ describe("runEntry", () => {
     vi.mocked(core.getInput).mockImplementation((name: string) => {
       const inputs: Record<string, string> = {
         anthropic_api_key: "sk-test",
-        shopfloor_github_app_client_id: "Iv23x",
-        shopfloor_github_app_private_key: "key",
+        github_app_client_id: "Iv23x",
+        github_app_private_key: "key",
         github_app_token: "ghs_x",
       };
       return inputs[name] ?? "";
