@@ -37,10 +37,10 @@ export class ClaudeAgentAdapter implements AgentAdapter {
         options: {
           model: args.model,
           systemPrompt: {
-            type: 'preset',
-            preset: 'claude_code',
+            type: "preset",
+            preset: "claude_code",
             append: args.systemPrompt,
-            excludeDynamicSections: true
+            excludeDynamicSections: true,
           },
           mcpServers: { shopfloor: mcpServer },
           allowedTools: args.tools.map((t) => `mcp__shopfloor__${t.name}`),
