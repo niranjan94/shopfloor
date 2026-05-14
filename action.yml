@@ -120,6 +120,10 @@ inputs:
     description: Optional SSH signing key for commits.
     required: false
     default: ""
+  review_only:
+    description: When "true" and the event is a pull_request, run only the review stage against PRs that do not carry Shopfloor metadata (e.g. human-authored PRs). Skip the full pipeline.
+    required: false
+    default: "false"
 
 runs:
   using: node24

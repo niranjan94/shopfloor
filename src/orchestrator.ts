@@ -3,7 +3,7 @@ import type { AgentAdapter } from "./agents/adapter.js";
 import type { AuditEmitter } from "./audit/events.js";
 import type { Config } from "./config/inputs.js";
 import type { GitHubAdapter } from "./github/adapter.js";
-import { resolveStage } from "./state/machine.js";
+import { resolveStage, resolveReviewOnly } from "./state/machine.js";
 import {
   LABELS,
   failedLabelFor,
@@ -30,6 +30,11 @@ export interface OrchestratorArgs {
   config: Config;
   runId: string;
   shopfloorBotLogin?: string;
+  // When true, route pull_request events via resolveReviewOnly() instead of
+  // resolveStage(). Used by the review-only caller workflow (e.g.
+  // dogfood-review.yml) to add agent review on human-authored PRs that
+  // carry no Shopfloor metadata. No-op for non-pull_request events.
+  reviewOnly?: boolean;
 }
 
 const TRIAGE_BLOCKING_STATE_LABELS = new Set<string>([
@@ -52,15 +57,18 @@ export async function runOrchestrator(args: OrchestratorArgs): Promise<void> {
   const liveLabels = extractEventLabels(args.event);
   const triggerLabel = args.config.triggerLabel ?? undefined;
 
-  const decision = resolveStage({
-    eventName: args.event.name,
-    payload: args.event.payload,
-    ...(triggerLabel !== undefined ? { triggerLabel } : {}),
-    ...(liveLabels !== undefined ? { liveLabels } : {}),
-    ...(args.shopfloorBotLogin !== undefined
-      ? { shopfloorBotLogin: args.shopfloorBotLogin }
-      : {}),
-  });
+  const decision =
+    args.reviewOnly && args.event.name === "pull_request"
+      ? resolveReviewOnly(args.event.payload as PullRequestPayload)
+      : resolveStage({
+          eventName: args.event.name,
+          payload: args.event.payload,
+          ...(triggerLabel !== undefined ? { triggerLabel } : {}),
+          ...(liveLabels !== undefined ? { liveLabels } : {}),
+          ...(args.shopfloorBotLogin !== undefined
+            ? { shopfloorBotLogin: args.shopfloorBotLogin }
+            : {}),
+        });
 
   args.audit({
     type: "stage_resolved",
@@ -206,7 +214,29 @@ async function loadPrForStage(
   args: OrchestratorArgs,
   decision: RouterDecision,
 ): Promise<PrContext | null> {
-  // Review stage operates on the impl PR identified by the router.
+  // Prefer the event payload when available -- it carries head/base SHAs at
+  // the moment the event fired, which is exactly what review needs to anchor
+  // against.
+  if (
+    args.event.name === "pull_request" ||
+    args.event.name === "pull_request_review"
+  ) {
+    const p = args.event.payload as
+      | PullRequestPayload
+      | PullRequestReviewPayload;
+    if (p.pull_request) {
+      return {
+        number: p.pull_request.number,
+        title: "",
+        body: p.pull_request.body,
+        headRef: p.pull_request.head.ref,
+        headSha: p.pull_request.head.sha,
+        baseRef: p.pull_request.base.ref,
+      };
+    }
+  }
+  // Issue-side events that route to review (e.g. unlabel(review-stuck))
+  // identify the impl PR via decision.implPrNumber; pull it via the API.
   if (decision.stage === "review" && decision.implPrNumber !== undefined) {
     const data = await args.github.getPr(decision.implPrNumber);
     return {
@@ -216,25 +246,6 @@ async function loadPrForStage(
       headRef: "",
       headSha: data.head.sha,
       baseRef: "main",
-    };
-  }
-  // For pull_request / pull_request_review events the payload already carries
-  // everything we need.
-  if (
-    args.event.name === "pull_request" ||
-    args.event.name === "pull_request_review"
-  ) {
-    const p = args.event.payload as
-      | PullRequestPayload
-      | PullRequestReviewPayload;
-    if (!p.pull_request) return null;
-    return {
-      number: p.pull_request.number,
-      title: "",
-      body: p.pull_request.body,
-      headRef: p.pull_request.head.ref,
-      headSha: p.pull_request.head.sha,
-      baseRef: p.pull_request.base.ref,
     };
   }
   return null;

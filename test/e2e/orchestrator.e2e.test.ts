@@ -200,6 +200,56 @@ describe("orchestrator e2e against v1 fixtures", () => {
     expect(audit.map((e) => e.type)).toContain("pr_opened");
   });
 
+  it("reviewOnly=true on a human PR (no Shopfloor metadata) routes to review", async () => {
+    const mg = makeMockGithub();
+    mg.listChangedFilePatches.mockResolvedValue([
+      {
+        filename: "src/auth.ts",
+        patch: "@@ -1,0 +1,1 @@\n+const x = 1;",
+        status: "added",
+      },
+    ]);
+    const humanPrEvent = {
+      action: "opened",
+      pull_request: {
+        number: 7,
+        body: "Plain human PR body — no Shopfloor metadata.",
+        state: "open" as const,
+        draft: false,
+        merged: false,
+        head: {
+          ref: "feature/foo",
+          sha: "deadbeef00000000000000000000000000000000",
+        },
+        base: { ref: "main", sha: "1111111111111111111111111111111111111111" },
+        labels: [],
+      },
+      repository: { owner: { login: "octo" }, name: "demo" },
+    };
+    const cleanLens = {
+      verdict: "clean",
+      summary: "No issues found.",
+      comments: [],
+    };
+    const audit: AuditEvent[] = [];
+    await runOrchestrator({
+      event: { name: "pull_request", payload: humanPrEvent as never },
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([
+        { matchUserPromptIncludes: "src/auth.ts", decision: cleanLens },
+      ]),
+      audit: (e) => audit.push(e),
+      config: baseConfig,
+      runId: "review-only",
+      reviewOnly: true,
+    });
+    const resolved = audit.find((e) => e.type === "stage_resolved");
+    expect(resolved?.stage).toBe("review");
+    expect(audit.some((e) => e.type === "review_posted")).toBe(true);
+  });
+
   it("pull_request.ready_for_review on impl PR routes to review and approves when all lenses clean", async () => {
     const mg = makeMockGithub();
     mg.getPr.mockResolvedValue({

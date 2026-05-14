@@ -53,6 +53,7 @@ const INPUT_KEYS = [
   "plan_timeout_ms",
   "impl_timeout_ms",
   "review_timeout_ms_per_lens",
+  "review_only",
 ] as const;
 
 export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
@@ -126,6 +127,8 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       ? deps.agentFactory()
       : new ClaudeAgentAdapter();
 
+    const reviewOnly = rawInputs.review_only === "true";
+
     await runOrchestrator({
       event,
       repo: { owner, name: repo },
@@ -135,6 +138,7 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       audit,
       config,
       runId,
+      ...(reviewOnly ? { reviewOnly: true } : {}),
     });
   } catch (err) {
     core.setFailed(err instanceof Error ? err.message : String(err));
