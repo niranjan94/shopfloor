@@ -75,7 +75,9 @@ async function formatIssueComments(
 export const RUNNERS: Record<Stage, StageHandler> = {
   triage: {
     async execute(ctx) {
-      const decision = await runTriage(ctx);
+      if (!ctx.issue) throw new Error("triage stage requires ctx.issue");
+      const issueComments = await formatIssueComments(ctx, ctx.issue.number);
+      const decision = await runTriage(ctx, { issueComments });
       await applyTriage(ctx, { decision, baseBranch: DEFAULT_BASE_BRANCH });
     },
   },

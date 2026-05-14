@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { runTriage } from "../../src/stages/triage/runner.js";
 import { applyTriage } from "../../src/stages/triage/apply.js";
+import { RUNNERS } from "../../src/runners.js";
 import { MockAgentAdapter } from "../../src/agents/mock.js";
 import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 import type { MockGithub } from "../github/_mock-github.js";
@@ -99,10 +100,80 @@ describe("runTriage", () => {
         rationale: "spans multiple modules",
       },
     });
-    const decision = await runTriage(ctx);
+    const decision = await runTriage(ctx, { issueComments: "" });
     expect(decision.complexity).toBe("large");
     expect(decision.status).toBe("classified");
     expect(decision.supplied_spec).toBeNull();
+  });
+
+  it("injects issueComments into the user prompt", async () => {
+    const marker = "MARKER_COMMENT_VISIBLE_TO_TRIAGE_AGENT";
+    const ctx = makeCtx({
+      decision: {
+        status: "classified",
+        complexity: "quick",
+        rationale: "trivial",
+      },
+    });
+    // Replace the canned agent with one that only matches when the unique
+    // marker string from the comment body appears in the prompt. If the
+    // runner drops issueComments on the floor, no canned response matches
+    // and MockAgentAdapter throws.
+    ctx.agent = new MockAgentAdapter([
+      {
+        matchUserPromptIncludes: marker,
+        decision: {
+          status: "classified",
+          complexity: "quick",
+          rationale: "trivial",
+        },
+      },
+    ]);
+    const decision = await runTriage(ctx, {
+      issueComments: `**@user** (2026-01-01):\n${marker}`,
+    });
+    expect(decision.status).toBe("classified");
+  });
+});
+
+describe("RUNNERS.triage", () => {
+  it("fetches issue comments and forwards them to the triage agent", async () => {
+    const marker = "FORWARDED_COMMENT_MARKER";
+    const mg = makeMockGithub();
+    mg.listIssueComments.mockResolvedValueOnce([
+      {
+        user: { login: "niranjan94" },
+        created_at: "2026-05-14T00:00:00Z",
+        body: `you fake the issue fully ${marker}`,
+      },
+    ]);
+    const ctx = makeCtx({
+      decision: {
+        status: "classified",
+        complexity: "quick",
+        rationale: "trivial",
+      },
+      github: mg,
+    });
+    // Only match when the comment's marker reaches the prompt. If RUNNERS
+    // doesn't call listIssueComments + forward the result, this throws.
+    ctx.agent = new MockAgentAdapter([
+      {
+        matchUserPromptIncludes: marker,
+        decision: {
+          status: "classified",
+          complexity: "quick",
+          rationale: "trivial",
+        },
+      },
+    ]);
+
+    await RUNNERS.triage.execute(ctx, { stage: "triage" });
+
+    expect(mg.listIssueComments).toHaveBeenCalledWith(7);
+    // applyTriage runs after the agent returns, so reaching this label call
+    // proves the prompt match succeeded.
+    expect(mg.addLabel).toHaveBeenCalledWith(7, "shopfloor:quick");
   });
 });
 
@@ -115,7 +186,7 @@ describe("applyTriage", () => {
         rationale: "spans multiple modules",
       },
     });
-    const decision = await runTriage(ctx);
+    const decision = await runTriage(ctx, { issueComments: "" });
     await applyTriage(ctx, { decision, baseBranch: "main" });
     expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(7, "shopfloor:large");
     expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
@@ -141,7 +212,7 @@ describe("applyTriage", () => {
       },
       issueTitle: "fix: typo in readme do the thing",
     });
-    const d = await runTriage(ctx);
+    const d = await runTriage(ctx, { issueComments: "" });
     await applyTriage(ctx, { decision: d, baseBranch: "main" });
     expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
       7,
@@ -159,7 +230,7 @@ describe("applyTriage", () => {
         clarifying_questions: ["What is the input shape?"],
       },
     });
-    const d = await runTriage(ctx);
+    const d = await runTriage(ctx, { issueComments: "" });
     await applyTriage(ctx, { decision: d, baseBranch: "main" });
     expect(ctx._mockGithub.postIssueComment).toHaveBeenCalledWith(
       7,
@@ -190,7 +261,7 @@ describe("applyTriage", () => {
       },
       issueTitle: "feat: do the thing",
     });
-    const d = await runTriage(ctx);
+    const d = await runTriage(ctx, { issueComments: "" });
     await applyTriage(ctx, { decision: d, baseBranch: "main" });
     expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
       7,
@@ -219,7 +290,7 @@ describe("applyTriage", () => {
       },
       issueTitle: "feat: do the thing",
     });
-    const d = await runTriage(ctx);
+    const d = await runTriage(ctx, { issueComments: "" });
     await applyTriage(ctx, { decision: d, baseBranch: "main" });
     // seed-stage-pr calls getRefSha, createRef, putFileContents, openStagePr.
     expect(ctx._mockGithub.getRefSha).toHaveBeenCalledWith("main");
@@ -251,7 +322,7 @@ describe("applyTriage", () => {
       },
       issueLabels: ["shopfloor:triaging", "shopfloor:needs-spec"],
     });
-    const d = await runTriage(ctx);
+    const d = await runTriage(ctx, { issueComments: "" });
     await expect(
       applyTriage(ctx, { decision: d, baseBranch: "main" }),
     ).rejects.toThrow(/needs-spec/);
@@ -265,7 +336,7 @@ describe("applyTriage", () => {
         rationale: "do the thing -- cross-file refactor",
       },
     });
-    const d = await runTriage(ctx);
+    const d = await runTriage(ctx, { issueComments: "" });
     await applyTriage(ctx, { decision: d, baseBranch: "main" });
     const types = ctx.audit.mock.calls.map(
       (c) => (c[0] as { type: string }).type,

@@ -5,7 +5,14 @@ import type { StageContext } from "../_shared/context.js";
 import SYSTEM from "./prompt.system.md";
 import USER_TMPL from "./prompt.user.md.tmpl";
 
-export async function runTriage(ctx: StageContext): Promise<TriageDecision> {
+export interface RunTriageArgs {
+  issueComments: string;
+}
+
+export async function runTriage(
+  ctx: StageContext,
+  args: RunTriageArgs,
+): Promise<TriageDecision> {
   if (!ctx.issue) throw new Error("runTriage requires ctx.issue");
   const userPrompt = renderTemplate(USER_TMPL, {
     repo_owner: ctx.repo.owner,
@@ -13,7 +20,7 @@ export async function runTriage(ctx: StageContext): Promise<TriageDecision> {
     issue_number: ctx.issue.number,
     issue_title: ctx.issue.title,
     issue_body: ctx.issue.body ?? "",
-    issue_comments: "",
+    issue_comments: args.issueComments,
   });
   return ctx.agent.runStage({
     systemPrompt: SYSTEM,
