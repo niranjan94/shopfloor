@@ -1,4 +1,4 @@
-router/dist/*
+dist/
 docs/shopfloor/specs/
 docs/shopfloor/plans/
 docs/superpowers/specs/

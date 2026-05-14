@@ -15,13 +15,13 @@ jobs:
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck:all
+      - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm format:check
-      - run: pnpm --filter @shopfloor/router build
-      - name: Verify router dist is up to date
+      - run: pnpm build
+      - name: Verify dist bundle is up to date
         run: |
-          if ! git diff --exit-code router/dist; then
-            echo "router/dist is out of date. Run 'pnpm --filter @shopfloor/router build' and commit."
+          if ! git diff --exit-code dist; then
+            echo "dist/index.cjs is out of date. Run 'pnpm build' and commit."
             exit 1
           fi

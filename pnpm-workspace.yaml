@@ -1,6 +1,0 @@
-packages:
-  - router
-  - mcp-servers/*
-
-onlyBuiltDependencies:
-  - esbuild
