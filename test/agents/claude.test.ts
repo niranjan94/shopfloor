@@ -2,6 +2,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { z } from "zod";
 import { AgentError } from "../../src/agents/adapter.js";
 
+vi.mock("../../src/setup/ensure-claude-cli.js", () => ({
+  ensureClaudeCli: vi.fn(async () => "/fake/claude"),
+  resetClaudeCliCache: vi.fn(),
+}));
+
 vi.mock("@anthropic-ai/claude-agent-sdk", () => {
   const calls: any[] = [];
   return {
@@ -189,5 +194,32 @@ describe("ClaudeAgentAdapter", () => {
     expect(opts.options.outputFormat?.schema).toBeDefined();
     expect(opts.options.mcpServers).toBeDefined();
     expect(opts.options.allowedTools).toContain("mcp__shopfloor__demo");
+    expect(opts.options.pathToClaudeCodeExecutable).toBe("/fake/claude");
+  });
+
+  it("threads an injected CLI resolver through to query()", async () => {
+    (sdk as any).query.mockImplementation((opts: any) => {
+      (sdk as any).__lastOpts = opts;
+      return (async function* () {
+        yield {
+          type: "result",
+          subtype: "success",
+          structured_output: { verdict: "ok" },
+        };
+      })();
+    });
+    const resolver = vi.fn(async () => "/custom/claude");
+    const agent = new ClaudeAgentAdapter(undefined, resolver);
+    await agent.runStage({
+      systemPrompt: "S",
+      userPrompt: "U",
+      tools: [],
+      decisionSchema: Decision,
+      model: "claude-haiku",
+    });
+    expect(resolver).toHaveBeenCalledOnce();
+    expect((sdk as any).__lastOpts.options.pathToClaudeCodeExecutable).toBe(
+      "/custom/claude",
+    );
   });
 });
