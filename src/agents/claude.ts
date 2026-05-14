@@ -80,6 +80,17 @@ export class ClaudeAgentAdapter implements AgentAdapter {
       for await (const msg of stream) {
         if (msg.type !== "result") continue;
         if (msg.subtype === "success") {
+          if (msg.structured_output === undefined) {
+            // The CLI reported a clean run but ignored --json-schema and
+            // emitted plain text. The SDK's `error_max_structured_output_retries`
+            // doesn't fire in this path; we surface our own diagnostic so the
+            // failing run prints what the model actually said.
+            throw new AgentError(
+              "agent_invalid_output",
+              formatMissingStructuredOutput(msg),
+              "success_without_structured_output",
+            );
+          }
           return args.decisionSchema.parse(msg.structured_output);
         }
         const kind =
@@ -98,4 +109,31 @@ export class ClaudeAgentAdapter implements AgentAdapter {
       if (timer) clearTimeout(timer);
     }
   }
+}
+
+function formatMissingStructuredOutput(msg: {
+  result?: unknown;
+  num_turns?: unknown;
+  total_cost_usd?: unknown;
+  stop_reason?: unknown;
+}): string {
+  const RESULT_PREVIEW_CHARS = 600;
+  const resultRaw = typeof msg.result === "string" ? msg.result : "";
+  const preview =
+    resultRaw.length > RESULT_PREVIEW_CHARS
+      ? `${resultRaw.slice(0, RESULT_PREVIEW_CHARS)}... [truncated, ${resultRaw.length} chars]`
+      : resultRaw;
+  const numTurns = typeof msg.num_turns === "number" ? msg.num_turns : "?";
+  const cost =
+    typeof msg.total_cost_usd === "number"
+      ? msg.total_cost_usd.toFixed(4)
+      : "?";
+  const stopReason =
+    typeof msg.stop_reason === "string" ? msg.stop_reason : "?";
+  return (
+    `claude session ended with subtype=success but no structured_output. ` +
+    `The CLI accepted --json-schema but the model returned plain text instead of structured data. ` +
+    `num_turns=${numTurns} cost_usd=${cost} stop_reason=${stopReason}. ` +
+    `result preview: ${preview || "(empty)"}`
+  );
 }

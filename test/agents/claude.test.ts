@@ -132,6 +132,40 @@ describe("ClaudeAgentAdapter", () => {
     expect(err.kind).toBe("agent_invalid_output");
   });
 
+  it("throws agent_invalid_output with diagnostic on success-without-structured_output", async () => {
+    (sdk as any).query.mockImplementation(() =>
+      (async function* () {
+        yield {
+          type: "result",
+          subtype: "success",
+          // structured_output intentionally absent
+          result:
+            "I'll classify this issue. Based on the body, this looks like a medium-complexity refactor...",
+          num_turns: 4,
+          total_cost_usd: 0.0123,
+          stop_reason: "end_turn",
+        };
+      })(),
+    );
+    const agent = new ClaudeAgentAdapter();
+    const err = await agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+      })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(AgentError);
+    expect(err.kind).toBe("agent_invalid_output");
+    expect(err.subtype).toBe("success_without_structured_output");
+    expect(err.message).toMatch(/num_turns=4/);
+    expect(err.message).toMatch(/cost_usd=0\.0123/);
+    expect(err.message).toMatch(/stop_reason=end_turn/);
+    expect(err.message).toMatch(/I'll classify this issue/);
+  });
+
   it("throws agent_execution when no result message arrives", async () => {
     (sdk as any).query.mockImplementation(() =>
       (async function* () {
