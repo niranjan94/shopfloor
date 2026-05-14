@@ -53,6 +53,7 @@ jobs:
           mode: resolve
           # Resolve mode does not call the GitHub API, but entry.ts still
           # constructs the adapter at startup, so credentials must be present.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
           github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
           trigger_label: "shopfloor:trigger"
