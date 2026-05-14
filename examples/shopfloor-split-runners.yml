@@ -24,12 +24,11 @@ permissions:
   issues: read
   pull-requests: read
 
-# Serialize events that touch the same issue. Without this, a label flip from
-# one stage's apply() can race the next stage's start. v1 caught this class of
-# bug in commit aaef95f ("per-stage concurrency groups and precheck wiring").
-concurrency:
-  group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
+# Concurrency is scoped per-stage on the mutating jobs only (see `light` and
+# `implement` below). The resolve job stays un-grouped so no-op route events
+# never displace a real advancement event from the pending queue. See
+# docs/superpowers/specs/2026-04-15-shopfloor-concurrency-fix.md for the
+# rationale and the four-layer fix this is the first layer of.
 
 jobs:
   resolve:
@@ -51,6 +50,11 @@ jobs:
   light:
     needs: resolve
     if: contains(fromJSON('["triage","spec","plan","review"]'), needs.resolve.outputs.stage)
+    # review shares the implement group so a review aggregator does not race a
+    # queued implement revision on the same issue.
+    concurrency:
+      group: shopfloor-${{ needs.resolve.outputs.stage == 'review' && 'implement' || needs.resolve.outputs.stage }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -67,6 +71,9 @@ jobs:
   implement:
     needs: resolve
     if: needs.resolve.outputs.stage == 'implement'
+    concurrency:
+      group: shopfloor-implement-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest-8core # whatever beefy runner label your account exposes
     timeout-minutes: 60
     steps:
