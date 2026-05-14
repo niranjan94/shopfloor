@@ -1,0 +1,126 @@
+name: Shopfloor
+description: Staged, human-gated AI delivery pipeline for GitHub issues and PRs
+author: niranjan94
+branding:
+  icon: git-pull-request
+  color: blue
+
+inputs:
+  anthropic_api_key:
+    description: Anthropic API key. Required unless claude_code_oauth_token is set.
+    required: false
+    default: ""
+  claude_code_oauth_token:
+    description: Anthropic OAuth token. One of anthropic_api_key or claude_code_oauth_token is required.
+    required: false
+    default: ""
+  shopfloor_github_app_client_id:
+    description: GitHub App client id for Shopfloor's primary App (mutations).
+    required: true
+  shopfloor_github_app_private_key:
+    description: GitHub App private key (PEM) for Shopfloor's primary App.
+    required: true
+  shopfloor_github_app_review_client_id:
+    description: GitHub App client id for Shopfloor's review App (optional).
+    required: false
+    default: ""
+  shopfloor_github_app_review_private_key:
+    description: GitHub App private key (PEM) for Shopfloor's review App (optional).
+    required: false
+    default: ""
+  github_app_token:
+    description: Preminted primary App installation token (recommended; produced by actions/create-github-app-token in the caller workflow). When set, skips JWT minting in-process.
+    required: false
+    default: ""
+  github_app_review_token:
+    description: Preminted review App installation token. When set, skips JWT minting in-process.
+    required: false
+    default: ""
+  trigger_label:
+    description: If set, only issues with this label enter the pipeline.
+    required: false
+    default: ""
+  max_review_iterations:
+    description: Maximum review revision loops before bailing out.
+    required: false
+    default: "3"
+  triage_model:
+    description: Model id for the triage stage.
+    required: false
+    default: "claude-haiku"
+  spec_model:
+    description: Model id for the spec stage.
+    required: false
+    default: "claude-opus"
+  plan_model:
+    description: Model id for the plan stage.
+    required: false
+    default: "claude-opus"
+  impl_model:
+    description: Model id for the implement stage.
+    required: false
+    default: "claude-opus"
+  review_compliance_model:
+    description: Model id for the compliance review lens.
+    required: false
+    default: "claude-opus"
+  review_bugs_model:
+    description: Model id for the bugs review lens.
+    required: false
+    default: "claude-opus"
+  review_security_model:
+    description: Model id for the security review lens.
+    required: false
+    default: "claude-opus"
+  review_smells_model:
+    description: Model id for the smells review lens.
+    required: false
+    default: "claude-opus"
+  triage_max_budget_usd:
+    description: USD budget cap for the triage stage.
+    required: false
+    default: "0.25"
+  spec_max_budget_usd:
+    description: USD budget cap for the spec stage.
+    required: false
+    default: "1.50"
+  plan_max_budget_usd:
+    description: USD budget cap for the plan stage.
+    required: false
+    default: "1.50"
+  impl_max_budget_usd:
+    description: USD budget cap for the implement stage.
+    required: false
+    default: "2.50"
+  review_max_budget_usd_per_lens:
+    description: USD budget cap per review lens.
+    required: false
+    default: "0.75"
+  triage_timeout_ms:
+    description: Wall-clock timeout for the triage stage.
+    required: false
+    default: "300000"
+  spec_timeout_ms:
+    description: Wall-clock timeout for the spec stage.
+    required: false
+    default: "1200000"
+  plan_timeout_ms:
+    description: Wall-clock timeout for the plan stage.
+    required: false
+    default: "1200000"
+  impl_timeout_ms:
+    description: Wall-clock timeout for the implement stage.
+    required: false
+    default: "3600000"
+  review_timeout_ms_per_lens:
+    description: Wall-clock timeout per review lens.
+    required: false
+    default: "900000"
+  ssh_signing_key:
+    description: Optional SSH signing key for commits.
+    required: false
+    default: ""
+
+runs:
+  using: node24
+  main: dist/index.cjs
