@@ -77,6 +77,7 @@ export async function runOrchestrator(
             : {}),
         });
 
+  const routingContext = extractRoutingContext(args.event, liveLabels);
   args.audit({
     type: "stage_resolved",
     stage: decision.stage,
@@ -84,6 +85,17 @@ export async function runOrchestrator(
     ...(decision.issueNumber !== undefined
       ? { issueNumber: decision.issueNumber }
       : {}),
+    eventName: args.event.name,
+    ...(routingContext.action !== undefined
+      ? { action: routingContext.action }
+      : {}),
+    ...(routingContext.labelName !== undefined
+      ? { labelName: routingContext.labelName }
+      : {}),
+    ...(routingContext.payloadLabels !== undefined
+      ? { payloadLabels: routingContext.payloadLabels }
+      : {}),
+    ...(liveLabels !== undefined ? { liveLabels } : {}),
   });
 
   if (args.config.mode === "resolve") {
@@ -190,6 +202,65 @@ function modelForStage(stage: Stage, cfg: Config): string {
     case "review":
       return cfg.reviewModels.compliance;
   }
+}
+
+interface RoutingContext {
+  action?: string;
+  labelName?: string;
+  payloadLabels?: string[];
+}
+
+function extractRoutingContext(
+  event: { name: string; payload: EventPayload },
+  liveLabels: string[] | undefined,
+): RoutingContext {
+  switch (event.name) {
+    case "issues": {
+      const p = event.payload as IssuePayload;
+      const ctx: RoutingContext = {};
+      if (p.action !== undefined) ctx.action = p.action;
+      if (p.label?.name !== undefined) ctx.labelName = p.label.name;
+      if (p.issue) {
+        const payloadLabels = p.issue.labels.map((l) => l.name);
+        // Only attach payloadLabels when it differs from liveLabels -- if a
+        // route caller already refetched, the two arrays carry the same
+        // information and duplicating them costs log bytes for no signal.
+        if (
+          liveLabels === undefined ||
+          !arraysEqual(payloadLabels, liveLabels)
+        ) {
+          ctx.payloadLabels = payloadLabels;
+        }
+      }
+      return ctx;
+    }
+    case "pull_request":
+    case "pull_request_review": {
+      const p = event.payload as PullRequestPayload | PullRequestReviewPayload;
+      const ctx: RoutingContext = {};
+      if ("action" in p && typeof p.action === "string") ctx.action = p.action;
+      if ("label" in p && p.label?.name !== undefined) {
+        ctx.labelName = p.label.name;
+      }
+      return ctx;
+    }
+    case "issue_comment": {
+      const p = event.payload as { action?: string };
+      return p.action !== undefined ? { action: p.action } : {};
+    }
+    default:
+      return {};
+  }
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  for (let i = 0; i < sortedA.length; i++) {
+    if (sortedA[i] !== sortedB[i]) return false;
+  }
+  return true;
 }
 
 function extractEventLabels(event: {

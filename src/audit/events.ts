@@ -6,6 +6,14 @@ export type AuditEvent =
       stage: Stage | "none";
       reason: string;
       issueNumber?: number;
+      // Event context captured at routing time. Lets a single log line answer
+      // "which webhook delivery did the router see, and which labels did it
+      // resolve against" without trawling the workflow event payload.
+      eventName?: string;
+      action?: string;
+      labelName?: string;
+      payloadLabels?: string[];
+      liveLabels?: string[];
     }
   | { type: "precheck_failed"; stage: Stage; reason: string }
   | { type: "stage_started"; stage: Stage; model: string; runId: string }

@@ -327,6 +327,51 @@ describe("runOrchestrator", () => {
     expect(result.executed).toBe(true);
   });
 
+  it("stage_resolved carries event context for log-side diagnosis", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    await runOrchestrator({
+      event: {
+        name: "issues",
+        payload: {
+          action: "labeled",
+          label: { name: "shopfloor:large" },
+          issue: {
+            number: 17,
+            title: "test",
+            body: null,
+            labels: [
+              { name: "shopfloor:trigger" },
+              { name: "shopfloor:large" },
+            ],
+            state: "open",
+          },
+          repository: { owner: { login: "octo" }, name: "demo" },
+        } as never,
+      },
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([]),
+      audit: audit.emit,
+      config: baseConfig,
+      runId: "r-ctx",
+    });
+    const resolved = audit.events.find((e) => e.type === "stage_resolved");
+    expect(resolved).toBeDefined();
+    if (resolved && resolved.type === "stage_resolved") {
+      expect(resolved.eventName).toBe("issues");
+      expect(resolved.action).toBe("labeled");
+      expect(resolved.labelName).toBe("shopfloor:large");
+      // payloadLabels omitted when equal to liveLabels (auto mode reuses the
+      // payload snapshot, so the two are identical and one suffices).
+      expect(resolved.liveLabels).toEqual([
+        "shopfloor:trigger",
+        "shopfloor:large",
+      ]);
+    }
+  });
+
   it("mode=resolve emits stage_resolved and exits without mutex or agent calls", async () => {
     const audit = makeAudit();
     const mg = makeMockGithub();
