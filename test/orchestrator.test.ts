@@ -58,6 +58,22 @@ describe("runOrchestrator", () => {
     expect(mg.addLabel).not.toHaveBeenCalled();
   });
 
+  it("returns { stage: 'none', executed: false } when the event does not route to a stage", async () => {
+    const audit = makeAudit();
+    const mg = makeMockGithub();
+    const result = await runOrchestrator({
+      event: { name: "push", payload: {} as never },
+      repo: { owner: "octo", name: "demo" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([]),
+      audit: audit.emit,
+      config: baseConfig,
+      runId: "r1",
+    });
+    expect(result).toEqual({ stage: "none", executed: false });
+  });
+
   it("routes issues.opened to triage and runs the runner + apply", async () => {
     const audit = makeAudit();
     const mg = makeMockGithub();

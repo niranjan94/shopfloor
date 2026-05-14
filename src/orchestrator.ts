@@ -20,6 +20,11 @@ import type {
 import type { StageContext } from "./stages/_shared/context.js";
 import { RUNNERS } from "./runners.js";
 
+export interface OrchestratorResult {
+  stage: Stage | "none";
+  executed: boolean;
+}
+
 export interface OrchestratorArgs {
   event: { name: string; payload: EventPayload };
   repo: { owner: string; name: string };
@@ -53,7 +58,9 @@ const TRIAGE_BLOCKING_STATE_LABELS = new Set<string>([
   LABELS.complexityLarge,
 ]);
 
-export async function runOrchestrator(args: OrchestratorArgs): Promise<void> {
+export async function runOrchestrator(
+  args: OrchestratorArgs,
+): Promise<OrchestratorResult> {
   const liveLabels = extractEventLabels(args.event);
   const triggerLabel = args.config.triggerLabel ?? undefined;
 
@@ -79,7 +86,9 @@ export async function runOrchestrator(args: OrchestratorArgs): Promise<void> {
       : {}),
   });
 
-  if (decision.stage === "none") return;
+  if (decision.stage === "none") {
+    return { stage: "none", executed: false };
+  }
 
   const stage = decision.stage as Stage;
   const issue = loadIssueFromEvent(args.event, liveLabels);
@@ -103,7 +112,7 @@ export async function runOrchestrator(args: OrchestratorArgs): Promise<void> {
   const precheck = precheckStage(stage, new Set(issue?.labels ?? []));
   if (!precheck.ok) {
     args.audit({ type: "precheck_failed", stage, reason: precheck.reason });
-    return;
+    return { stage, executed: false };
   }
 
   args.audit({
@@ -136,6 +145,7 @@ export async function runOrchestrator(args: OrchestratorArgs): Promise<void> {
       await args.github.removeLabel(decision.issueNumber, mutex);
     }
   }
+  return { stage, executed: true };
 }
 
 function mutexLabelFor(stage: Stage): string | null {

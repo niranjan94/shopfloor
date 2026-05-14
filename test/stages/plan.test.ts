@@ -36,6 +36,8 @@ const baseConfig: Config = {
   planTimeoutMs: 120_000,
   implTimeoutMs: 360_000,
   reviewTimeoutMsPerLens: 90_000,
+  mode: "auto" as const,
+  stages: [] as Array<"triage" | "spec" | "plan" | "implement" | "review">,
 };
 
 const decision = {
