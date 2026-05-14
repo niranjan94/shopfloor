@@ -14,21 +14,47 @@ jobs:
     # Mutually exclusive with dogfood-review.yml on the PR event surface.
     # Non-PR events (issues, issue_comment) always proceed; PR/PR-review events
     # proceed only when the PR was authored by Shopfloor (body carries the
-    # `Shopfloor-Stage:` marker set by router/src/github.ts). This prevents the
-    # full pipeline's review jobs from appearing as skipped rows on human PRs.
+    # `Shopfloor-Stage:` marker set by src/github/adapter.ts). This keeps
+    # the full pipeline off human-authored PRs; dogfood-review.yml handles
+    # those with review_only=true.
     if: >-
       !(github.event_name == 'pull_request' || github.event_name == 'pull_request_review')
       || contains(github.event.pull_request.body, 'Shopfloor-Stage:')
-    uses: ./.github/workflows/shopfloor.yml
-    # Minimum ceiling: every nested Shopfloor job runs on read-only GITHUB_TOKEN
-    # scopes because all writes flow through the Shopfloor GitHub App installation
-    # token. issues/pull-requests read is required so the agent can fetch
-    # uploaded images and files attached to issue/PR bodies via gh api.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # All writes go through the Shopfloor GitHub App installation token, so
+    # the workflow itself stays on read-only scopes.
     permissions:
       contents: read
       issues: read
       pull-requests: read
-    secrets: inherit
-    with:
-      artifacts_dir: "docs/superpowers/"
-      trigger_label: "shopfloor:trigger"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Mint Shopfloor App token
+        id: app_token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+      - name: Mint Shopfloor review App token (optional)
+        id: review_app_token
+        if: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID != '' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
+          private-key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
+      - name: Run Shopfloor
+        uses: ./
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          shopfloor_github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+          shopfloor_github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+          github_app_token: ${{ steps.app_token.outputs.token }}
+          shopfloor_github_app_review_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
+          shopfloor_github_app_review_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
+          github_app_review_token: ${{ steps.review_app_token.outputs.token }}
+          ssh_signing_key: ${{ secrets.SSH_SIGNING_KEY }}
+          trigger_label: "shopfloor:trigger"
