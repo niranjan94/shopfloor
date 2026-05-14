@@ -48,4 +48,37 @@ describe("parseConfig", () => {
       parseConfig({ ...baseInputs, impl_max_budget_usd: "lots" }),
     ).toThrow();
   });
+
+  it("defaults mode to auto and stages to empty list", () => {
+    const cfg = parseConfig(baseInputs);
+    expect(cfg.mode).toBe("auto");
+    expect(cfg.stages).toEqual([]);
+  });
+
+  it("parses mode=resolve and mode=execute", () => {
+    expect(parseConfig({ ...baseInputs, mode: "resolve" }).mode).toBe(
+      "resolve",
+    );
+    expect(parseConfig({ ...baseInputs, mode: "execute" }).mode).toBe(
+      "execute",
+    );
+  });
+
+  it("rejects an unknown mode value", () => {
+    expect(() => parseConfig({ ...baseInputs, mode: "wat" })).toThrow();
+  });
+
+  it("parses a comma-separated stages list, trimming whitespace", () => {
+    const cfg = parseConfig({
+      ...baseInputs,
+      stages: "triage, implement ,review",
+    });
+    expect(cfg.stages).toEqual(["triage", "implement", "review"]);
+  });
+
+  it("rejects an unknown stage name in stages", () => {
+    expect(() =>
+      parseConfig({ ...baseInputs, stages: "triage,nonsense" }),
+    ).toThrow();
+  });
 });

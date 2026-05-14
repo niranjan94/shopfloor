@@ -13,6 +13,25 @@ const num = (min = 0) =>
     return n;
   });
 
+const STAGE_NAMES = ["triage", "spec", "plan", "implement", "review"] as const;
+type StageName = (typeof STAGE_NAMES)[number];
+
+function parseStagesList(raw: string): StageName[] {
+  if (!raw.trim()) return [];
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const p of parts) {
+    if (!(STAGE_NAMES as readonly string[]).includes(p)) {
+      throw new Error(
+        `invalid stage name in stages: ${p} (valid: ${STAGE_NAMES.join(", ")})`,
+      );
+    }
+  }
+  return parts as StageName[];
+}
+
 const RawInputs = z
   .object({
     anthropic_api_key: z.string().optional().default(""),
@@ -42,6 +61,8 @@ const RawInputs = z
     plan_timeout_ms: num(1000).default("1200000"),
     impl_timeout_ms: num(1000).default("3600000"),
     review_timeout_ms_per_lens: num(1000).default("900000"),
+    mode: z.enum(["auto", "resolve", "execute"]).default("auto"),
+    stages: z.string().default(""),
   })
   .refine((v) => v.anthropic_api_key || v.claude_code_oauth_token, {
     message: "one of anthropic_api_key or claude_code_oauth_token is required",
@@ -94,5 +115,7 @@ export function parseConfig(raw: Record<string, string | undefined>) {
     planTimeoutMs: parsed.plan_timeout_ms,
     implTimeoutMs: parsed.impl_timeout_ms,
     reviewTimeoutMsPerLens: parsed.review_timeout_ms_per_lens,
+    mode: parsed.mode,
+    stages: parseStagesList(parsed.stages),
   } as const;
 }
