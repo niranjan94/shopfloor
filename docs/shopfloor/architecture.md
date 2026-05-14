@@ -1,28 +1,49 @@
 # Shopfloor architecture
 
-A plain-English tour of how Shopfloor is wired together. For the full design spec see [`docs/superpowers/specs/2026-04-14-shopfloor-design.md`](../superpowers/specs/2026-04-14-shopfloor-design.md).
+A plain-English tour of how Shopfloor is wired together. For the original v1 design spec (historical) see [`docs/superpowers/specs/2026-04-14-shopfloor-design.md`](../superpowers/specs/2026-04-14-shopfloor-design.md).
 
 ## The big idea
 
 Shopfloor separates two things that are easy to conflate:
 
-1. **Deciding what to do next.** Which stage should run? Which label flips? Which PR opens? This is pure state-machine logic. Shopfloor runs it in a deterministic TypeScript router that owns every GitHub mutation.
-2. **Doing the creative work.** Writing a spec, writing a plan, writing code, reviewing code. This is what Claude is good at. Shopfloor runs these as sealed `claude-code-action` agents with no direct GitHub permissions — they read context and emit structured output, and nothing else.
+1. **Deciding what to do next.** Which stage should run? Which label flips? Which PR opens? This is pure state-machine logic. Shopfloor runs it in a deterministic TypeScript orchestrator that owns every GitHub mutation.
+2. **Doing the creative work.** Writing a spec, writing a plan, writing code, reviewing code. This is what Claude is good at. Shopfloor invokes the Claude Agent SDK in-process and constrains each agent to emit one structured JSON object validated by a Zod schema.
 
-Every agent stage produces one JSON object with a fixed schema. The router reads that JSON, posts the comment, flips the label, opens the PR, and decides which stage fires next. Agents never touch GitHub state directly, so pipeline behavior stays predictable even when an agent goes off-script.
+Agents never mutate GitHub directly. The pipeline stays predictable even when an agent goes off-script.
+
+## How v2 is wired
+
+v2 ships as a single Node 24 GitHub Action (`niranjan94/shopfloor@v2`). There is no separate router package, no reusable workflow, and no `claude-code-action` subprocess. The action's entry point is [`src/entry.ts`](../../src/entry.ts):
+
+1. Read inputs (via `@actions/core`), parse with Zod (`src/config/inputs.ts`).
+2. Resolve auth for the primary surface and the optional review surface (`src/github/app-token.ts`).
+3. Build the GitHub adapter, the audit emitter, and the Claude agent adapter.
+4. Call `runOrchestrator()` once with the event payload.
+
+The orchestrator ([`src/orchestrator.ts`](../../src/orchestrator.ts)) is the route → run → apply loop:
+
+1. Call the state machine to decide which stage (if any) this event should run.
+2. Run preflight checks (closed issue, draft PR, skip-review label, mutex collision).
+3. Acquire the stage's mutex label (`shopfloor:spec-running`, `plan-running`, `implementing`, `review-running`) when applicable.
+4. Dispatch to the stage's runner (`src/runners.ts`).
+5. The runner builds the prompt context, invokes the agent, and gets back a typed decision.
+6. The stage's `apply.ts` translates that decision into GitHub mutations.
+7. Release the mutex (even on failure) and emit an audit event.
 
 ## The state machine
 
-Every event GitHub sends (`issues`, `issue_comment`, `pull_request`, `pull_request_review`) flows into the `route` job. That job calls `resolveStage` in [`router/src/state.ts`](../../router/src/state.ts), a pure function of the event payload plus the issue or PR's current labels. It returns one of:
+Every event GitHub sends (`issues`, `issue_comment`, `pull_request`, `pull_request_review`) flows into [`resolveStage`](../../src/state/machine.ts) — a pure function of the event payload plus the issue or PR's current labels. It returns a `RouterDecision` whose `stage` is one of:
 
-- `triage` — a new issue, or a cleared `awaiting-info`
-- `spec` — an issue with `shopfloor:needs-spec`
-- `plan` — an issue with `shopfloor:needs-plan`
-- `implement` — an issue with `shopfloor:needs-impl`, or a revision triggered by a `changes_requested` review
-- `review` — a `synchronize` event on an implementation PR, or a cleared `review-stuck`
+- `triage` — a new issue, or one whose `shopfloor:awaiting-info` label was just removed, or a retry after `shopfloor:failed:triage` was cleared
+- `spec` — an issue carrying `shopfloor:needs-spec`
+- `plan` — an issue carrying `shopfloor:needs-plan`
+- `implement` — an issue carrying `shopfloor:needs-impl`, or a revision triggered by `pull_request_review` with `state=changes_requested` on an impl PR
+- `review` — `synchronize` / `ready_for_review` on an impl PR (out of draft, not skip-review, not WIP), or `shopfloor:review-stuck` removed
 - `none` — no action needed (the common case)
 
-The state machine has no I/O. Every decision is a function of the event payload and the labels in it. This is what makes it testable — the current unit suite exercises all branches with fixture events, including edge cases like draft PRs, the `skip-review` label, awaiting-info removal, and the branch-name slug derivation.
+The state machine has no I/O. Every decision is a function of the event payload, the live label set, and the issue/PR body metadata. That makes it cheap to unit-test against fixture events.
+
+For human-authored PRs reviewed via the `review_only: "true"` mode, [`resolveReviewOnly`](../../src/state/machine.ts) replaces `resolveStage`. It refuses to route when the PR carries Shopfloor metadata (so it never double-reviews a pipeline-authored PR), and otherwise returns `{stage: "review"}` for every push.
 
 ## The pipeline
 
@@ -32,7 +53,7 @@ issue opened
     ▼
 ┌─────────┐
 │ triage  │  classifies: quick / medium / large
-│         │  OR asks clarifying questions
+│         │  OR asks clarifying questions (shopfloor:awaiting-info)
 └────┬────┘
      │
      ├─ quick  ──────────────────────────────┐
@@ -53,8 +74,8 @@ issue opened
          │                                      │
          ▼                                      │
     ┌──────────┐                                │
-    │ implement│── PR (draft=false)             │
-    │          │── progress comment (MCP)       │
+    │ implement│── draft PR + pinned progress   │
+    │          │   comment (updated via MCP)    │
     └─────┬────┘                                │
           │                                     │
           ▼                                     │
@@ -71,91 +92,73 @@ issue opened
     └──────────────┘                            │
 ```
 
-Every arrow between stages is a label flip, and every PR merge is a human checkpoint. Shopfloor never advances past a PR until you merge it.
+Every arrow between stages is a label flip, and every PR merge is a human checkpoint. Shopfloor never merges its own work.
 
-## The router/agent boundary
+## The agent/router boundary
 
-This is the rule that makes everything else work:
+Shopfloor's rule:
 
-> Agents return structured JSON. Routers consume structured JSON and mutate GitHub.
+> Agents return structured JSON. The runtime consumes structured JSON and mutates GitHub.
 
 Concretely:
 
-- Spec/plan/implement agents **write files to disk** using their `Write` tool. They do not commit them. After the agent step finishes, the workflow's shell step stages and commits the file using the exact Conventional Commits message the plan specifies. Then a router helper opens the PR.
-- Triage agents **do not write any file**. They only return JSON. The router helper `apply-triage-decision` turns that JSON into a comment and label flip.
-- Reviewer agents **do not write any file or post any comment**. They only return JSON. The router helper `aggregate-review` combines the four reviewer outputs, dedupes overlapping comments, filters by confidence, and posts one combined review via the GitHub API.
+- **Spec / plan / implement** agents write files to disk using their Write tool. They do not commit them. After the agent step finishes, the stage's `apply.ts` stages and commits the file with a Conventional Commits message and opens (or updates) the stage PR via [`GitHubAdapter.openStagePr`](../../src/github/adapter.ts).
+- **Triage** does not write files. It returns a `TriageDecision` (complexity, classification reasoning, optional supplied spec/plan, optional clarification message). `apply.ts` posts a comment, flips labels, persists supplied artifact paths into the issue's metadata block, and optionally seeds a spec/plan PR.
+- **Review lenses** do not post comments or mutate state. Each lens returns a `LensDecision` (verdict + findings). The aggregator dedupes overlapping findings, filters by confidence, and posts one combined review with batched inline comments.
 
-The `.github/workflows/shopfloor.yml` file is thin wiring. It reads the event, calls `route`, dispatches the correct stage job, builds a context JSON via `jq`, asks the router's `render-prompt` helper to interpolate placeholders and merge `.claude/settings.json` permissions, runs `claude-code-action`, and hands the structured output back to router helpers that do the actual GitHub mutations.
+The implement stage gets one tool that mutates GitHub: `mcp__shopfloor__update_progress`. It rewrites the body of a pinned "Shopfloor implementation in progress" comment with a markdown checklist. The MCP server is in-process (no subprocess) and registered by [`src/agents/claude.ts`](../../src/agents/claude.ts) using `createSdkMcpServer` from `@anthropic-ai/claude-agent-sdk`. The agent cannot post new comments, delete anything, or touch labels through this tool — only update the one comment whose id is in its context.
 
 ## The review loop
 
-The review stage is a 4-cell matrix (compliance, bugs, security, smells). Each cell runs as its own job with its own prompt, its own model, and its own turn budget. All four read the same PR diff, spec, and plan, but each stays in its lane.
+The review stage is a 4-cell matrix: **compliance**, **bugs**, **security**, **smells**. Each cell is an independent agent invocation with its own prompt, model, budget, and timeout. All four read the same PR diff, spec, and plan; each stays in its lane.
 
-After all four cells finish (or time out), the aggregator job runs with `if: always()`. It:
+All four lenses run in parallel via `Promise.allSettled`. After they all finish (or time out), the aggregator ([`src/stages/review/aggregate.ts`](../../src/stages/review/aggregate.ts)) runs:
 
-1. Parses each cell's structured output (treating empty output from a failed cell as "no findings").
-2. Concatenates all comments.
-3. Dedupes comments that point at the same path/line with >= 0.75 token overlap in their bodies. The higher-confidence comment wins.
-4. Filters out comments below `review_confidence_threshold` (default 80).
-5. Decides the verdict: if every cell returned `clean` AND nothing survived filtering, the verdict is `APPROVE`; otherwise `REQUEST_CHANGES`.
-6. Posts one batched review on the PR (not four separate reviews).
-7. Flips labels on the origin issue and sets the `shopfloor/review` commit status.
+1. Parses each lens's structured output. A failed lens is treated as "no clean verdict" and forces a `REQUEST_CHANGES`.
+2. Concatenates findings across lenses.
+3. Dedupes findings that point at the same path/line with > 75% token overlap. The higher-confidence one wins.
+4. Filters out findings below the hardcoded confidence threshold (currently 60).
+5. Decides the verdict:
+   - **APPROVE** if every lens succeeded and returned `verdict: "clean"` AND nothing survived filtering.
+   - **REQUEST_CHANGES** otherwise. The aggregator increments the PR body's `Shopfloor-Review-Iteration` counter and the impl agent sees both the counter and the review comments on its next run.
+   - **Iteration cap** when the incremented counter would exceed `max_review_iterations`. Shopfloor applies `shopfloor:review-stuck` and stops looping — a human is expected to take over.
 
-If the verdict is `REQUEST_CHANGES`, Shopfloor increments the PR body's `Shopfloor-Review-Iteration` counter. The implementation agent will see this counter and the review comments in its next run and revise accordingly. If the counter exceeds `max_review_iterations`, Shopfloor applies `shopfloor:review-stuck` and stops looping — a human is expected to take over.
+For human-authored PRs reviewed via `review_only: "true"`, iteration is forced to 0 and the cap is disabled. No counter is written to the PR body. No labels are applied. Each push gets a fresh review.
 
-## The router helpers
+## The GitHub adapter
 
-The router is a single TypeScript package at `router/`, bundled with esbuild into `router/dist/index.cjs` and shipped as a `node24` action at `router/action.yml`. It exposes one input (`helper:`) that dispatches to one of 13 helpers:
+[`GitHubAdapter`](../../src/github/adapter.ts) wraps Octokit. It is the only place in v2 that performs GitHub mutations. The surface is small:
 
-- `route` — resolves the stage from the event
-- `bootstrap-labels` — creates missing `shopfloor:*` labels
-- `open-stage-pr` — opens a PR with the metadata block in the body
-- `advance-state` — flips labels on an issue or PR
-- `report-failure` — posts a diagnostic comment and applies `shopfloor:failed:<stage>`
-- `handle-merge` — on PR merge, flips the origin issue to the next stage (or closes it when impl merges)
-- `create-progress-comment` — posts the initial "Shopfloor implementation in progress" comment
-- `finalize-progress-comment` — rewrites the body with a terminal state
-- `check-review-skip` — evaluates skip conditions for the review stage
-- `aggregate-review` — the review loop's aggregator described above
-- `render-prompt` — renders a prompt template with a context JSON, merging `.claude/settings.json` permissions into the allowed tools
-- `apply-triage-decision` — turns the triage structured output into a comment and label flip
-- `apply-impl-postwork` — after impl, updates the PR body/title and flips the next-state label
+- Labels: `addLabel`, `removeLabel`, `replaceLabels` (atomic add+remove).
+- Comments: `postIssueComment`, `updateComment`.
+- PRs: `openStagePr` (idempotent open-or-update, appends the metadata footer), `updatePrBody`, `updatePr`, `findOpenPrByHead`, `findOpenImplPrForIssue`.
+- Reviews: `postReview` (APPROVE / REQUEST_CHANGES / COMMENT with batched line comments).
+- Statuses: `setReviewStatus` (commit status under the `shopfloor/review` context).
+- Bootstrap: `listRepoLabels`, `createLabel` (idempotent).
+- Reads: `getPr`, `listPrReviews`, `listPrReviewComments`, `listIssueComments`, `listChangedFilePatches`, `getFileSha`.
+- Metadata: `upsertIssueMetadata` (the `<!-- shopfloor:metadata ... -->` HTML block on issues).
 
-Every helper is unit-tested against a mocked octokit; the state machine and review aggregator are the most thoroughly covered because they are the highest-risk pieces.
-
-## The Shopfloor MCP server
-
-The implementation stage is the one agent that needs a way to update the world while it runs. It does this through a Shopfloor-namespaced MCP server at `mcp-servers/shopfloor-mcp/index.ts`.
-
-The server exposes one tool: `update_progress`. Calling it replaces the body of a pre-existing "Shopfloor implementation in progress" comment on the impl PR with a new markdown body (typically a checklist of tasks with completion state). The server's GitHub credentials and comment id are injected via environment variables in the workflow, so the agent never sees raw secrets.
-
-The agent cannot use this tool to post new comments, delete anything, or touch labels. It can only update the one comment whose id is in the env. This gives humans a live view of progress without adding a general-purpose "write to GitHub" tool to the agent's surface.
+Every mutation flows through the App installation token resolved by `src/github/app-token.ts`.
 
 ## Concurrency and races
 
-Shopfloor uses a GitHub Actions `concurrency` group keyed by issue or PR number:
+GitHub Actions concurrency groups serialize events on the same issue and the same PR. Cross-entity races (an event on an origin issue while one of its child PRs is mid-flight) are not serialized by GitHub Actions — concurrency expressions cannot parse the `Shopfloor-Issue` footer from a PR body.
 
-```yaml
-concurrency:
-  group: shopfloor-${{ github.event.issue.number || github.event.pull_request.number }}
-  cancel-in-progress: false
-```
-
-This serializes events on the same issue and the same PR. It does NOT serialize events that touch an origin issue and its child PRs simultaneously — GitHub Actions concurrency expressions cannot parse the `Shopfloor-Issue` metadata from a PR body. The state machine tolerates the resulting stale-label races by emitting `stage=none` when it sees inconsistent labels, so they degrade into "do nothing this run" rather than causing data corruption.
+Shopfloor tolerates these races with mutex labels (`shopfloor:spec-running`, `plan-running`, `implementing`, `review-running`). The orchestrator acquires the mutex before running a stage and releases it on completion (or failure). A concurrent run that finds the mutex already held aborts with `stage=none`. Crashes can leave a mutex orphaned — see [troubleshooting.md](troubleshooting.md) for the recovery.
 
 ## Escape hatches
 
 - **`shopfloor:skip-review`** on the impl PR (or its origin issue) bypasses the review matrix entirely.
-- **`shopfloor:revise`** on an issue re-runs the current stage with fresh context. The router treats it as a one-shot trigger.
-- **`shopfloor:awaiting-info`** pauses the pipeline until the label is removed.
-- **`shopfloor:review-stuck`** pauses the pipeline after the review loop gives up. Removing it force-runs another review iteration.
-- **`shopfloor:failed:<stage>`** pauses after an error. Removing it retries.
+- **`shopfloor:wip`** suppresses review while present. Removing it (or pushing after un-drafting) re-triggers review.
+- **`shopfloor:awaiting-info`** pauses the pipeline until removed.
+- **`shopfloor:review-stuck`** pauses the pipeline after the review loop gives up. Removing it forces another review iteration.
+- **`shopfloor:failed:<stage>`** pauses after an error. Removing it retries that stage.
 
-All of these are meant to be human-controlled. The router never sets them except in response to clearly terminal states.
+All of these are human-controlled. The orchestrator never sets the modifier labels (`skip-review`, `wip`); it only sets the state labels (`failed:*`, `review-stuck`, `awaiting-info`) in response to terminal states.
 
 ## Further reading
 
-- Full design spec: [`docs/superpowers/specs/2026-04-14-shopfloor-design.md`](../superpowers/specs/2026-04-14-shopfloor-design.md)
-- Implementation plan: [`docs/superpowers/plans/2026-04-14-shopfloor-v0.1-implementation.md`](../superpowers/plans/2026-04-14-shopfloor-v0.1-implementation.md)
 - Configuration reference: [`configuration.md`](configuration.md)
+- Operational playbook: [`workflows.md`](workflows.md)
 - Troubleshooting: [`troubleshooting.md`](troubleshooting.md)
+- FAQ: [`FAQ.md`](FAQ.md)

@@ -179,21 +179,23 @@ retry that stage from where it failed.
 
 Every lever a human can pull, in one table.
 
-| Action                                                   | What it does                                                                                                                                                                                          | When to reach for it                                                                                                                                                                         |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Remove `shopfloor:awaiting-info`                         | Re-runs triage with the issue's current body.                                                                                                                                                         | After you answer triage's clarifying questions.                                                                                                                                              |
-| Remove `shopfloor:failed:<stage>`                        | Retries that stage.                                                                                                                                                                                   | After you have fixed whatever broke (a flaky API, a bad prompt, a missing secret).                                                                                                           |
-| Apply `shopfloor:skip-review` to an impl PR or its issue | Skips the agent review matrix entirely. The PR moves straight to `shopfloor:impl-in-review` for human-only review.                                                                                    | When you trust the change and do not want to spend tokens on review.                                                                                                                         |
-| Apply `shopfloor:wip` to an impl PR                      | Suppresses review until the label is removed. Removing it kicks off review.                                                                                                                           | Mid-implementation iterations when you are pushing fixups and do not want a review on each push. Only relevant when `use_draft_prs: false`; with draft PRs, just toggle draft state instead. |
-| Convert an impl PR to draft (default mode)               | Same as `shopfloor:wip` for `use_draft_prs: true` setups. Drafts do not trigger review. Mark "ready for review" to resume.                                                                            | Same situations — pause review without losing the PR.                                                                                                                                        |
-| Remove `shopfloor:review-stuck`                          | Forces another review iteration on the current impl PR.                                                                                                                                               | When you have manually pushed a fix and want the reviewers to take another look.                                                                                                             |
-| Close the issue                                          | Every event for a closed issue resolves to `stage=none`. The pipeline freezes.                                                                                                                        | Pause anywhere, for any reason. Reopen to resume.                                                                                                                                            |
-| Change a complexity label by hand                        | Retroactively reroutes the issue. Apply the new complexity (`shopfloor:quick`/`medium`/`large`) and the matching stage label (`shopfloor:needs-impl`/`needs-plan`/`needs-spec`). Remove the old ones. | When triage classified wrong and you want to redirect without re-triaging.                                                                                                                   |
-| Request changes on a spec or plan PR                     | Triggers a revision run of that stage. The agent re-renders the prompt with your review comments.                                                                                                     | When the spec or plan is close but needs adjustments. Same shape as a normal code review.                                                                                                    |
-| Remove the trigger label from an issue mid-pipeline      | Nothing — issues already in the pipeline are grandfathered.                                                                                                                                           | Not an escape hatch. Listed here so you do not expect it to be one.                                                                                                                          |
+| Action                                                   | What it does                                                                                                                                                                                          | When to reach for it                                                                                                                 |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Remove `shopfloor:awaiting-info`                         | Re-runs triage with the issue's current body.                                                                                                                                                         | After you answer triage's clarifying questions.                                                                                      |
+| Remove `shopfloor:failed:<stage>`                        | Retries that stage.                                                                                                                                                                                   | After you have fixed whatever broke (a flaky API, a bad prompt, a missing secret).                                                   |
+| Apply `shopfloor:skip-review` to an impl PR or its issue | Skips the agent review matrix entirely. The PR moves straight to `shopfloor:impl-in-review` for human-only review.                                                                                    | When you trust the change and do not want to spend tokens on review.                                                                 |
+| Apply `shopfloor:wip` to an impl PR                      | Suppresses review until the label is removed. Removing it kicks off review.                                                                                                                           | Mid-implementation iterations when you are pushing fixups and do not want a review on each push. Drafting the PR works the same way. |
+| Convert an impl PR to draft                              | Drafts do not trigger review. Mark "ready for review" to resume.                                                                                                                                      | Same situations — pause review without losing the PR.                                                                                |
+| Remove `shopfloor:review-stuck`                          | Forces another review iteration on the current impl PR.                                                                                                                                               | When you have manually pushed a fix and want the reviewers to take another look.                                                     |
+| Close the issue                                          | Every event for a closed issue resolves to `stage=none`. The pipeline freezes.                                                                                                                        | Pause anywhere, for any reason. Reopen to resume.                                                                                    |
+| Change a complexity label by hand                        | Retroactively reroutes the issue. Apply the new complexity (`shopfloor:quick`/`medium`/`large`) and the matching stage label (`shopfloor:needs-impl`/`needs-plan`/`needs-spec`). Remove the old ones. | When triage classified wrong and you want to redirect without re-triaging.                                                           |
+| Request changes on a spec or plan PR                     | Triggers a revision run of that stage. The agent re-renders the prompt with your review comments.                                                                                                     | When the spec or plan is close but needs adjustments. Same shape as a normal code review.                                            |
+| Remove the trigger label from an issue mid-pipeline      | Nothing — issues already in the pipeline are grandfathered.                                                                                                                                           | Not an escape hatch. Listed here so you do not expect it to be one.                                                                  |
 
-A reserved future label, `shopfloor:revise`, is bootstrapped onto the repo
-but not yet wired to the state machine. Applying it today does nothing.
+`shopfloor:revise` is bootstrapped onto the repo as a reserved label but is
+not currently wired to the state machine. Applying it today does nothing —
+use the per-stage review path (request changes on the spec/plan PR, or
+remove `shopfloor:failed:<stage>`) instead.
 
 ---
 
@@ -402,17 +404,17 @@ The escape hatches in Section 3 cover per-issue control. A few knobs live
 in your caller workflow's `with:` block instead, for when the defaults
 are systematically wrong:
 
-- **Reviewer too noisy.** Raise `review_confidence_threshold` (default
-  `80`); raising to `90` or `95` filters out all but the most confident
-  findings. Or disable a specific reviewer cell —
-  `review_smells_enabled: false` is common if you already have a linter.
 - **Review loop never converges.** Drop `max_review_iterations` to `1`
   or `2`. Shopfloor will give up faster and apply `shopfloor:review-stuck`
   for human takeover sooner.
 - **Wrong model per stage.** Every stage has its own model input
   (`triage_model`, `spec_model`, `plan_model`, `impl_model`, and the four
   `review_*_model` inputs). See [configuration.md](configuration.md).
-- **Draft PRs not desired.** Set `use_draft_prs: false`. Shopfloor uses
-  `shopfloor:wip` as the draft equivalent. Caller workflows must subscribe
-  to `pull_request: types: [unlabeled]` for review to fire after
-  implementation completes — see [install.md](install.md#disabling-draft-prs).
+- **Budgets too tight or too loose.** Per-stage USD caps and millisecond
+  timeouts are configurable; see [configuration.md](configuration.md) for
+  the full list.
+
+The review confidence threshold (currently hardcoded to 60), per-lens
+enable toggles, and per-stage effort dials are not configurable in v2. If
+a single reviewer cell is consistently noisy on your repository, open an
+issue.

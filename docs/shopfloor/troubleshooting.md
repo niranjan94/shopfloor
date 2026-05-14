@@ -4,24 +4,25 @@ Common problems and how to unstick them.
 
 ## The workflow does not run at all
 
-**Symptom:** You opened an issue but nothing happened. No `route` job. No triage comment.
+**Symptom:** You opened an issue but nothing happened. No workflow run. No triage comment.
 
 **Check:**
 
-1. Is `.github/workflows/shopfloor.yml` on the default branch? GitHub only uses the caller workflow from the default branch.
-2. Does the caller `on:` block include `issues: types: [opened, ...]`? If you edited the trigger list, an `opened` event may have been dropped.
+1. Is `.github/workflows/shopfloor.yml` on the default branch? GitHub only uses workflows from the default branch.
+2. Does the caller `on:` block include `issues: types: [opened, labeled, unlabeled]`? Editing the trigger list can drop the `opened` event.
 3. Look at **Actions → All workflows** for a failed run. If Actions shows nothing at all, the workflow file has a YAML parse error — GitHub ignores invalid workflow files silently.
 4. Is GitHub Actions enabled for the repository? **Settings → Actions → General → Allow all actions and reusable workflows.**
+5. If you set `trigger_label`, does the issue carry that label? Issues without it resolve to `stage=none` and produce no visible output.
 
 ## Triage posts nothing
 
-**Symptom:** The `route` job runs and resolves to `stage=triage`, but the `triage` job either fails silently or produces no comment.
+**Symptom:** The workflow ran and the state machine resolved to `stage=triage`, but no comment appeared on the issue.
 
 **Check:**
 
-1. Inspect the `triage` job logs. The most common failure is a missing provider credential — look for "anthropic_api_key is required" or similar.
-2. Verify the secret name. `ANTHROPIC_API_KEY` in repo secrets is passed as `secrets.ANTHROPIC_API_KEY` to the reusable workflow, which expects `anthropic_api_key` (lowercase). `secrets: inherit` handles this automatically; explicit forwarding requires the right casing.
-3. If the agent ran but the "Apply triage decision" step failed, the structured output was malformed. Open the agent step logs to see what JSON the model returned.
+1. Inspect the workflow run logs. Look for "one of anthropic_api_key or claude_code_oauth_token is required" — that means the credential was not passed through (typically a typo or unset secret).
+2. If the agent ran but the apply step failed, the agent's structured output was malformed. The Zod schema validation error in the logs identifies which field. This usually means the model returned text instead of JSON — try raising `triage_model` or check that the prompt template was bundled correctly.
+3. Check whether the issue is gated by a `shopfloor:failed:triage` label from a previous run. Remove it to retry.
 
 ## Spec / plan / impl branch is not pushed
 
@@ -30,8 +31,9 @@ Common problems and how to unstick them.
 **Check:**
 
 1. **Branch protection rules on the default branch may require signed commits, PR reviews, or specific status checks.** Shopfloor pushes to a new branch (never directly to `main`), so most rules do not apply to the push itself. But rules like "Require signed commits" apply to the new branch too.
-2. Turn on signed commits: add the `SSH_SIGNING_KEY` secret, set `ssh_signing_key_enabled: true` in the caller, and confirm the key is registered with the GitHub App's identity.
-3. Check the Claude GitHub App's repository permissions. It needs **Contents: Read and write** to push branches.
+2. Turn on signed commits: add `SSH_SIGNING_KEY` as a secret, pass it via the `ssh_signing_key` input, and confirm the public half is registered as a signing key on the GitHub App's identity.
+3. Check the GitHub App's repository permissions. It needs **Contents: Read and write** to push branches.
+4. Check that `actions/checkout` in your caller workflow has `with: persist-credentials: false`. Without it, the GITHUB_TOKEN extraheader checkout writes into git config overrides the App token Shopfloor uses for pushes, and pushes 403.
 
 ## PRs cannot be opened
 
@@ -39,8 +41,8 @@ Common problems and how to unstick them.
 
 **Check:**
 
-1. The caller workflow's `permissions:` block must include `pull-requests: write`, `contents: write`, and `issues: write`. See [install.md](install.md) for the canonical snippet.
-2. If you use a custom GitHub App, it needs **Pull requests: Read and write**.
+1. With App credentials, the caller workflow's `permissions:` block can stay read-only — every write goes through the App installation token. If you're on the `github_token` fallback path, the workflow needs `pull-requests: write`, `contents: write`, and `issues: write`.
+2. The primary App needs **Pull requests: Read and write**, **Issues: Read and write**, **Contents: Read and write**, and **Commit statuses: Read and write**. See [install.md](install.md#setup) for the full list.
 3. If your org has "Restrict who can create pull requests to members of the organization" enabled, the bot identity must be an org member.
 
 ## CODEOWNERS blocks merges
@@ -49,9 +51,9 @@ Common problems and how to unstick them.
 
 **Check:**
 
-1. The Shopfloor review matrix posts its combined review as a `REQUEST_CHANGES` or `APPROVE` from whichever identity `claude-code-action` uses. This does NOT satisfy CODEOWNERS unless the reviewing identity is the code owner.
-2. Add the Shopfloor bot identity to CODEOWNERS if you want its approval to unblock merges. For the Claude GitHub App, that is `@claude` or the login configured for your custom app.
-3. Alternatively, leave CODEOWNERS as-is and treat the Shopfloor review as advisory input that a human merges on top of.
+1. The Shopfloor review matrix posts its combined verdict from whichever review-App identity you configured (or the primary App, if no review App is set). This does NOT satisfy CODEOWNERS unless the reviewing identity is the code owner.
+2. Add the Shopfloor review bot identity to CODEOWNERS if you want its approval to unblock merges.
+3. Alternatively, leave CODEOWNERS as-is and treat the Shopfloor review as advisory input a human merges on top of.
 
 ## Signed commit requirement is failing
 
@@ -59,18 +61,18 @@ Common problems and how to unstick them.
 
 **Check:**
 
-1. Set `ssh_signing_key_enabled: true` in the caller workflow.
-2. Add the `SSH_SIGNING_KEY` secret (the full private key, not a path).
-3. Verify the public half is registered as a signing key on the GitHub App or user identity Shopfloor runs under. Go to **Settings → SSH and GPG keys → New SSH key**, select the "Signing Key" type, and paste the public half.
-4. If you see "No signing key configured", the workflow did not set up signing at all — check that the secret exists and is named exactly `SSH_SIGNING_KEY`.
+1. Pass the private key via the `ssh_signing_key` input (`ssh_signing_key: ${{ secrets.SSH_SIGNING_KEY }}`).
+2. The secret's value should be the **full** private key contents, not a path.
+3. Verify the public half is registered as a signing key on the GitHub App identity Shopfloor commits under. Go to **Settings → SSH and GPG keys → New SSH key**, select the "Signing Key" type, and paste the public half.
+4. If commits are still unsigned, check the workflow run logs for git config errors — Shopfloor sets up signing at the start of each stage.
 
 ## Custom PR templates conflict
 
 **Symptom:** Shopfloor's PRs have a weird body that mixes your template placeholders with the metadata block.
 
-**Cause:** GitHub fills the body of a newly opened PR with `.github/pull_request_template.md` by default, but the `open-stage-pr` helper passes an explicit body string that overrides the template. So the template is NOT applied to Shopfloor PRs — which is usually what you want, because the spec/plan/impl bodies are agent-generated and already include everything the reviewer needs.
+**Cause:** GitHub fills the body of a newly opened PR with `.github/pull_request_template.md` by default, but [`GitHubAdapter.openStagePr`](../../src/github/adapter.ts) passes an explicit body string that overrides the template. So the template is NOT applied to Shopfloor PRs — which is usually what you want, because the spec/plan/impl bodies are agent-generated and already include everything the reviewer needs.
 
-If you want your template applied on top, merge its contents into the prompt's `pr_body` output field in the appropriate prompt file under `prompts/`.
+If you want your template applied on top, edit the relevant stage prompt under `src/stages/<stage>/prompt.*.md` so the agent's `pr_body` field includes your template content.
 
 ## Stage fails and stays stuck
 
@@ -79,8 +81,8 @@ If you want your template applied on top, merge its contents into the prompt's `
 **Recovery:**
 
 1. Click through to the failed workflow run linked in the diagnostic comment.
-2. Fix whatever caused the failure (often an expired secret, a hit turn budget, or a contradictory plan).
-3. Remove the `shopfloor:failed:<stage>` label from the issue. Shopfloor will re-run the stage from scratch on the next applicable event — you may need to nudge it by removing and re-adding the stage's `needs-*` label.
+2. Fix whatever caused the failure (often an expired secret, a hit budget, or a contradictory plan).
+3. Remove the `shopfloor:failed:<stage>` label from the issue. The state machine treats this as an explicit retry signal — Shopfloor re-runs the stage from scratch.
 
 ## Review loop goes `review-stuck`
 
@@ -91,16 +93,16 @@ If you want your template applied on top, merge its contents into the prompt's `
 **Recovery:**
 
 1. Read the latest review comment on the PR. It lists the outstanding findings.
-2. Either fix them yourself in a new commit, or push a different implementation and then manually remove `shopfloor:review-stuck`. Removing the label force-triggers one more review.
-3. If the reviewer is wrong (false positive), the cleanest fix is to bump `review_confidence_threshold` or disable the offending review cell (see [configuration.md](configuration.md)).
+2. Either fix them yourself in a new commit, or push a different implementation and then remove `shopfloor:review-stuck`. Removing the label force-triggers one more review.
+3. If the reviewer is wrong (false positive) and this pattern is persistent on your codebase, open an issue. The confidence threshold and per-lens toggles are not currently exposed as inputs.
 
 ## `skip-review` for docs-only PRs
 
 **Symptom:** You want to bypass the review matrix for a specific PR.
 
-**Fix:** Apply the `shopfloor:skip-review` label to either the PR itself or its origin issue. The `check-review-skip` helper will short-circuit the review stage and the PR will land in `shopfloor:impl-in-review` instead of `shopfloor:needs-review`.
+**Fix:** Apply the `shopfloor:skip-review` label to either the PR itself or its origin issue. The state machine returns `stage=none` with reason `skip_review_label_present` and the review pipeline does not fire.
 
-Shopfloor also auto-skips review when the PR's changed files are all inside `docs/shopfloor/` — you do not need `skip-review` for spec/plan-only PRs.
+Spec and plan PRs are not subject to the agent review matrix in the first place — that matrix only runs on impl PRs.
 
 ## GHES (GitHub Enterprise Server)
 
@@ -108,26 +110,22 @@ Shopfloor also auto-skips review when the PR's changed files are all inside `doc
 
 **Check:**
 
-1. The Shopfloor MCP server reads `GITHUB_API_URL` from the environment; the workflow sets this from `${{ github.api_url }}` which resolves correctly on GHES.
-2. The `gh` CLI (used by agents for `Bash(gh api:*)`) reads `GH_HOST` or `GITHUB_API_URL`; GitHub Actions sets these automatically on GHES runners.
-3. Agents that fetch user-uploaded attachments via `curl` need the GHES base host. GHES rewrites `github.com/user-attachments/...` URLs to its own host; the agent should use whatever URL appears in the issue body without rewriting.
+1. Octokit reads `GITHUB_API_URL` from the environment; GitHub Actions sets this from `${{ github.api_url }}` on GHES runners.
+2. Agents that fetch user-uploaded attachments via `curl` need the GHES base host. GHES rewrites `github.com/user-attachments/...` URLs to its own host; the agent should use whatever URL appears in the issue body without rewriting.
 
-If the agent is hardcoding `github.com` somewhere, that is a bug — open an issue.
+If anything in Shopfloor is hardcoding `github.com`, that is a bug — open an issue.
 
 ## Debugging agent behavior
 
-**Turn on verbose logs:** every `claude-code-action` run uploads a transcript as a workflow artifact. Open the workflow run, click **Summary**, and download the artifact to see the full model transcript for that stage.
+Shopfloor emits structured audit events through `@actions/core` for every stage (`stage_resolved`, `stage_decided`, `stage_failed`, etc.). Open the workflow run and read the logs to see what the orchestrator decided and why.
 
-**Reproduce locally:** Shopfloor agents are not interactive, so you can replay a stage by running the agent prompt file directly with `claude-code` CLI and the same context JSON the workflow built. See `router/test/prompt-render.test.ts` for examples of context shapes.
+To reproduce a stage's prompt locally, copy the rendered system + user prompts from the workflow logs into a `claude` CLI session with the same model. The prompt templates themselves live under `src/stages/<stage>/prompt.*.md` and are bundled into `dist/index.cjs` at build time.
 
 ## Stalled pipeline recovery
 
 **Symptom:** An issue is carrying `shopfloor:needs-spec` / `shopfloor:needs-plan` / `shopfloor:needs-impl` but the corresponding stage job never ran, OR a stage job shows a precheck-skip notice with `reason=*_already_in_progress` after a crash.
 
-**Cause:** One of:
-
-1. GitHub dropped the advancement `labeled` event (the original failure mode the per-stage concurrency fix closes; should no longer occur on current main).
-2. A runner crashed mid-stage and left a `shopfloor:spec-running` / `plan-running` / `implementing` marker label orphaned. Subsequent stage jobs will precheck-skip with `*_already_in_progress` until the marker is cleared.
+**Cause:** A runner crashed mid-stage and left a mutex label orphaned (`shopfloor:spec-running`, `shopfloor:plan-running`, `shopfloor:implementing`, or `shopfloor:review-running`). The orchestrator's precheck refuses to run a stage when its mutex is held.
 
 **Recovery:**
 
@@ -135,10 +133,12 @@ If the agent is hardcoding `github.com` somewhere, that is a bug — open an iss
 # Replace <N> with the issue number.
 N=123
 
-# 1. If there is an orphaned marker, remove it:
-gh issue edit $N --remove-label shopfloor:implementing \
+# 1. Remove any orphaned mutex markers:
+gh issue edit $N \
+  --remove-label shopfloor:implementing \
   --remove-label shopfloor:spec-running \
-  --remove-label shopfloor:plan-running
+  --remove-label shopfloor:plan-running \
+  --remove-label shopfloor:review-running
 
 # 2. Re-fire the advancement event by cycling the expected next-state label:
 EXPECTED=shopfloor:needs-impl   # or needs-spec / needs-plan as appropriate
@@ -146,14 +146,14 @@ gh issue edit $N --remove-label "$EXPECTED"
 gh issue edit $N --add-label "$EXPECTED"
 ```
 
-The add-label event is delivered via the Shopfloor GitHub App's installation token by `gh` on behalf of you (not via `GITHUB_TOKEN`), so the downstream workflow fires cleanly. The per-stage concurrency queue is empty by this point, so the new stage job runs without contention.
+Run these as a user with permission on the repo. The add-label event fires the workflow on your behalf, which is fine — your user actions trigger downstream workflows just like a normal label flip would.
 
 ## Still stuck?
 
 Open an issue at [niranjan94/shopfloor/issues](https://github.com/niranjan94/shopfloor/issues) with:
 
 - The workflow run URL (redacted if sensitive)
-- The `router/src/state.ts` decision reason from the `route` job logs
+- The state machine's decision reason from the orchestrator logs (`stage_resolved` audit event)
 - The event name and action that triggered it
 - Whatever you have already tried
 

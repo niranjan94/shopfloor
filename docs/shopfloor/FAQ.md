@@ -4,14 +4,14 @@
 
 Short answer: do not trust it by default. Audit it, then pin to a SHA.
 
-Shopfloor is [MIT licensed](../../LICENSE) and fully open source. The runtime is roughly 1,500 lines of TypeScript plus a few hundred lines of YAML — small enough to read in an afternoon. Before running it on anything important:
+Shopfloor is [MIT licensed](../../LICENSE) and fully open source. The runtime is a few thousand lines of TypeScript plus the action manifest — small enough to read in an afternoon. Before running it on anything important:
 
-1. **Read the source.** Start with [`router/src/state.ts`](../../router/src/state.ts), [`.github/workflows/shopfloor.yml`](../../.github/workflows/shopfloor.yml), and the prompt templates under [`prompts/`](../../prompts/). Every decision Shopfloor makes about your repository originates in one of those three places.
-2. **Verify the bundled artifact.** The committed `router/dist/index.cjs` is the actual code that runs on your runners. Clone the repo, run `pnpm --filter @shopfloor/router build`, and `git diff` to confirm the bundle is reproducible from source. CI runs this check on every push to main.
-3. **Pin to a 40-character commit SHA, not a moving tag.** `@v1` and even named release tags are mutable. Replace them with a SHA you have audited:
+1. **Read the source.** Start with [`src/state/machine.ts`](../../src/state/machine.ts), [`src/github/adapter.ts`](../../src/github/adapter.ts), [`src/orchestrator.ts`](../../src/orchestrator.ts), and the per-stage prompts under [`src/stages/*/prompt.*.md`](../../src/stages/). Every decision Shopfloor makes about your repository originates in one of those places.
+2. **Verify the bundled artifact.** The committed `dist/index.cjs` is the actual code that runs on your runners. Clone the repo, run `pnpm build`, and `git diff dist` to confirm the bundle is reproducible from source. CI runs this check on every push to main.
+3. **Pin to a 40-character commit SHA, not a moving tag.** `@v2` and even named release tags are mutable. Replace them with a SHA you have audited:
 
    ```yaml
-   uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@<40-char-sha>
+   uses: niranjan94/shopfloor@<40-char-sha>
    ```
 
    Then let Dependabot or Renovate propose SHA bumps as normal pull requests you review like any other dependency update.
@@ -22,13 +22,13 @@ If none of those steps is acceptable for your threat model, do not run Shopfloor
 
 ## Will this commit secrets to my repository?
 
-No. Shopfloor's agents do not have access to any secret directly. Secrets live in GitHub Actions and are forwarded to `claude-code-action` as inputs or into specific env vars for the MCP server. The agents' `Bash` allowlist does not include commands that could exfiltrate env vars (`env`, `printenv`, arbitrary shell), and their commit messages are authored by the bot identity, not by a human who might paste a token.
+No. Shopfloor's agents do not have access to any repository secret directly. Secrets live in GitHub Actions and are read by the action's entry point; they are never injected into prompt context or made available as agent tools. The agent SDK's default tool surface does not include arbitrary shell access, and commit authorship is the bot identity.
 
-That said: if you add a secret to the `impl_bash_allowlist` like `Bash(echo $SOME_SECRET)`, the agent will absolutely print it to logs. The allowlist is yours to curate.
+That said: agents will print anything you tell them to print. If you inline a token into a prompt or expose it through a custom MCP tool, the agent can log it. Don't.
 
 ## Does it work on private repositories?
 
-Yes. Shopfloor uses the repository's `GITHUB_TOKEN` (or your custom GitHub App's installation token) for every GitHub mutation, so access is scoped to whatever the token can see. Agents downloading user-uploaded attachments from private repos authenticate via the same token through `curl -L -H "Authorization: Bearer $GITHUB_TOKEN"`.
+Yes. Shopfloor uses your GitHub App's installation token (or `GITHUB_TOKEN` if you fall back to it) for every mutation, so access is scoped to whatever the token can see. Agents downloading user-uploaded attachments from private repos authenticate via the same token.
 
 ## Can I override the model per stage?
 
@@ -36,21 +36,15 @@ Yes. Every stage has its own model input. See [configuration.md](configuration.m
 
 Common patterns:
 
-- **Budget:** use `haiku` for triage and reviewers, `sonnet` for spec/plan/impl.
-- **Quality:** use `sonnet` for triage, `opus` everywhere else.
-- **Balanced:** the default is `sonnet` for triage and reviewer-compliance, `opus` for everything else.
+- **Budget:** use `claude-haiku` for triage and all four reviewer lenses, `claude-sonnet` for spec/plan/impl.
+- **Quality:** use `claude-opus` everywhere.
+- **Balanced (the default):** `claude-haiku` for triage, `claude-opus` for spec/plan/impl and all four reviewer lenses.
 
 ## What if I do not want the agent to review my PR?
 
-Apply the `shopfloor:skip-review` label to the PR or to its origin issue. Shopfloor's `check-review-skip` helper will short-circuit the review stage and route the PR into `shopfloor:impl-in-review` so a human can take over. The four reviewer jobs will not run, and nothing will cost you tokens.
+Apply the `shopfloor:skip-review` label to the PR or to its origin issue. The state machine returns `stage=none` and the four reviewer lenses do not run. Nothing will cost you tokens.
 
-You can also permanently disable individual reviewer cells:
-
-```yaml
-with:
-  review_smells_enabled: false
-  review_security_enabled: false
-```
+Per-lens enable/disable toggles are not exposed as inputs in v2. If a specific lens is consistently noisy on your codebase, open an issue.
 
 ## How do I pause the pipeline?
 
@@ -58,11 +52,7 @@ Three ways, each appropriate for a different situation:
 
 - **Pause after triage, waiting for clarifying answers:** the triage agent applies `shopfloor:awaiting-info` automatically when it needs more information. The pipeline pauses until you remove that label.
 - **Pause manually at any stage:** close the issue. Every event arriving for a closed issue resolves to `stage=none`, so nothing runs. Reopen to resume.
-- **Pause one PR without touching the issue:** convert the PR to draft. `check-review-skip` treats drafts as "do nothing", so the review stage will not fire until you mark it ready for review again.
-
-## Can I use regular (non-draft) PRs instead of drafts?
-
-Yes. Set `use_draft_prs: false` in your caller workflow's `with:` block. Shopfloor will use a `shopfloor:wip` label to suppress reviews during agent work instead of draft status. Make sure your caller workflow subscribes to `pull_request: types: [unlabeled]` or the review pipeline will not trigger after implementation completes. See [install.md](install.md#disabling-draft-prs) for details.
+- **Pause one PR without touching the issue:** convert the PR to draft, or apply the `shopfloor:wip` label. The state machine treats both as "do nothing"; the review stage does not fire until you mark the PR ready for review (or remove the WIP label).
 
 ## What happens if the agent ignores the plan?
 
@@ -88,13 +78,12 @@ Three recoveries, depending on how wrong:
 
 ## Can I run Shopfloor in dry-run mode?
 
-Not in v0.1. Every stage has real side effects — it posts comments, pushes branches, opens PRs. The closest thing to a dry-run is:
+Not yet. Every stage has real side effects — it posts comments, pushes branches, opens PRs. The closest thing to a dry-run is:
 
-- Set `review_*_enabled: false` to disable the review matrix.
-- Use a scratch repository with `shopfloor:skip-review` pre-applied to every issue.
-- Watch the stage jobs in the Actions UI without merging any of the PRs they open.
+- Use a scratch repository with `shopfloor:skip-review` pre-applied to every issue to suppress the review matrix.
+- Watch the workflow runs in the Actions UI without merging any of the PRs they open.
 
-A true `dry_run: true` mode is a reasonable v0.2 feature.
+A true `dry_run: true` mode is a reasonable future feature; open an issue if you'd use it.
 
 ## Why does Shopfloor open a PR for every stage? That is a lot of PRs.
 
@@ -104,11 +93,12 @@ If you want fewer PRs for simple changes, triage will classify them as `quick` a
 
 ## What if the review loop is giving me too many false positives?
 
-Three dials:
+The dials available in v2:
 
-1. **`review_confidence_threshold`** (default 80). Raise it. Comments below the threshold are dropped by the aggregator. Setting it to 90 or 95 will filter out all but the most confident findings.
-2. **Disable a specific reviewer cell** — `review_smells_enabled: false` is a common one if you already have a linter.
-3. **Drop `max_review_iterations`** to 1 or 2. Shopfloor will give up faster and hand off to a human sooner.
+1. **Drop `max_review_iterations`** to 1 or 2. Shopfloor will give up faster and hand off to a human sooner (the PR gets `shopfloor:review-stuck`).
+2. **Apply `shopfloor:skip-review`** on PRs you want to land without an agent pass.
+
+The confidence threshold (hardcoded to 60) and per-lens enable toggles are not currently exposed. If a specific lens is consistently noisy on your codebase, open an issue.
 
 ## Does Shopfloor work with monorepos?
 
@@ -116,7 +106,6 @@ Yes, with caveats. The state machine does not know about packages — it treats 
 
 - Add a `CODEOWNERS` file so package owners get notified on spec/plan/impl PRs.
 - Add a `CLAUDE.md` at each package root with package-specific conventions; the compliance reviewer reads them.
-- Tune `impl_bash_allowlist` to the monorepo's build tool (e.g., `turbo run test`, `nx run-many`).
 
 ## Can I run Shopfloor without Claude at all?
 

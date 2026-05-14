@@ -1,149 +1,180 @@
 # Installing Shopfloor
 
-This guide walks you through installing Shopfloor on a fresh repository. Expect a single sitting. You will need admin access to the repository and whichever Anthropic provider you plan to use (Claude API, Bedrock, Vertex, or Foundry).
+This guide walks you through installing Shopfloor on a fresh repository. Expect a single sitting. You will need admin access to the repository and an Anthropic API key (or a Claude Code OAuth token).
 
 ## Step 0: Audit the source before you trust it
 
-Shopfloor runs inside your repository with write access to branches, pull requests, issues, labels, and commit statuses, and it spawns Claude agents that can execute Bash commands on your CI runners. That is a lot of authority to hand to a third-party action. The project is [MIT licensed](../../LICENSE) specifically so you can verify what it does before turning it on.
+Shopfloor runs inside your repository with write access to branches, pull requests, issues, labels, and commit statuses, and it spawns Claude agents that can execute Bash on your CI runners. That is a lot of authority to hand a third-party action. The project is [MIT licensed](../../LICENSE) so you can verify what it does before turning it on.
 
-**Before you run Shopfloor on a real repository, you should:**
+**Before running Shopfloor on a real repository:**
 
-1. **Read the source.** The entire runtime is roughly 1,500 lines of TypeScript plus a few hundred lines of YAML. Start with:
-   - [`router/src/state.ts`](../../router/src/state.ts) — the pure state machine that decides which stage runs next.
-   - [`router/src/helpers/`](../../router/src/helpers/) — every GitHub mutation Shopfloor performs (labels, comments, PRs, reviews, commit statuses).
-   - [`.github/workflows/shopfloor.yml`](../../.github/workflows/shopfloor.yml) — the reusable workflow wiring. Every claude-code-action invocation, every allowed tool, every secret forwarding happens here.
-   - [`prompts/`](../../prompts/) — the 8 stage prompts. These are what the LLM sees. If you want to know what Shopfloor is asking Claude to do, this is the authoritative answer.
-   - [`mcp-servers/shopfloor-mcp/index.ts`](../../mcp-servers/shopfloor-mcp/index.ts) — the one MCP tool the implementation agent can call. It only updates a single GitHub comment.
+1. **Read the source.** The entire runtime is a few thousand lines of TypeScript. Read in this order:
+   - [`src/state/machine.ts`](../../src/state/machine.ts) — the pure state machine. Every stage decision lives here.
+   - [`src/github/adapter.ts`](../../src/github/adapter.ts) — every GitHub mutation Shopfloor performs. If it writes to your repository, it is in this file.
+   - [`src/orchestrator.ts`](../../src/orchestrator.ts) — the route → run → apply loop, plus precheck and failure reporting.
+   - [`action.yml`](../../action.yml) — every input the action accepts.
+   - [`src/stages/`](../../src/stages/) — per-stage runner / apply / decision schema, plus inlined `prompt.system.md` and `prompt.user.md.tmpl`. These are what each agent actually sees.
 
-2. **Audit the bundled action artifact.** GitHub Actions that are referenced by tag must have their compiled JavaScript committed to the repository. Shopfloor's is [`router/dist/index.cjs`](../../router/dist/index.cjs), a single bundle produced by `esbuild`. You cannot meaningfully read a minified bundle line-by-line, but you can verify it is reproducible:
+2. **Verify the bundled artifact.** GitHub Actions referenced by tag must commit their compiled JavaScript. Shopfloor's is [`dist/index.cjs`](../../dist/index.cjs), a single `esbuild` bundle. Reproduce it:
 
    ```bash
    git clone https://github.com/niranjan94/shopfloor.git
    cd shopfloor
    pnpm install --frozen-lockfile
-   pnpm --filter @shopfloor/router build
-   git diff router/dist/index.cjs
+   pnpm build
+   git diff dist
    ```
 
-   If `git diff` is clean, the committed artifact matches what the source produces. The CI workflow at [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs the same check on every push to main, so a drift between source and bundle would fail CI visibly.
+   If `git diff` is clean, the committed bundle matches the source. CI runs the same check on every push to main, so drift fails visibly.
 
-3. **Pin to a verified commit SHA.** The examples below show `@v1`, which is a moving tag. In production that is a supply-chain risk — whoever controls this repository can retag `v1` to any commit at any time. Pick a specific 40-character SHA you have personally inspected, pin to that, and let Dependabot or Renovate propose SHA bumps you review like any other dependency update. See "Step 5: Pin a version" below.
+3. **Pin to a verified commit SHA.** `@v2` is convenient but mutable — whoever controls this repository can retag it. Replace `@v2` with a 40-character SHA you have inspected, then let Dependabot or Renovate propose bumps you review like any other dependency.
 
-4. **Fork before you trust.** If Shopfloor will run against a repository with production secrets or sensitive code, consider forking `niranjan94/shopfloor`, pinning your caller to your fork at a SHA you control, and pulling upstream changes manually. That removes the maintainer of the upstream repository from your supply chain entirely.
+4. **Fork if you need full control.** Forking `niranjan94/shopfloor` and pinning your caller to your fork removes upstream maintainership from your supply chain. You can pull upstream changes manually when you want them.
 
-If none of the above is acceptable for your threat model, Shopfloor is not a good fit. Use it on scratch repositories and personal projects first.
+If none of this is acceptable for your threat model, Shopfloor is not a good fit. Use it on scratch repositories first.
 
 ## Prerequisites
 
-- A GitHub repository you have admin access to. Public or private; Shopfloor supports both.
-- An Anthropic credential from one of:
-  - [Claude API](https://www.anthropic.com/api) (`ANTHROPIC_API_KEY`)
-  - [Claude Code OAuth token](https://docs.claude.com/en/docs/claude-code/sdk/sdk-headless#authentication) (`CLAUDE_CODE_OAUTH_TOKEN`)
-  - AWS Bedrock (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, or `AWS_BEARER_TOKEN_BEDROCK`)
-  - Google Vertex AI (`ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS`)
-  - Microsoft Foundry (`ANTHROPIC_FOUNDRY_RESOURCE`)
-- The [Claude GitHub App](https://github.com/apps/claude) installed on the repository (so the agents have an identity to act under).
-- **A custom GitHub App you own**, used by the router for label flips and PR pushes (see "GitHub App for the router" below). This is **not optional**: GitHub suppresses workflow triggers for any event caused by `secrets.GITHUB_TOKEN`, so the multi-stage Shopfloor pipeline cannot self-advance without an App-minted token. Without it, triage will run once and then the pipeline will stall.
+- A GitHub repository you have admin access to. Public or private both work.
+- An Anthropic credential: either `ANTHROPIC_API_KEY` (Claude API) or `CLAUDE_CODE_OAUTH_TOKEN` (Claude Code OAuth).
+- The [Claude GitHub App](https://github.com/apps/claude) installed on the repository, **or** a custom GitHub App you own. This is the identity Shopfloor commits, comments, and pushes under.
+- A second optional GitHub App for review submissions (`APPROVE` / `REQUEST_CHANGES`). Without this, the review aggregator cannot post verdicts on Shopfloor-authored PRs — see [the review App section](#github-app-for-reviews) below.
 
-## Step 1: Install the Claude GitHub App
+## Step 1: Install the GitHub App
 
-The simplest path is the official [Claude GitHub App](https://github.com/apps/claude). Install it on the target repository and grant it the permissions it asks for. This gives Shopfloor's agents an authenticated identity to read issues, push branches, and open pull requests under. If you prefer a custom app so commits appear under your own bot name, see the "Custom GitHub App" section at the end of this guide.
+The simplest path is the official [Claude GitHub App](https://github.com/apps/claude). Install it on the target repository and grant the permissions it asks for. This gives Shopfloor's agents an authenticated identity to read issues, push branches, and open pull requests.
 
-## Step 2: Add secrets to the repository
+If you want commits to appear under a bot identity you control, [create your own App](#custom-github-app) and install it instead — Shopfloor uses whichever App's client id + private key you pass.
 
-Go to **Settings → Secrets and variables → Actions → New repository secret** and add whichever of these apply to your provider:
+## Step 2: Add secrets
 
-| Secret                                                                             | Required when using                                                                              |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `ANTHROPIC_API_KEY`                                                                | Claude API                                                                                       |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                          | Claude Code OAuth                                                                                |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`                         | Bedrock with IAM credentials                                                                     |
-| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Bedrock with a bearer token                                                                      |
-| `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex                                                                                           |
-| `ANTHROPIC_FOUNDRY_RESOURCE`                                                       | Foundry                                                                                          |
-| `SHOPFLOOR_GITHUB_APP_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY`               | **Required** for the router to trigger downstream stages (see "GitHub App for the router" below) |
-| `SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY` | Optional second App that posts the agent review matrix (see "GitHub App for reviews" below)      |
-| `SSH_SIGNING_KEY`                                                                  | Signed commits (optional)                                                                        |
+Go to **Settings → Secrets and variables → Actions → New repository secret** and add whichever apply:
 
-You only need to set the secrets for the provider you actually use. `GITHUB_TOKEN` is provided by GitHub automatically — do not add it yourself.
+| Secret                                                                             | Required when                                                                 |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                                                                | Using the Claude API                                                          |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                          | Using a Claude Code OAuth token                                               |
+| `SHOPFLOOR_GITHUB_APP_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY`               | Strongly recommended. The primary App's credentials (used for every mutation) |
+| `SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID`, `SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY` | Optional. The review App's credentials (used for APPROVE / REQUEST_CHANGES)   |
+| `SSH_SIGNING_KEY`                                                                  | Optional. Required when branch protection enforces signed commits             |
+
+Secret names are user-chosen — Shopfloor doesn't care what you call them. The names above match the [`examples/shopfloor.yml`](../../examples/shopfloor.yml) sample.
+
+> **Note on auth fallback.** If you provide neither App credentials nor a preminted token, Shopfloor falls back to the workflow's default `GITHUB_TOKEN`. The pipeline will not advance: GitHub suppresses workflow triggers for mutations made with `GITHUB_TOKEN`, so label flips and pushes do not fire downstream events. The action emits a loud `::warning::` in this state. The fallback is intended for evaluation and for the [review-only workflow](#step-4-optional-review-only-workflow-for-human-prs), not the full pipeline.
 
 ## Step 3: Create the caller workflow
 
-Create `.github/workflows/shopfloor.yml` in your repository with this content:
+Create `.github/workflows/shopfloor.yml` in your repository with this content (the same shape lives in [`examples/shopfloor.yml`](../../examples/shopfloor.yml)):
 
 ```yaml
 name: Shopfloor
+
 on:
   issues:
-    types: [opened, edited, closed, labeled, unlabeled]
+    types: [opened, labeled, unlabeled]
   issue_comment:
     types: [created]
   pull_request:
-    types: [opened, synchronize, closed, labeled, unlabeled]
+    types: [opened, synchronize, ready_for_review, closed, labeled, unlabeled]
   pull_request_review:
     types: [submitted]
 
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
 jobs:
   shopfloor:
-    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@v1
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
-      statuses: write
-      checks: read
-    secrets: inherit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run Shopfloor
+        # SECURITY: @v2 is a moving tag. For production, pin to a 40-char SHA
+        # you have audited (see Step 0).
+        uses: niranjan94/shopfloor@v2
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_app_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_CLIENT_ID }}
+          github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
+          # Optional: a separate App used only for posting review verdicts
+          # on Shopfloor-authored PRs. Required if you want APPROVE /
+          # REQUEST_CHANGES on impl PRs.
+          github_app_review_client_id: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID }}
+          github_app_review_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY }}
+          # Optional: only run the pipeline on issues carrying this label.
+          trigger_label: shopfloor
 ```
 
-`secrets: inherit` is the easiest way to forward every secret to the reusable workflow. If you prefer an explicit allowlist, pass each secret by name instead.
+A few details:
 
-Commit and push this file. On the next push, GitHub will start running the workflow on every matching event.
+- **The caller workflow's `permissions:` block can stay read-only.** Every write goes through the App installation token Shopfloor mints in-process, not the workflow's `GITHUB_TOKEN`. Read-only top-level permissions reduce blast radius if anything in the workflow leaks.
+- **`persist-credentials: false`** on `actions/checkout` is important. Without it, checkout writes a GITHUB_TOKEN credential into git config that overrides the App token Shopfloor uses for pushes (and lacks write scope), so impl pushes 403.
+- **No `actions/create-github-app-token` step is needed.** Shopfloor mints (and refreshes) the App installation token in-process via `@octokit/auth-app`, so implement stages longer than 60 minutes stay authenticated.
 
-If you want agent reviews on pull requests that were NOT created by Shopfloor's pipeline (human contributors or other automations), add the companion reusable workflow `shopfloor-review.yml` alongside the main caller. See [Review-only workflow](./configuration.md#review-only-workflow) for the caller pattern.
+Commit and push. GitHub will start running the workflow on every matching event.
 
-## Step 4: First-run bootstrap
+## Step 4 (optional): Review-only workflow for human PRs
 
-The first time Shopfloor runs on your repository it creates ~20 `shopfloor:*` labels via its `bootstrap-labels` helper. This is idempotent — if you ever delete a label, the next run will recreate it. You do not need to do anything for this step.
+To run Shopfloor's review lenses on PRs from your team or other automations (not Shopfloor's own impl PRs), add a second workflow:
 
-Open a test issue to watch the pipeline run:
+```yaml
+# .github/workflows/shopfloor-review.yml
+name: Shopfloor Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: niranjan94/shopfloor@v2
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          review_only: "true"
+```
+
+`review_only: "true"` is stateless on human PRs — no iteration counter, no Shopfloor labels, no PR-body footer. Each push gets a fresh review. The workflow's default `GITHUB_TOKEN` is acceptable here because the cascading-trigger and self-review limitations don't apply to human-authored PRs.
+
+## Step 5: First-run bootstrap
+
+The first time Shopfloor runs on your repository it creates the `shopfloor:*` labels it needs via the GitHub adapter's idempotent `createLabel` calls. If you ever delete a label, the next run recreates it. You don't need to do anything for this step.
+
+Open a smoke-test issue to watch the pipeline:
 
 ```bash
 gh issue create \
   --title "Shopfloor smoke test" \
-  --body "Check that Shopfloor can triage and respond to a trivial issue."
+  --body "Check that Shopfloor can triage and respond to a trivial issue." \
+  --label shopfloor   # if you set a trigger_label
 ```
 
-Within a minute or two you should see:
+Within a minute or two the triage agent posts a comment, applies `shopfloor:quick|medium|large`, and flips the issue to `shopfloor:needs-impl` / `needs-plan` / `needs-spec`. If the triage comment appears, the installation is done.
 
-1. The `route` job run and resolve to `stage=triage`.
-2. The `triage` job run, post a comment on the issue, and apply a `shopfloor:quick|medium|large` label plus either `shopfloor:needs-spec|needs-plan|needs-impl` or `shopfloor:awaiting-info`.
+## Step 6: Pin to a verified SHA
 
-If the triage comment appears, the installation is done. Close the smoke-test issue when you are satisfied.
-
-## Step 5: Pin to a verified SHA
-
-**For any non-trivial use, replace `@v1` in the caller with a 40-character commit SHA you have audited.** Moving tags like `@v1` are convenient for evaluation but are a supply-chain risk: whoever controls this repository can retag `v1` to any commit at any time, and your caller will silently pick up the new code on the next run. Named release tags (`@v1.0.0-rc.1`) are marginally better because they are conventionally immutable, but they are still mutable in principle — nothing in git prevents a maintainer from force-pushing a tag.
-
-Pin to a SHA:
+For non-trivial use, replace `@v2` with a 40-character SHA you have audited:
 
 ```yaml
-jobs:
-  shopfloor:
-    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@4d09aeb9e0c8f2b1a7c3d5e9f1a2b3c4d5e6f7a8
-    # ...
+- uses: niranjan94/shopfloor@4d09aeb9e0c8f2b1a7c3d5e9f1a2b3c4d5e6f7a8 # v2.0.0
 ```
 
-Find the SHA by running `git log` on the shopfloor repository at the commit you want to use, or by clicking the commit in the GitHub UI and copying the full hash from the URL.
-
-**Recommended workflow:**
-
-1. Fork `niranjan94/shopfloor`, or clone and browse locally.
-2. Review the source (see [Step 0](#step-0-audit-the-source-before-you-trust-it)).
-3. Note the commit SHA of the head of `main` at your review time.
-4. Pin your caller workflow to that SHA.
-5. Configure Dependabot (`.github/dependabot.yml`) or Renovate to watch the dependency and propose SHA bumps as pull requests. Each proposed bump is a normal PR you can review and merge — or reject — like any other dependency update.
+Then configure Dependabot (`.github/dependabot.yml`) or Renovate to propose SHA bumps as normal PRs:
 
 ```yaml
 # .github/dependabot.yml
@@ -155,131 +186,78 @@ updates:
       interval: weekly
 ```
 
-This turns "trust the maintainer" into "review each upstream change". That is the same bar you already apply to `actions/checkout` and the rest of your CI supply chain.
+Each upstream bump becomes a PR you review like any other dependency change.
 
-## GitHub App for the router
+## GitHub App for the primary surface
 
-> **This is required.** Without it the pipeline runs triage once and then stalls forever.
+> **Strongly recommended.** Without it the pipeline falls back to `GITHUB_TOKEN` and label flips will not fire downstream stages.
 
-### Why this is mandatory
+### Why an App is required for the full pipeline
 
-GitHub deliberately suppresses workflow triggers for any event caused by `secrets.GITHUB_TOKEN`. Quoting the [GitHub Actions docs](https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow):
+GitHub deliberately suppresses workflow triggers for events caused by `secrets.GITHUB_TOKEN`. Quoting [the GitHub Actions docs](https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow):
 
-> When you use the repository's `GITHUB_TOKEN` to perform tasks, events triggered by the `GITHUB_TOKEN`, with the exception of `workflow_dispatch` and `repository_dispatch`, will not create a new workflow run. This prevents you from accidentally creating recursive workflow runs.
+> When you use the repository's `GITHUB_TOKEN` to perform tasks, events triggered by the `GITHUB_TOKEN`, with the exception of `workflow_dispatch` and `repository_dispatch`, will not create a new workflow run.
 
-Shopfloor's entire state machine is label-driven. After triage classifies an issue, the router adds `shopfloor:needs-spec` (or `needs-plan` / `needs-impl`); that label flip is supposed to fire a `labeled` event that wakes up the next stage's job. If the label is added with `GITHUB_TOKEN`, GitHub silently drops the event on the floor and the issue stays parked. The same hole exists at every stage transition: spec-merged → needs-plan, plan-merged → needs-impl, impl-pushed → review matrix, review-requesting-changes → impl revision. Without an alternative token, you do not have a pipeline.
+Shopfloor's pipeline is label-driven: after triage classifies an issue, the orchestrator adds `shopfloor:needs-spec` (or `needs-plan` / `needs-impl`), and that label flip is supposed to fire a `labeled` event that wakes up the next stage. If the label is added with `GITHUB_TOKEN`, GitHub silently drops the event and the issue parks. The same hole exists at every transition.
 
-A GitHub App installation token does not have this restriction. Shopfloor mints one at the start of every job that performs a triggering mutation (`actions/create-github-app-token@v2`) and uses it in place of `GITHUB_TOKEN` for every router helper call. App tokens are short-lived (1 hour, non-extendable), so the `implement` job mints a fresh one immediately before the post-agent push to guarantee a full hour of validity even if the agent ran for 59 minutes.
+A GitHub App installation token has no such restriction. Shopfloor mints one in-process and uses it for every mutation.
 
 ### Setup
 
-1. Create a new GitHub App under **Settings → Developer settings → GitHub Apps → New GitHub App**. You can name it anything; "Shopfloor Router" is fine. Webhook URL can be any placeholder; webhooks are not used.
+1. Create a new GitHub App at **Settings → Developer settings → GitHub Apps → New GitHub App**. Name it whatever — "Shopfloor" or "Acme Shopfloor" is fine. Webhook URL can be any placeholder; webhooks are not used.
 2. Grant these **repository permissions**:
    - **Contents**: Read & write (push commits, create branches)
-   - **Issues**: Read & write (label flips, comments)
+   - **Issues**: Read & write (label flips, comments, metadata edits)
    - **Pull requests**: Read & write (open PRs, post reviews, update bodies)
-   - **Commit statuses**: Read & write (`shopfloor/review` status)
+   - **Commit statuses**: Read & write (the `shopfloor/review` status)
    - **Metadata**: Read (mandatory baseline)
-   - **Packages**: Read (optional — only if you plan to use the [pre-agent setup hook](#optional-pre-agent-setup-hook) and want its `SHOPFLOOR_GITHUB_TOKEN` to authenticate against GitHub Packages, e.g. `pnpm config set //npm.pkg.github.com/:_authToken=$SHOPFLOOR_GITHUB_TOKEN`. If you would rather not extend the App's scope, pass a separately-scoped PAT through `setup_env_json` instead.)
 3. **Subscribe to events**: none. The App is a write client only; webhook delivery is irrelevant.
-4. Generate a private key and download the `.pem` file. Treat it like any other secret: do not commit it.
-5. Install the app on your target repository (or org-wide).
-6. Add two secrets to the repository (or org): `SHOPFLOOR_GITHUB_APP_CLIENT_ID` (the App's **Client ID**, visible on the App's general settings page — it looks like `Iv23li...`, not the numeric App ID) and `SHOPFLOOR_GITHUB_APP_PRIVATE_KEY` (the full multi-line contents of the `.pem` file, including the `-----BEGIN/END-----` lines).
+4. Generate a private key and download the `.pem` file. Treat it like any other secret.
+5. Install the App on your target repository (or org-wide).
+6. Add two repository secrets: the App's **Client ID** (visible on the App settings page, looks like `Iv23li…` — not the numeric App ID) and the full multi-line contents of the `.pem` file.
 
-Verify by opening any issue carrying your trigger label. The router job's first step will log a green "GitHub App credentials present" line; if you instead see the loud `::warning::` about falling back to `GITHUB_TOKEN`, the secrets are not visible to the workflow (most common cause: the secrets are set on a personal account but the workflow runs under an org).
+If the secrets are missing the action emits a loud `::warning::` describing the fallback path. The most common reason this is silent is that the secrets are set on a personal account but the workflow runs under an org.
 
 ### Visual identity
 
-Commits, comments, PRs, and reviews from Shopfloor will appear under the App's bot identity (`<your-app-name>[bot]`). If you want Shopfloor's PRs to look like they came from a human, use a fork-based workflow instead and have a human cherry-pick. Bot-authored PRs are the trade-off for full automation.
+Commits, comments, PRs, and reviews from Shopfloor appear under the App's bot identity (`<your-app-name>[bot]`). To make Shopfloor commits look like they came from a human, use a fork-based workflow and have a human cherry-pick. Bot-authored PRs are the trade-off for full automation.
 
-## GitHub App for reviews (optional)
+## GitHub App for reviews
 
-> **Optional.** Without this second App the review matrix is skipped entirely. Impl PRs still exit draft on completion; a human reviewer can then take over.
+> **Optional but recommended.** Without it the review aggregator cannot post APPROVE / REQUEST_CHANGES on Shopfloor-authored PRs.
 
-### Why a second App
+The agent review matrix ends by calling the GitHub `POST /repos/{owner}/{repo}/pulls/{number}/reviews` endpoint with `event: REQUEST_CHANGES` or `event: APPROVE`. GitHub forbids `REQUEST_CHANGES` / `APPROVE` on your own PR, and every Shopfloor PR is authored by the primary App. If the same App also tries to post the review, the API returns `422 Review Can not request changes on your own pull request`.
 
-The agent review matrix (`review-compliance`, `review-bugs`, `review-security`, `review-smells`, `review-aggregator`) ends by calling the GitHub `POST /repos/{owner}/{repo}/pulls/{number}/reviews` endpoint with `event: REQUEST_CHANGES` or `event: APPROVE`. GitHub forbids `REQUEST_CHANGES` / `APPROVE` on your own PR, and every Shopfloor PR is authored by the primary router App. If the same App also tries to post the review, the API responds with `422 Review Can not request changes on your own pull request`.
-
-Shopfloor's fix is clean: the review aggregator uses a **second GitHub App installation token** only for the `createReview` call. Labels, comments, commit statuses, and PR body edits continue to flow through the primary App (unchanged). The second App is a distinct identity from the PR author, so self-review restrictions do not apply.
-
-Because the reviewer is still an App (not `GITHUB_TOKEN`), the resulting `pull_request_review.submitted` event fires the router, which drives the implement revision loop exactly as a human-posted review would.
+Shopfloor's fix: the review aggregator uses a **second App installation token** only for the `createReview` call. Labels, comments, statuses, and PR-body edits continue to flow through the primary App. The second App is a distinct identity from the PR author, so the self-review restriction does not apply. Because the reviewer is still an App, the resulting `pull_request_review.submitted` event fires the orchestrator and drives the implement revision loop exactly as a human-posted review would.
 
 ### Setup
 
-1. Create another GitHub App under **Settings → Developer settings → GitHub Apps → New GitHub App**. Name it something like "Shopfloor Reviewer" so it is easy to tell apart from the primary router App on PR timelines.
-2. Grant these **minimal repository permissions** (the review App needs much less than the primary):
-   - **Contents**: Read (the helper reads PR data)
-   - **Pull requests**: Read & write (the createReview call)
-   - **Metadata**: Read (mandatory baseline)
+1. Create a second GitHub App. Name it something like "Shopfloor Reviewer" so it's easy to tell apart from the primary App in PR timelines.
+2. Grant these **minimal repository permissions**:
+   - **Contents**: Read
+   - **Pull requests**: Read & write (for the `createReview` call)
+   - **Metadata**: Read
 3. **Subscribe to events**: none.
 4. Generate a private key and download the `.pem` file.
 5. Install the App on the same repositories where Shopfloor runs.
-6. Add two secrets: `SHOPFLOOR_GITHUB_APP_REVIEW_CLIENT_ID` and `SHOPFLOOR_GITHUB_APP_REVIEW_PRIVATE_KEY`.
+6. Add two repository secrets for the review App's client id and private key.
 
-When both secrets are present, Shopfloor gates the entire review pipeline (skip-check + 4 matrix reviewers + aggregator) on their presence. Leave them unset and the review pipeline is silently skipped; impl PRs un-draft and wait for a human.
+When both review secrets are unset, Shopfloor still runs the review lenses and computes a verdict, but skips the APPROVE / REQUEST_CHANGES call on Shopfloor-authored PRs.
 
-## Disabling draft PRs
+## Custom GitHub App
 
-By default, Shopfloor opens implementation PRs as drafts and un-drafts them when the agent finishes. If your organization disallows or prefers not to use draft PRs, set `use_draft_prs: false`:
+If you'd rather not install the official Claude GitHub App, use your primary Shopfloor App for both identity and authorization. Configure the App with the permissions in [GitHub App for the primary surface](#github-app-for-the-primary-surface) above, install it on your repositories, and Shopfloor will use it for everything. Commits and PRs will appear under your App's `[bot]` identity.
 
-```yaml
-jobs:
-  shopfloor:
-    uses: your-org/shopfloor/.github/workflows/shopfloor.yml@main
-    with:
-      use_draft_prs: false
-```
+## Excluding spec/plan paths from linters
 
-When disabled, Shopfloor applies a `shopfloor:wip` label to the impl PR during agent work and removes it when done. The label suppresses premature reviews the same way draft status does.
+Shopfloor writes spec and plan markdown to `docs/shopfloor/specs/` and `docs/shopfloor/plans/`. The spec and plan agents have no shell access, so they cannot run project formatters over their own output. If your CI runs Prettier, markdownlint, Vale, `cspell`, or similar on every file, add both paths to each tool's ignore list so spec/plan PRs don't fail checks on stylistic differences:
 
-**Required:** your caller workflow must subscribe to `pull_request` `unlabeled` events, or the review pipeline will never trigger:
+- `.prettierignore`: `docs/shopfloor/specs/` and `docs/shopfloor/plans/`
+- `.markdownlintignore` (or `ignores` in `.markdownlint.json`): the same two paths
+- Vale `StylesPath` / `[*.md]` block: exclude both
+- Any custom "docs lint" job: skip both
 
-```yaml
-on:
-  pull_request:
-    types: [opened, synchronize, closed, unlabeled, ready_for_review]
-```
-
-## Optional: pre-agent setup hook
-
-Some repositories need work done in the runner before each agent stage — install dependencies, write a `.env`, start a Postgres container, fetch private peer repos, and so on. Shopfloor exposes an opt-in hook for this.
-
-Set `setup_stages` to a comma-separated list of stage names where Shopfloor should invoke `./.github/actions/shopfloor-setup` (a composite action at exactly that path in your repository) after precheck has confirmed the stage will execute and before each agent's context-build step. The action takes no inputs; it reads from environment variables.
-
-Valid stage values: `triage`, `spec`, `plan`, `implement`, `review-compliance`, `review-bugs`, `review-security`, `review-smells`. No spaces between entries.
-
-Four `SHOPFLOOR_*` env vars are always exported into the action:
-
-- `SHOPFLOOR_STAGE` — the stage name (`triage`, `spec`, `plan`, `implement`, `review-compliance`, etc.)
-- `SHOPFLOOR_ISSUE_NUMBER` — the issue driving the run
-- `SHOPFLOOR_BRANCH_NAME` — the stage branch (where applicable)
-- `SHOPFLOOR_GITHUB_TOKEN` — a fresh GitHub App installation token, suitable for cloning private peer repositories
-
-Caller-supplied env vars come from the `setup_env_json` secret, a JSON object whose values are exported into the same step. Each value is registered with `::add-mask::` so it does not leak in subsequent step logs. Values must be JSON strings (not nested objects); use `toJSON()` in your caller workflow for multi-line content like PEM keys or `.env` blobs. The four `SHOPFLOOR_*` names above are reserved — keys colliding with them are dropped with a workflow warning.
-
-By default, a setup failure does not fail the stage (`setup_required: false`). Set `setup_required: true` to make setup failures fatal — useful when the agent cannot do meaningful work without a configured workspace.
-
-Example caller:
-
-```yaml
-jobs:
-  shopfloor:
-    uses: niranjan94/shopfloor/.github/workflows/shopfloor.yml@main
-    with:
-      setup_stages: "triage,spec,plan,implement"
-      # setup_required: true  # fail the stage if setup fails (default: false)
-    secrets:
-      # ...existing Shopfloor secrets...
-      setup_env_json: |
-        {
-          "APP_ID": "${{ vars.GH_APP_ID }}",
-          "PRIVATE_KEY": ${{ toJSON(secrets.GH_APP_PRIVATE_KEY) }},
-          "DOT_ENV": ${{ toJSON(vars.DOT_ENV) }},
-          "CLERK_SECRET_KEY": "${{ secrets.CLERK_SECRET_KEY }}"
-        }
-```
-
-When `setup_stages` is empty (the default), Shopfloor behaves exactly as before and ignores `setup_env_json` entirely. Malformed JSON in `setup_env_json` fails the export step with a `jq` parse error — a deliberate fail-loud signal.
+You do **not** need to exclude these from the implementation stage's tests — impl PRs include real code changes that should run the full suite. This exclusion is for spec and plan PRs only.
 
 ## Troubleshooting
 
