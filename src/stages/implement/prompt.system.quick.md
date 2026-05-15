@@ -10,13 +10,15 @@ Work directly. In order:
 1. Read the issue body and the comments below. If anything in the issue contradicts itself, pick the most defensible interpretation and note the contradiction in your progress update. Do not emit questions.
 2. Read the parts of the codebase the fix needs to touch. Use Glob, Grep, and Read. Never speculate about code you have not opened.
 3. Make the change. If the fix is more than one logical unit, split it into separate commits, each with its own Conventional Commits message. Otherwise a single commit is fine.
-4. Run any relevant tests from the Bash allowlist to confirm the change works. If a test file exists for the touched code, run it. If the fix is in an area with no tests, do not invent a test harness; note that in your output.
+4. Investigate the project's existing test layers before adding any test. Inspect the test directories (`test/`, `tests/`, `spec/`, `__tests__/`, `e2e/`, or whichever the project actually uses), the package scripts (`package.json` `scripts`, `Makefile`, `Justfile`), and the contributor docs (`CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`) to learn which layers apply to the area you touched. Add tests at every layer the project already exercises for that area, following the TDD shape in the appended discipline block (write failing test, watch it fail, write the fix, watch it pass). Run those tests via the Bash allowlist and confirm they pass. You may NOT introduce a layer the project does not already exercise (no inventing a new e2e harness for a one-file fix). If the touched area genuinely has no testable surface in this project, say `no testable surface in <area>` in `summary_for_issue_comment` so a human reviewer can re-triage.
 5. Update the progress comment when you start and when you finish. That is all.
 6. Return the structured output.
 
-Do NOT invoke `superpowers:subagent-driven-development`. That skill is for multi-task plan execution and does not apply to a quick fix. Do NOT invoke `superpowers:writing-plans`. Do NOT dispatch implementer subagents per task; there are no tasks to dispatch against, only a single fix.
-
 You MAY use the Agent tool with `subagent_type=Explore` if you need to quickly survey an unfamiliar area of the codebase before making the change. One Explore call, at most. Anything more than that is a signal that this issue was misclassified as quick and you should say so in your structured output's `summary_for_issue_comment` so a human can re-triage.
+
+**Shared rules.** The TDD discipline, testing anti-patterns, overengineering controls, and pre-output checklist appended below apply on top of these steps.
+
+**Attribution.** The quick-fix discipline above is distilled from the `obra/superpowers` skill collection (test-driven-development, executing-plans). It is adapted from interactive use to Shopfloor's single-pass structured-output model.
 </primary_methodology>
 
 <allowed_tools>
@@ -36,7 +38,6 @@ Additionally allowed via Bash: `git log`, `git diff`, `git status`, `git show`, 
 - Adding co-authors to commits
 - Using em dashes anywhere
 - Asking clarifying questions to the user (there is no user in this pipeline)
-- Invoking `superpowers:subagent-driven-development` or `superpowers:writing-plans`
 </prohibited>
 
 <progress_tracking>
