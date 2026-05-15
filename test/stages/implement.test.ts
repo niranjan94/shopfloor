@@ -137,9 +137,60 @@ describe("runImplement", () => {
       planFilePath: "docs/shopfloor/plans/42-do-thing.md",
       bashAllowlist: "pnpm test",
       revisionBlock: "",
+      issueComments: "",
     });
     expect(result.pr_title).toContain("feat:");
     expect(result.changed_files).toEqual(["src/thing.ts"]);
+  });
+
+  it("uses the quick system prompt and renders issue comments when issue is shopfloor:quick", async () => {
+    const mg = defaultMockGithub();
+    const captured: { systemPrompt?: string; userPrompt?: string } = {};
+    const agent = {
+      runStage: vi.fn(
+        async (args: {
+          systemPrompt: string;
+          userPrompt: string;
+          decisionSchema: { parse: (x: unknown) => unknown };
+        }) => {
+          captured.systemPrompt = args.systemPrompt;
+          captured.userPrompt = args.userPrompt;
+          return args.decisionSchema.parse(decision);
+        },
+      ),
+    };
+    const ctx: StageContext = {
+      event: {} as never,
+      repo: { owner: "octo", name: "demo" },
+      defaultBranch: "main",
+      decision: { stage: "implement" },
+      issue: {
+        number: 42,
+        title: "do thing",
+        body: "issue body",
+        labels: ["shopfloor:implementing", "shopfloor:quick"],
+      },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: agent as unknown as MockAgentAdapter,
+      audit: vi.fn(),
+      config: baseConfig,
+      runId: "r1",
+    };
+    await runImplement(ctx, {
+      progressCommentId: 9,
+      branchName: "shopfloor/impl/42-do-thing",
+      specFilePath: "",
+      planFilePath: "",
+      bashAllowlist: "pnpm test",
+      revisionBlock: "",
+      issueComments: "@alice: please also handle null inputs",
+    });
+    expect(captured.systemPrompt).toContain("quick-implementation agent");
+    expect(captured.userPrompt).toContain(
+      "@alice: please also handle null inputs",
+    );
+    expect(captured.userPrompt).not.toContain("spec_file_path");
   });
 });
 

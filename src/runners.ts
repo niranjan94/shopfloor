@@ -165,6 +165,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         routed.revisionMode && routed.implPrNumber
           ? await buildSpecRevisionBlock(ctx, branchName)
           : "";
+      const issueComments = await formatIssueComments(ctx, ctx.issue.number);
 
       const decision = await runImplement(ctx, {
         progressCommentId,
@@ -173,6 +174,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         planFilePath,
         bashAllowlist: "",
         revisionBlock,
+        issueComments,
       });
       await applyImplement(ctx, {
         decision,
