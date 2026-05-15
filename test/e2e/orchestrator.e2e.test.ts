@@ -13,6 +13,8 @@ import issueLabeledNeedsImpl from "./fixtures/issue-labeled-needs-impl.json" wit
 import issueClosed from "./fixtures/issue-closed.json" with { type: "json" };
 import issueRetrySpec from "./fixtures/issue-unlabeled-failed-spec-with-needs-spec.json" with { type: "json" };
 import prReadyImpl from "./fixtures/pr-ready-for-review-impl.json" with { type: "json" };
+import prMergedSpec from "../fixtures/events/pr-closed-merged-spec.json" with { type: "json" };
+import prReviewChangesRequested from "../fixtures/events/pr-review-submitted-changes-requested.json" with { type: "json" };
 
 type FixturePayload = EventPayload;
 
@@ -198,6 +200,117 @@ describe("orchestrator e2e against v1 fixtures", () => {
       expect.objectContaining({ stage: "spec" }),
     );
     expect(audit.map((e) => e.type)).toContain("pr_opened");
+  });
+
+  it("spec PR merged advances issue to needs-plan and posts comment", async () => {
+    const audit: AuditEvent[] = [];
+    const mg = makeMockGithub();
+    mg.getIssue.mockResolvedValue({
+      labels: [{ name: "shopfloor:spec-in-review" }],
+      state: "open",
+      title: "x",
+      body: null,
+    });
+    await runOrchestrator({
+      event: { name: "pull_request", payload: prMergedSpec as never },
+      repo: { owner: "niranjan94", name: "shopfloor" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([]),
+      audit: (e) => audit.push(e),
+      config: baseConfig,
+      runId: "e2e-merge-spec",
+    });
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:spec-in-review");
+    expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:needs-plan");
+    expect(mg.postIssueComment).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining("Moving to planning stage"),
+    );
+    expect(audit.map((e) => e.type)).toContain("label_applied");
+  });
+
+  it("merge transition is idempotent when the downstream label is already present", async () => {
+    const mg = makeMockGithub();
+    mg.getIssue.mockResolvedValue({
+      labels: [{ name: "shopfloor:needs-plan" }],
+      state: "open",
+      title: "x",
+      body: null,
+    });
+    await runOrchestrator({
+      event: { name: "pull_request", payload: prMergedSpec as never },
+      repo: { owner: "niranjan94", name: "shopfloor" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([]),
+      audit: () => {},
+      config: baseConfig,
+      runId: "e2e-merge-spec-idempotent",
+    });
+    expect(mg.removeLabel).not.toHaveBeenCalled();
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(mg.postIssueComment).not.toHaveBeenCalled();
+  });
+
+  it("human REQUEST_CHANGES on impl PR flips labels and runs the implement stage", async () => {
+    const audit: AuditEvent[] = [];
+    const mg = makeMockGithub();
+    // Live issue has needs-review (mid-review state) plus a stale review-stuck
+    // marker left over from an earlier iteration cap-out. The flip should
+    // remove both and add review-requested-changes before precheck.
+    mg.getIssue.mockResolvedValue({
+      labels: [
+        { name: "shopfloor:needs-review" },
+        { name: "shopfloor:review-stuck" },
+      ],
+      state: "open",
+      title: "Add GitHub OAuth login",
+      body: "OAuth login via GitHub App.",
+    });
+    mg.getPr.mockResolvedValue({
+      state: "open",
+      draft: false,
+      merged: false,
+      labels: [],
+      head: { sha: "abc" },
+      base: { ref: "main" },
+      body: "Shopfloor-Review-Iteration: 0",
+    });
+    await runOrchestrator({
+      event: {
+        name: "pull_request_review",
+        payload: prReviewChangesRequested as never,
+      },
+      repo: { owner: "niranjan94", name: "shopfloor" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([
+        {
+          matchUserPromptIncludes: "OAuth login via GitHub App",
+          decision: {
+            pr_title: "fix(auth): address review feedback",
+            pr_body: "Revised.",
+            summary_for_issue_comment: "Revision complete.",
+            changed_files: ["src/auth.ts"],
+          },
+        },
+      ]),
+      audit: (e) => audit.push(e),
+      config: baseConfig,
+      runId: "e2e-human-revrev",
+    });
+    expect(mg.addLabel).toHaveBeenCalledWith(
+      42,
+      "shopfloor:review-requested-changes",
+    );
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:needs-review");
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:review-stuck");
+    // Implement stage actually ran (would have thrown if ctx.issue wasn't
+    // hydrated from the API).
+    expect(mg.openStagePr).toHaveBeenCalledWith(
+      expect.objectContaining({ stage: "implement" }),
+    );
   });
 
   it("reviewOnly=true on a human PR (no Shopfloor metadata) routes to review", async () => {

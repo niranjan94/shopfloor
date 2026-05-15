@@ -42,6 +42,14 @@ export interface RouterDecision {
   revisionMode?: boolean;
   reviewIteration?: number;
   implPrNumber?: number;
+  // Set when a stage PR was just merged. The orchestrator performs the
+  // corresponding label transition (and, for implement, closes the issue)
+  // before short-circuiting on stage: "none". v1 wired this via a separate
+  // workflow step (handle-merge); v2 keeps it in-process.
+  advanceOnMerge?: {
+    mergedStage: "spec" | "plan" | "implement";
+    prNumber: number;
+  };
   reason?: string;
 }
 

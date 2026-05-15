@@ -325,10 +325,25 @@ function resolvePullRequestEvent(payload: PullRequestPayload): RouterDecision {
   if (!meta) return { stage: "none", reason: "pr_has_no_shopfloor_metadata" };
 
   if (payload.action === "closed" && pr.merged) {
+    // Review PRs don't have a merge-driven transition: the review stage's
+    // verdict already advanced state. Only the three artifact-producing stages
+    // need the merge-time label flip.
+    if (
+      meta.stage === "spec" ||
+      meta.stage === "plan" ||
+      meta.stage === "implement"
+    ) {
+      return {
+        stage: "none",
+        issueNumber: meta.issueNumber,
+        advanceOnMerge: { mergedStage: meta.stage, prNumber: pr.number },
+        reason: `pr_merged_${meta.stage}_triggered_label_flip`,
+      };
+    }
     return {
       stage: "none",
       issueNumber: meta.issueNumber,
-      reason: `pr_merged_${meta.stage}_triggered_label_flip`,
+      reason: `pr_merged_${meta.stage}_no_transition`,
     };
   }
 

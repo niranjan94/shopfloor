@@ -113,11 +113,22 @@ export async function runOrchestrator(
   }
 
   if (decision.stage === "none") {
+    if (
+      decision.advanceOnMerge !== undefined &&
+      decision.issueNumber !== undefined
+    ) {
+      const advanced = await advanceOnMerge(args.github, args.audit, {
+        issueNumber: decision.issueNumber,
+        mergedStage: decision.advanceOnMerge.mergedStage,
+        prNumber: decision.advanceOnMerge.prNumber,
+      });
+      return { stage: "none", executed: advanced };
+    }
     return { stage: "none", executed: false };
   }
 
   const stage = decision.stage as Stage;
-  const issue = loadIssueFromEvent(args.event, liveLabels);
+  let issue = loadIssueFromEvent(args.event, liveLabels);
   const pr = await loadPrForStage(args, decision);
   // Resolve the repo's default branch lazily, only once per execute path.
   // Stage PRs target this branch; assuming "main" silently breaks repos that
@@ -129,6 +140,24 @@ export async function runOrchestrator(
   const createdLabels = await args.github.bootstrapLabels(LABEL_DEFS);
   if (createdLabels.length > 0) {
     args.audit({ type: "labels_bootstrapped", created: createdLabels });
+  }
+
+  // Hydrate the issue from the API when the event payload doesn't carry one
+  // (pull_request, pull_request_review) but the stage still needs ctx.issue.
+  // Without this, a human REQUEST_CHANGES on an impl PR routes to implement
+  // but the stage handler bails on "implement stage requires ctx.issue".
+  if (
+    issue === null &&
+    stage !== "review" &&
+    decision.issueNumber !== undefined
+  ) {
+    const live = await args.github.getIssue(decision.issueNumber);
+    issue = {
+      number: decision.issueNumber,
+      title: live.title,
+      body: live.body,
+      labels: live.labels.map((l) => l.name),
+    };
   }
 
   const ctx: StageContext = {
@@ -157,6 +186,28 @@ export async function runOrchestrator(
   } else {
     precheckLabels = new Set(issue?.labels ?? []);
   }
+
+  // A human REQUEST_CHANGES on an impl PR routes the state machine to
+  // implement+revisionMode, but the issue still carries shopfloor:needs-review
+  // (and possibly shopfloor:review-stuck). Apply the v1 apply-review-revision
+  // flip before precheck so the implement preconditions hold and the loop
+  // unsticks. The agent path (aggregate-review verdict=REQUEST_CHANGES) writes
+  // these labels itself in review/apply.ts; only the human path needs help.
+  if (
+    stage === "implement" &&
+    decision.revisionMode === true &&
+    decision.reason === "human_requested_changes" &&
+    decision.issueNumber !== undefined
+  ) {
+    await applyHumanReviewRevision(
+      args.github,
+      args.audit,
+      decision.issueNumber,
+      precheckLabels,
+    );
+    if (ctx.issue) ctx.issue.labels = Array.from(precheckLabels);
+  }
+
   const precheck = precheckStage(stage, precheckLabels);
   if (!precheck.ok) {
     args.audit({ type: "precheck_failed", stage, reason: precheck.reason });
@@ -194,6 +245,110 @@ export async function runOrchestrator(
     }
   }
   return { stage, executed: true };
+}
+
+// Performs the v1 handle-merge transition for the three artifact-producing
+// stages. Idempotent: if the downstream label is already present, skips with
+// no API writes (handles double-fired close events and workflow races).
+// Returns true when any mutation was performed.
+async function advanceOnMerge(
+  github: GitHubAdapter,
+  audit: AuditEmitter,
+  args: {
+    issueNumber: number;
+    mergedStage: "spec" | "plan" | "implement";
+    prNumber: number;
+  },
+): Promise<boolean> {
+  const issue = await github.getIssue(args.issueNumber);
+  const current = new Set(issue.labels.map((l) => l.name));
+
+  switch (args.mergedStage) {
+    case "spec": {
+      if (current.has(LABELS.needsPlan)) return false;
+      await github.removeLabel(args.issueNumber, LABELS.specInReview);
+      await github.addLabel(args.issueNumber, LABELS.needsPlan);
+      await github.postIssueComment(
+        args.issueNumber,
+        `Spec merged in #${args.prNumber}. Moving to planning stage.`,
+      );
+      audit({
+        type: "label_applied",
+        issueNumber: args.issueNumber,
+        add: [LABELS.needsPlan],
+        remove: [LABELS.specInReview],
+      });
+      return true;
+    }
+    case "plan": {
+      if (current.has(LABELS.needsImpl)) return false;
+      await github.removeLabel(args.issueNumber, LABELS.planInReview);
+      await github.addLabel(args.issueNumber, LABELS.needsImpl);
+      await github.postIssueComment(
+        args.issueNumber,
+        `Plan merged in #${args.prNumber}. Moving to implementation stage.`,
+      );
+      audit({
+        type: "label_applied",
+        issueNumber: args.issueNumber,
+        add: [LABELS.needsImpl],
+        remove: [LABELS.planInReview],
+      });
+      return true;
+    }
+    case "implement": {
+      if (current.has(LABELS.done)) return false;
+      await github.removeLabel(args.issueNumber, LABELS.implInReview);
+      await github.removeLabel(args.issueNumber, LABELS.reviewApproved);
+      await github.addLabel(args.issueNumber, LABELS.done);
+      await github.postIssueComment(
+        args.issueNumber,
+        `Implementation merged in #${args.prNumber}. Pipeline complete.`,
+      );
+      await github.closeIssue(args.issueNumber);
+      audit({
+        type: "label_applied",
+        issueNumber: args.issueNumber,
+        add: [LABELS.done],
+        remove: [LABELS.implInReview, LABELS.reviewApproved],
+      });
+      return true;
+    }
+  }
+}
+
+// Mirrors v1's apply-review-revision helper. Run before the implement stage
+// when a human reviewer submits REQUEST_CHANGES on an impl PR: the state
+// machine has already routed to implement+revisionMode, but the issue still
+// has shopfloor:needs-review (and possibly shopfloor:review-stuck), so the
+// implement precheck would refuse. Mutates `precheckLabels` so the precheck
+// run that follows sees the post-flip state.
+async function applyHumanReviewRevision(
+  github: GitHubAdapter,
+  audit: AuditEmitter,
+  issueNumber: number,
+  precheckLabels: Set<string>,
+): Promise<void> {
+  const add: string[] = [];
+  const remove: string[] = [];
+  if (!precheckLabels.has(LABELS.reviewRequestedChanges)) {
+    await github.addLabel(issueNumber, LABELS.reviewRequestedChanges);
+    precheckLabels.add(LABELS.reviewRequestedChanges);
+    add.push(LABELS.reviewRequestedChanges);
+  }
+  if (precheckLabels.has(LABELS.needsReview)) {
+    await github.removeLabel(issueNumber, LABELS.needsReview);
+    precheckLabels.delete(LABELS.needsReview);
+    remove.push(LABELS.needsReview);
+  }
+  if (precheckLabels.has(LABELS.reviewStuck)) {
+    await github.removeLabel(issueNumber, LABELS.reviewStuck);
+    precheckLabels.delete(LABELS.reviewStuck);
+    remove.push(LABELS.reviewStuck);
+  }
+  if (add.length > 0 || remove.length > 0) {
+    audit({ type: "label_applied", issueNumber, add, remove });
+  }
 }
 
 function mutexLabelFor(stage: Stage): string | null {

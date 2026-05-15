@@ -70,6 +70,10 @@ describe("resolveStage", () => {
     const decision = resolveStage(ctx("pull_request", "pr-closed-merged-spec"));
     expect(decision.stage).toBe("none");
     expect(decision.reason).toBe("pr_merged_spec_triggered_label_flip");
+    expect(decision.advanceOnMerge).toEqual({
+      mergedStage: "spec",
+      prNumber: expect.any(Number),
+    });
   });
 
   test("pull_request.closed merged=true returns issueNumber from PR body metadata", () => {
