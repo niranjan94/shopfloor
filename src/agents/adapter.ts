@@ -30,6 +30,7 @@ export interface RunStageArgs<T> {
   model: string;
   effort?: Effort;
   budgetUsd?: number;
+  maxTurns?: number;
   timeoutMs?: number;
   abortController?: AbortController;
 }

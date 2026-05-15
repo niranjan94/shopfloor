@@ -23,9 +23,7 @@ async function resolveClaudeCli(): Promise<string> {
   const override = process.env.SHOPFLOOR_CLAUDE_CLI_PATH;
   if (override) {
     if (!existsSync(override)) {
-      throw new Error(
-        `SHOPFLOOR_CLAUDE_CLI_PATH=${override} does not exist`,
-      );
+      throw new Error(`SHOPFLOOR_CLAUDE_CLI_PATH=${override} does not exist`);
     }
     core.info(`Using Claude CLI from SHOPFLOOR_CLAUDE_CLI_PATH: ${override}`);
     return override;
@@ -65,8 +63,7 @@ async function installClaudeCli(): Promise<string> {
     proc.on("error", reject);
     proc.on("close", (code) => {
       if (code === 0) resolve();
-      else
-        reject(new Error(`Claude CLI installer exited with code ${code}`));
+      else reject(new Error(`Claude CLI installer exited with code ${code}`));
     });
   });
 

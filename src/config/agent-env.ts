@@ -27,7 +27,9 @@ export interface BuildAgentEnvOptions {
   hostEnv?: NodeJS.ProcessEnv;
 }
 
-export function buildAgentEnv(opts: BuildAgentEnvOptions): Record<string, string> {
+export function buildAgentEnv(
+  opts: BuildAgentEnvOptions,
+): Record<string, string> {
   const host = opts.hostEnv ?? process.env;
   const env: Record<string, string> = {};
   for (const k of PASSTHROUGH_KEYS) {
@@ -44,7 +46,9 @@ export function buildAgentEnv(opts: BuildAgentEnvOptions): Record<string, string
   return env;
 }
 
-export function buildAgentEnvFromConfig(config: Config): Record<string, string> {
+export function buildAgentEnvFromConfig(
+  config: Config,
+): Record<string, string> {
   return buildAgentEnv({
     anthropicApiKey: config.anthropicApiKey,
     claudeCodeOAuthToken: config.claudeCodeOAuthToken,

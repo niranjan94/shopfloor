@@ -40,6 +40,9 @@ export async function runImplement(
     model: ctx.config.implModel,
     effort: ctx.config.implEffort,
     budgetUsd: ctx.config.implMaxBudgetUsd,
+    ...(ctx.config.implMaxTurns !== undefined
+      ? { maxTurns: ctx.config.implMaxTurns }
+      : {}),
     timeoutMs: ctx.config.implTimeoutMs,
   });
 }

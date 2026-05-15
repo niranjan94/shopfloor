@@ -17,6 +17,9 @@ export async function runSmellsLens(
     model: ctx.config.reviewModels.smells,
     effort: ctx.config.reviewEfforts.smells,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
+    ...(ctx.config.reviewMaxTurnsPerLens !== undefined
+      ? { maxTurns: ctx.config.reviewMaxTurnsPerLens }
+      : {}),
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });
 }

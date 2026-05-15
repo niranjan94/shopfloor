@@ -74,6 +74,7 @@ export class ClaudeAgentAdapter implements AgentAdapter {
           ...(args.budgetUsd !== undefined
             ? { maxBudgetUsd: args.budgetUsd }
             : {}),
+          ...(args.maxTurns !== undefined ? { maxTurns: args.maxTurns } : {}),
           ...(args.effort !== undefined ? { effort: args.effort } : {}),
           ...(this.env ? { env: this.env } : {}),
           abortController: controller,
@@ -119,8 +120,8 @@ function logAgentInput<T>(args: RunStageArgs<T>): void {
   try {
     core.info(`model: ${args.model}`);
     if (args.effort !== undefined) core.info(`effort: ${args.effort}`);
-    if (args.budgetUsd !== undefined)
-      core.info(`budgetUsd: ${args.budgetUsd}`);
+    if (args.budgetUsd !== undefined) core.info(`budgetUsd: ${args.budgetUsd}`);
+    if (args.maxTurns !== undefined) core.info(`maxTurns: ${args.maxTurns}`);
     if (args.timeoutMs !== undefined) core.info(`timeoutMs: ${args.timeoutMs}`);
     const toolList = args.tools.length
       ? args.tools.map((t) => `- ${t.name}: ${t.description ?? ""}`).join("\n")

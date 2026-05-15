@@ -17,6 +17,9 @@ export async function runSecurityLens(
     model: ctx.config.reviewModels.security,
     effort: ctx.config.reviewEfforts.security,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
+    ...(ctx.config.reviewMaxTurnsPerLens !== undefined
+      ? { maxTurns: ctx.config.reviewMaxTurnsPerLens }
+      : {}),
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });
 }

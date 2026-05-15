@@ -30,6 +30,9 @@ export async function runTriage(
     model: ctx.config.triageModel,
     effort: ctx.config.triageEffort,
     budgetUsd: ctx.config.triageMaxBudgetUsd,
+    ...(ctx.config.triageMaxTurns !== undefined
+      ? { maxTurns: ctx.config.triageMaxTurns }
+      : {}),
     timeoutMs: ctx.config.triageTimeoutMs,
   });
 }

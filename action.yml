@@ -156,6 +156,26 @@ inputs:
     description: USD budget cap per review lens.
     required: false
     default: "0.75"
+  triage_max_turns:
+    description: Optional hard cap on agent turns for the triage stage. Unset by default (no cap).
+    required: false
+    default: ""
+  spec_max_turns:
+    description: Optional hard cap on agent turns for the spec stage. Unset by default (no cap).
+    required: false
+    default: ""
+  plan_max_turns:
+    description: Optional hard cap on agent turns for the plan stage. Unset by default (no cap).
+    required: false
+    default: ""
+  impl_max_turns:
+    description: Optional hard cap on agent turns for the implement stage. Unset by default (no cap).
+    required: false
+    default: ""
+  review_max_turns_per_lens:
+    description: Optional hard cap on agent turns per review lens. Unset by default (no cap).
+    required: false
+    default: ""
   triage_timeout_ms:
     description: Wall-clock timeout for the triage stage.
     required: false

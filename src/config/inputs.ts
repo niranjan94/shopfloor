@@ -20,6 +20,24 @@ const EFFORT_LEVELS = ["low", "medium", "high", "xhigh"] as const;
 export type Effort = (typeof EFFORT_LEVELS)[number];
 const effort = () => z.enum(EFFORT_LEVELS).default("high");
 
+// Optional positive-integer input. Empty string means unset (no cap).
+const optionalTurns = () =>
+  z
+    .string()
+    .default("")
+    .transform((s, ctx) => {
+      if (s === "") return undefined;
+      const n = Number(s);
+      if (!Number.isInteger(n) || n < 1) {
+        ctx.addIssue({
+          code: "custom",
+          message: `expected positive integer, got ${s}`,
+        });
+        return z.NEVER;
+      }
+      return n;
+    });
+
 function parseStagesList(raw: string): StageName[] {
   if (!raw.trim()) return [];
   const parts = raw
@@ -68,6 +86,11 @@ const RawInputs = z
     plan_max_budget_usd: num(0).default("1.50"),
     impl_max_budget_usd: num(0).default("2.50"),
     review_max_budget_usd_per_lens: num(0).default("0.75"),
+    triage_max_turns: optionalTurns(),
+    spec_max_turns: optionalTurns(),
+    plan_max_turns: optionalTurns(),
+    impl_max_turns: optionalTurns(),
+    review_max_turns_per_lens: optionalTurns(),
     triage_timeout_ms: num(1000).default("300000"),
     spec_timeout_ms: num(1000).default("1200000"),
     plan_timeout_ms: num(1000).default("1200000"),
@@ -131,6 +154,11 @@ export function parseConfig(raw: Record<string, string | undefined>) {
     planMaxBudgetUsd: parsed.plan_max_budget_usd,
     implMaxBudgetUsd: parsed.impl_max_budget_usd,
     reviewMaxBudgetUsdPerLens: parsed.review_max_budget_usd_per_lens,
+    triageMaxTurns: parsed.triage_max_turns,
+    specMaxTurns: parsed.spec_max_turns,
+    planMaxTurns: parsed.plan_max_turns,
+    implMaxTurns: parsed.impl_max_turns,
+    reviewMaxTurnsPerLens: parsed.review_max_turns_per_lens,
     triageTimeoutMs: parsed.triage_timeout_ms,
     specTimeoutMs: parsed.spec_timeout_ms,
     planTimeoutMs: parsed.plan_timeout_ms,

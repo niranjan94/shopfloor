@@ -17,6 +17,9 @@ export async function runBugsLens(
     model: ctx.config.reviewModels.bugs,
     effort: ctx.config.reviewEfforts.bugs,
     budgetUsd: ctx.config.reviewMaxBudgetUsdPerLens,
+    ...(ctx.config.reviewMaxTurnsPerLens !== undefined
+      ? { maxTurns: ctx.config.reviewMaxTurnsPerLens }
+      : {}),
     timeoutMs: ctx.config.reviewTimeoutMsPerLens,
   });
 }

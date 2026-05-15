@@ -38,6 +38,9 @@ export async function runSpec(
     model: ctx.config.specModel,
     effort: ctx.config.specEffort,
     budgetUsd: ctx.config.specMaxBudgetUsd,
+    ...(ctx.config.specMaxTurns !== undefined
+      ? { maxTurns: ctx.config.specMaxTurns }
+      : {}),
     timeoutMs: ctx.config.specTimeoutMs,
   });
 }

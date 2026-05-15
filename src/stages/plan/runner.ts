@@ -38,6 +38,9 @@ export async function runPlan(
     model: ctx.config.planModel,
     effort: ctx.config.planEffort,
     budgetUsd: ctx.config.planMaxBudgetUsd,
+    ...(ctx.config.planMaxTurns !== undefined
+      ? { maxTurns: ctx.config.planMaxTurns }
+      : {}),
     timeoutMs: ctx.config.planTimeoutMs,
   });
 }
