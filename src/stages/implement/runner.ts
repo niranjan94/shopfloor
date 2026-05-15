@@ -7,6 +7,7 @@ import SYSTEM from "./prompt.system.md";
 import USER_TMPL from "./prompt.user.md.tmpl";
 import SYSTEM_QUICK from "./prompt.system.quick.md";
 import USER_QUICK_TMPL from "./prompt.user.quick.md.tmpl";
+import TDD_PARTIAL from "../_shared/prompts/tdd-and-anti-patterns.md";
 
 export interface RunImplementArgs {
   progressCommentId: number;
@@ -26,7 +27,7 @@ export async function runImplement(
 ): Promise<ImplementDecision> {
   if (!ctx.issue) throw new Error("runImplement requires ctx.issue");
   const quick = ctx.issue.labels.includes(LABELS.complexityQuick);
-  const systemPrompt = quick ? SYSTEM_QUICK : SYSTEM;
+  const systemPrompt = `${quick ? SYSTEM_QUICK : SYSTEM}\n\n${TDD_PARTIAL}`;
   const userPrompt = quick
     ? renderTemplate(USER_QUICK_TMPL, {
         repo_owner: ctx.repo.owner,
