@@ -545,6 +545,23 @@ export class GitHubAdapter {
     }
   }
 
+  // List the repo's existing labels once and create any from `defs` that are
+  // missing. Idempotent: existing labels are left alone (colors / descriptions
+  // on a label already provisioned by an earlier run -- or hand-edited by a
+  // maintainer -- are not overwritten).
+  async bootstrapLabels(
+    defs: ReadonlyArray<{ name: string; color: string; description: string }>,
+  ): Promise<string[]> {
+    const existing = new Set(await this.listRepoLabels());
+    const created: string[] = [];
+    for (const def of defs) {
+      if (existing.has(def.name)) continue;
+      await this.createLabel(def.name, def.color, def.description);
+      created.push(def.name);
+    }
+    return created;
+  }
+
   async closeIssue(issueNumber: number): Promise<void> {
     await this.octokit.rest.issues.update({
       ...this.repo,

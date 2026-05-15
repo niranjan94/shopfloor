@@ -6,6 +6,7 @@ import type { GitHubAdapter } from "./github/adapter.js";
 import { resolveStage, resolveReviewOnly } from "./state/machine.js";
 import {
   LABELS,
+  LABEL_DEFS,
   failedLabelFor,
   runningLabelFor,
   type Stage,
@@ -122,6 +123,13 @@ export async function runOrchestrator(
   // Stage PRs target this branch; assuming "main" silently breaks repos that
   // ship from any other trunk.
   const defaultBranch = await args.github.getDefaultBranch();
+  // Provision any missing shopfloor:* labels with their canonical colors and
+  // descriptions. Idempotent: only creates labels that don't already exist, so
+  // hand-edits and re-runs are both safe.
+  const createdLabels = await args.github.bootstrapLabels(LABEL_DEFS);
+  if (createdLabels.length > 0) {
+    args.audit({ type: "labels_bootstrapped", created: createdLabels });
+  }
 
   const ctx: StageContext = {
     event: args.event.payload,

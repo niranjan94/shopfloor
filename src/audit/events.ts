@@ -55,7 +55,8 @@ export type AuditEvent =
       stage: Stage;
       error: { message: string; kind: string };
     }
-  | { type: "budget_exceeded"; stage: Stage; spentUsd: number; capUsd: number };
+  | { type: "budget_exceeded"; stage: Stage; spentUsd: number; capUsd: number }
+  | { type: "labels_bootstrapped"; created: string[] };
 
 export type AuditEmitter = (event: AuditEvent) => void;
 

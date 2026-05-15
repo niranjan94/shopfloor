@@ -24,6 +24,7 @@ export function makeMockGithub() {
     setReviewStatus: vi.fn().mockResolvedValue(undefined),
     listRepoLabels: vi.fn().mockResolvedValue([]),
     createLabel: vi.fn().mockResolvedValue(undefined),
+    bootstrapLabels: vi.fn().mockResolvedValue([]),
     closeIssue: vi.fn().mockResolvedValue(undefined),
     getPr: vi.fn(),
     listChangedFiles: vi.fn().mockResolvedValue([]),
