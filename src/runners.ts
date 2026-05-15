@@ -21,7 +21,6 @@ import { applyReview } from "./stages/review/apply.js";
 import { aggregateFindings } from "./stages/review/aggregate.js";
 
 const CONFIDENCE_THRESHOLD = 60;
-const DEFAULT_BASE_BRANCH = "main";
 
 // Each stage handler assembles its own extras (revision context, progress
 // comment, PR/file lookups) so the orchestrator stays generic. Returning the
@@ -78,7 +77,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
       if (!ctx.issue) throw new Error("triage stage requires ctx.issue");
       const issueComments = await formatIssueComments(ctx, ctx.issue.number);
       const decision = await runTriage(ctx, { issueComments });
-      await applyTriage(ctx, { decision, baseBranch: DEFAULT_BASE_BRANCH });
+      await applyTriage(ctx, { decision, baseBranch: ctx.defaultBranch });
     },
   },
 
@@ -106,7 +105,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
       await applySpec(ctx, {
         decision,
         branchName,
-        baseBranch: DEFAULT_BASE_BRANCH,
+        baseBranch: ctx.defaultBranch,
       });
     },
   },
@@ -134,7 +133,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
       await applyPlan(ctx, {
         decision,
         branchName,
-        baseBranch: DEFAULT_BASE_BRANCH,
+        baseBranch: ctx.defaultBranch,
       });
     },
   },
@@ -179,7 +178,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         decision,
         progressCommentId,
         branchName,
-        baseBranch: DEFAULT_BASE_BRANCH,
+        baseBranch: ctx.defaultBranch,
       });
     },
   },

@@ -37,6 +37,7 @@ export function makeMockGithub() {
     listPrReviews: vi.fn().mockResolvedValue([]),
     listPrReviewComments: vi.fn().mockResolvedValue([]),
     listIssueComments: vi.fn().mockResolvedValue([]),
+    getDefaultBranch: vi.fn().mockResolvedValue("main"),
     getRefSha: vi.fn().mockResolvedValue("base-sha"),
     createRef: vi.fn().mockResolvedValue(true),
     getFileSha: vi.fn().mockResolvedValue(null),

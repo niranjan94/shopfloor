@@ -27,6 +27,7 @@ interface MockSet {
   createRef: MockFn;
   getContent: MockFn;
   createOrUpdateFileContents: MockFn;
+  getRepo: MockFn;
 }
 
 function makeMockOctokit(): {
@@ -64,6 +65,7 @@ function makeMockOctokit(): {
       .fn()
       .mockRejectedValue(Object.assign(new Error("nope"), { status: 404 })),
     createOrUpdateFileContents: vi.fn().mockResolvedValue({ data: {} }),
+    getRepo: vi.fn().mockResolvedValue({ data: { default_branch: "main" } }),
   };
   const octokit: OctokitLike = {
     rest: {
@@ -89,6 +91,7 @@ function makeMockOctokit(): {
         listReviewComments: mocks.listReviewComments,
       },
       repos: {
+        get: mocks.getRepo,
         createCommitStatus: mocks.createCommitStatus,
         getContent: mocks.getContent,
         createOrUpdateFileContents: mocks.createOrUpdateFileContents,

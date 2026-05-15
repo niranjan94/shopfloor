@@ -7,6 +7,10 @@ import type { EventPayload, RouterDecision } from "../../state/types.js";
 export interface StageContext {
   event: EventPayload;
   repo: { owner: string; name: string };
+  // The repository's default branch, resolved once per invocation. Used as
+  // the base for every stage PR (spec/plan/implement) so Shopfloor follows
+  // whatever the repo treats as its trunk rather than assuming "main".
+  defaultBranch: string;
   decision: RouterDecision;
   issue?: {
     number: number;

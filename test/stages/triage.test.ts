@@ -68,6 +68,7 @@ function makeCtx(args: MakeCtxArgs): StageContext & {
   const ctx: StageContext = {
     event: {} as never,
     repo: { owner: "octo", name: "demo" },
+    defaultBranch: "main",
     decision: { stage: "triage" },
     issue: {
       number: 7,

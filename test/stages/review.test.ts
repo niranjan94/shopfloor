@@ -246,6 +246,7 @@ function ctxFor(reviewGithub: ReturnType<typeof makeMockGithub> | null) {
   const ctx: StageContext = {
     event: {} as never,
     repo: { owner: "octo", name: "demo" },
+    defaultBranch: "main",
     decision: { stage: "review" },
     pr: {
       number: 100,

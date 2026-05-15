@@ -167,6 +167,10 @@ export interface OctokitLike {
       }>;
     };
     repos: {
+      get(params: {
+        owner: string;
+        repo: string;
+      }): Promise<{ data: { default_branch: string } }>;
       createCommitStatus(params: {
         owner: string;
         repo: string;
@@ -555,6 +559,7 @@ export class GitHubAdapter {
     merged: boolean;
     labels: Array<{ name: string }>;
     head: { sha: string };
+    base: { ref: string };
     body: string | null;
   }> {
     const res = await this.octokit.rest.pulls.get({
@@ -562,6 +567,11 @@ export class GitHubAdapter {
       pull_number: prNumber,
     });
     return res.data as never;
+  }
+
+  async getDefaultBranch(): Promise<string> {
+    const res = await this.octokit.rest.repos.get({ ...this.repo });
+    return res.data.default_branch;
   }
 
   async listChangedFiles(prNumber: number): Promise<string[]> {

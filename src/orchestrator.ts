@@ -118,10 +118,15 @@ export async function runOrchestrator(
   const stage = decision.stage as Stage;
   const issue = loadIssueFromEvent(args.event, liveLabels);
   const pr = await loadPrForStage(args, decision);
+  // Resolve the repo's default branch lazily, only once per execute path.
+  // Stage PRs target this branch; assuming "main" silently breaks repos that
+  // ship from any other trunk.
+  const defaultBranch = await args.github.getDefaultBranch();
 
   const ctx: StageContext = {
     event: args.event.payload,
     repo: args.repo,
+    defaultBranch,
     decision,
     github: args.github,
     reviewGithub: args.reviewGithub,
@@ -350,7 +355,7 @@ async function loadPrForStage(
       body: data.body,
       headRef: "",
       headSha: data.head.sha,
-      baseRef: "main",
+      baseRef: data.base.ref,
     };
   }
   return null;

@@ -64,6 +64,7 @@ function makeCtx(mg: MockGithub) {
   const ctx: StageContext = {
     event: {} as never,
     repo: { owner: "octo", name: "demo" },
+    defaultBranch: "main",
     decision: { stage: "plan" },
     issue: {
       number: 42,

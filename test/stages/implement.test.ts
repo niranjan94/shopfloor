@@ -73,6 +73,7 @@ function makeCtx(opts: { hasReviewApp: boolean; mg?: MockGithub }) {
   const ctx: StageContext = {
     event: {} as never,
     repo: { owner: "octo", name: "demo" },
+    defaultBranch: "main",
     decision: { stage: "implement" },
     issue: {
       number: 42,
@@ -104,6 +105,7 @@ describe("runImplement", () => {
     const ctx: StageContext = {
       event: {} as never,
       repo: { owner: "octo", name: "demo" },
+      defaultBranch: "main",
       decision: { stage: "implement" },
       issue: {
         number: 42,
@@ -196,6 +198,7 @@ describe("applyImplement", () => {
     const ctx: StageContext = {
       event: {} as never,
       repo: { owner: "octo", name: "demo" },
+      defaultBranch: "main",
       decision: { stage: "implement" },
       issue: {
         number: 42,
