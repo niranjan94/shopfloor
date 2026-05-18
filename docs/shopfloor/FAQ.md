@@ -38,7 +38,7 @@ Common patterns:
 
 - **Budget:** use `claude-haiku` for triage and all four reviewer lenses, `claude-sonnet` for spec/plan/impl.
 - **Quality:** use `claude-opus` everywhere.
-- **Balanced (the default):** `claude-haiku` for triage, `claude-opus` for spec/plan/impl and all four reviewer lenses.
+- **Balanced (the default):** `claude-sonnet-4-6` for triage, `claude-opus-4-7[1m]` for spec/plan/impl and all four reviewer lenses. The `[1m]` suffix selects the 1M-context tier so long issues and large PR diffs fit.
 
 ## What if I do not want the agent to review my PR?
 
@@ -111,6 +111,6 @@ Yes, with caveats. The state machine does not know about packages — it treats 
 
 No. The whole point is Claude-driven automation. If you want issue labeling and PR automation without an AI, use a general-purpose action like `github/issue-labeler` or write your own workflow.
 
-## Is the plan file format compatible with [`superpowers:executing-plans`](https://github.com/anthropics/claude-plugins-official)?
+## Is the plan file format compatible with [`obra/superpowers`](https://github.com/obra/superpowers)?
 
-Yes — that is the intent. The plan agent is explicitly instructed to invoke `superpowers:writing-plans`, which produces plans in the format that `superpowers:executing-plans` and `superpowers:subagent-driven-development` both consume. The implementation agent then invokes `superpowers:subagent-driven-development` to execute the plan. This is why Shopfloor installs the superpowers plugin automatically.
+Yes — that is the intent. Shopfloor's plan prompt is distilled from the `superpowers:writing-plans` / `plan-document-reviewer` skills and produces plans in the same shape that `superpowers:executing-plans` and `superpowers:subagent-driven-development` consume. The implementation prompt is similarly distilled from `superpowers:subagent-driven-development`, `executing-plans`, and `finishing-a-development-branch`. The distilled prompts live in [`src/stages/plan/prompt.system.md`](../../src/stages/plan/prompt.system.md) and [`src/stages/implement/prompt.system.md`](../../src/stages/implement/prompt.system.md) — Shopfloor does not install the superpowers plugin into the agent SDK at runtime; the relevant guidance is baked into the prompts so behavior is reproducible across upstream skill changes.

@@ -11,7 +11,7 @@ Shopfloor is deliberately boring where it counts: a pure TypeScript state machin
 ## How it works
 
 1. You open an issue. The triage agent classifies it `quick`, `medium`, or `large`, or asks clarifying questions and pauses.
-2. The router advances the issue through the stages appropriate for its complexity:
+2. The orchestrator advances the issue through the stages appropriate for its complexity:
 
    | Complexity | Flow                             |
    | ---------- | -------------------------------- |
@@ -171,10 +171,10 @@ Notes:
 
 ### Authentication modes
 
-Shopfloor resolves credentials for two surfaces — the primary App (every mutation except code reviews) and the optional review App (code reviews posted on Shopfloor-authored PRs) — independently. For each surface, the first available source wins:
+Shopfloor resolves credentials for two surfaces — the primary App (every mutation except code reviews) and the optional review App (code reviews posted on Shopfloor-authored PRs) — independently. For each surface, the first source set wins, evaluated in this order:
 
-1. **App client id + private key (preferred).** Provide `github_app_client_id` + `github_app_private_key` (primary) and/or `github_app_review_client_id` + `github_app_review_private_key` (review). Shopfloor mints the installation token in-process via `@octokit/auth-app` and refreshes it before the one-hour TTL expires. This is the only mode that survives implement stages longer than 60 minutes without a token expiry.
-2. **Preminted installation token.** Pass `github_app_token` and/or `github_app_review_token` from a prior `actions/create-github-app-token` step. Simpler if you already mint elsewhere, but the token is static for the run — long implement stages may outlive it.
+1. **Preminted installation token.** `github_app_token` and/or `github_app_review_token`, typically minted by a prior `actions/create-github-app-token@v2` step. Convenient if you already mint elsewhere, but the token is static for the run and capped at GitHub's 60-minute installation-token TTL — long implement stages may outlive it.
+2. **App client id + private key (preferred for production).** `github_app_client_id` + `github_app_private_key` (primary) and/or `github_app_review_client_id` + `github_app_review_private_key` (review). Shopfloor mints the installation token in-process via `@octokit/auth-app` and refreshes it transparently before expiry. This is the only mode that survives implement stages longer than 60 minutes without a token expiry. Used only when no preminted token is set for the same surface.
 3. **Default `GITHUB_TOKEN` fallback.** If neither App credentials nor a preminted token is provided, Shopfloor falls back to the workflow's `GITHUB_TOKEN`. This works for evaluation but carries hard limitations:
    - Events caused by `GITHUB_TOKEN` **do not trigger downstream workflows**, so label flips, pushes, and review submissions will not advance the pipeline to the next stage.
    - `GITHUB_TOKEN` cannot APPROVE or REQUEST_CHANGES on a PR authored by `github-actions[bot]` itself, so review aggregation against Shopfloor-authored impl PRs fails.
@@ -202,7 +202,6 @@ v1 remains available at the `@v1` tag for repos that have not migrated.
 Shopfloor manages a set of `shopfloor:*` labels on your issues and PRs. These are the ones you will actually touch:
 
 - `shopfloor:skip-review` on an implementation PR bypasses the four-cell review matrix.
-- `shopfloor:revise` re-runs the current stage against fresh context.
 - `shopfloor:awaiting-info` is applied by triage when it needs answers. Remove it after updating the issue to re-run triage.
 - `shopfloor:review-stuck` is applied when the review loop gives up. Remove it to force another review pass.
 - `shopfloor:failed:<stage>` is applied when a stage errors. Remove it to retry that stage.

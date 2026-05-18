@@ -162,11 +162,13 @@ present at a time once triage has finished.
 | `shopfloor:review-stuck`             | The review loop ran out of iterations without converging. |
 | `shopfloor:done`                     | Pipeline finished and the origin issue was closed.        |
 
-Three transient mutex labels mark "a job is running right now" so concurrent
+Four transient mutex labels mark "a job is running right now" so concurrent
 events do not double-fire stages: `shopfloor:spec-running`,
-`shopfloor:plan-running`, `shopfloor:implementing`. They are removed
-automatically when the stage finishes. If a runner crashes mid-stage they
-can be left behind — remove them by hand to unstick the pipeline.
+`shopfloor:plan-running`, `shopfloor:implementing`, and
+`shopfloor:review-running`. They are removed automatically when the stage
+finishes. If a runner crashes mid-stage they can be left behind — remove
+them by hand to unstick the pipeline (see
+[troubleshooting.md](troubleshooting.md#stalled-pipeline-recovery)).
 
 Failure labels park the issue at the failed stage:
 `shopfloor:failed:triage`, `shopfloor:failed:spec`, `shopfloor:failed:plan`,
@@ -393,8 +395,12 @@ recovery option.
 | Plan      | Removes `shopfloor:plan-in-review`, adds `shopfloor:needs-impl`. Implement stage queues.                            |
 | Implement | Removes `shopfloor:impl-in-review` and `shopfloor:review-approved`, adds `shopfloor:done`, closes the origin issue. |
 
+Review PRs do not exist — the review stage posts its verdict via the GitHub
+`reviews` API directly on the impl PR, so there is nothing to merge and no
+merge-time transition for the review stage.
+
 These transitions are idempotent. If the labels are already where they
-should be, `handle-merge` no-ops.
+should be, the merge handler no-ops.
 
 ---
 

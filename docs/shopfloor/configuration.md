@@ -25,16 +25,16 @@ Exactly one of these is required.
 
 ## Auth surfaces
 
-Two independent surfaces — **primary** (every mutation except code reviews) and **review** (the review aggregator's APPROVE / REQUEST_CHANGES call). Each accepts three sources, evaluated in order; the first match wins. See [`src/github/app-token.ts`](../../src/github/app-token.ts).
+Two independent surfaces — **primary** (every mutation except code reviews) and **review** (the review aggregator's APPROVE / REQUEST_CHANGES call). Each accepts three sources. They are evaluated in the order shown in the table; the first source set for a given surface wins. The "preferred for production" mode is App credentials (refreshes transparently past the 60-minute installation-token TTL), but if you also pass a preminted token it takes precedence. See [`src/github/app-token.ts`](../../src/github/app-token.ts).
 
 ### Primary surface
 
-| Input                    | Default | Notes                                                                                                                                                                                                                                                      |
-| ------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `github_app_client_id`   | `""`    | App client id (looks like `Iv23li…`, not the numeric App ID). Paired with `github_app_private_key`. **Preferred mode**: Shopfloor mints the installation token in-process via `@octokit/auth-app` and refreshes it transparently before the 60-minute TTL. |
-| `github_app_private_key` | `""`    | App private key (PEM contents, including `-----BEGIN/END-----` lines).                                                                                                                                                                                     |
-| `github_app_token`       | `""`    | Preminted installation token (e.g. from `actions/create-github-app-token@v2`). **Caveat:** capped at GitHub's 60-minute installation-token TTL. Implement stages that outrun the TTL will fail; prefer App credentials.                                    |
-| `github_token`           | `""`    | Last-resort fallback (typically `${{ github.token }}`). Mutations via this token do not trigger downstream workflows. See [Authentication modes in the README](../../README.md#authentication-modes).                                                      |
+| Input                    | Default | Notes                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github_app_token`       | `""`    | Evaluated first. Preminted installation token (e.g. from `actions/create-github-app-token@v2`). **Caveat:** capped at GitHub's 60-minute installation-token TTL. Implement stages that outrun the TTL will fail mid-run; prefer App credentials.                                                                                                               |
+| `github_app_client_id`   | `""`    | Evaluated next when no preminted token is set. App client id (looks like `Iv23li…`, not the numeric App ID). Paired with `github_app_private_key`. **Preferred for production:** Shopfloor mints the installation token in-process via `@octokit/auth-app` and refreshes it transparently with a 5-minute pre-expiry margin, surviving multi-hour impl stages. |
+| `github_app_private_key` | `""`    | App private key (PEM contents, including `-----BEGIN/END-----` lines).                                                                                                                                                                                                                                                                                         |
+| `github_token`           | `""`    | Last-resort fallback (typically `${{ github.token }}`). Mutations via this token do not trigger downstream workflows. See [Authentication modes in the README](../../README.md#authentication-modes).                                                                                                                                                          |
 
 ### Review surface (optional)
 
@@ -56,18 +56,45 @@ Leave the review surface unset for a read-only review path: Shopfloor will still
 
 ## Models
 
-Per-stage model selection. Pass any model id the Claude Agent SDK understands.
+Per-stage model selection. Pass any model id the Claude Agent SDK understands. The defaults pin specific versions; aliases like `claude-haiku` / `claude-sonnet` / `claude-opus` also work if you want to track the latest in a family.
 
-| Input                     | Default        | Notes                                                                   |
-| ------------------------- | -------------- | ----------------------------------------------------------------------- |
-| `triage_model`            | `claude-haiku` | Classification is mostly pattern-matching; Haiku is enough.             |
-| `spec_model`              | `claude-opus`  | Spec writing benefits from the strongest reasoning.                     |
-| `plan_model`              | `claude-opus`  | Plan decomposition benefits from strong reasoning.                      |
-| `impl_model`              | `claude-opus`  | Implementation benefits from strong tool use and long-horizon planning. |
-| `review_compliance_model` | `claude-opus`  | Compliance lens.                                                        |
-| `review_bugs_model`       | `claude-opus`  | Bug-hunting lens.                                                       |
-| `review_security_model`   | `claude-opus`  | Security lens.                                                          |
-| `review_smells_model`     | `claude-opus`  | Refactor/smells lens.                                                   |
+| Input                     | Default                | Notes                                                                                                                       |
+| ------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `triage_model`            | `claude-sonnet-4-6`    | Classification is mostly pattern-matching; Sonnet is a balance between accuracy on ambiguous issues and per-event spend.    |
+| `spec_model`              | `claude-opus-4-7[1m]`  | Spec writing benefits from the strongest reasoning. The `[1m]` suffix selects the 1M-context tier for long-issue contexts.  |
+| `plan_model`              | `claude-opus-4-7[1m]`  | Plan decomposition benefits from strong reasoning.                                                                          |
+| `impl_model`              | `claude-opus-4-7[1m]`  | Implementation benefits from strong tool use and long-horizon planning.                                                     |
+| `review_compliance_model` | `claude-opus-4-7[1m]`  | Compliance lens.                                                                                                            |
+| `review_bugs_model`       | `claude-opus-4-7[1m]`  | Bug-hunting lens.                                                                                                           |
+| `review_security_model`   | `claude-opus-4-7[1m]`  | Security lens.                                                                                                              |
+| `review_smells_model`     | `claude-opus-4-7[1m]`  | Refactor/smells lens.                                                                                                       |
+
+## Reasoning effort
+
+Per-stage reasoning effort. Accepts `low` | `medium` | `high` | `xhigh`. Higher effort spends more tokens on chain-of-thought before the final answer; `xhigh` is the deepest tier the SDK exposes.
+
+| Input                      | Default | Notes                            |
+| -------------------------- | ------- | -------------------------------- |
+| `triage_effort`            | `high`  | Triage stage.                    |
+| `spec_effort`              | `high`  | Spec stage.                      |
+| `plan_effort`              | `high`  | Plan stage.                      |
+| `impl_effort`              | `high`  | Implement stage.                 |
+| `review_compliance_effort` | `high`  | Compliance review lens.          |
+| `review_bugs_effort`       | `high`  | Bugs review lens.                |
+| `review_security_effort`   | `high`  | Security review lens.            |
+| `review_smells_effort`     | `high`  | Smells review lens.              |
+
+## Turn caps
+
+Optional hard caps on agent turns per stage. Empty (the default) means no cap — the stage runs to natural completion within its budget and timeout. Set a positive integer to bound multi-turn loops explicitly.
+
+| Input                       | Default       | Notes                                            |
+| --------------------------- | ------------- | ------------------------------------------------ |
+| `triage_max_turns`          | `""` (no cap) | Triage stage.                                    |
+| `spec_max_turns`            | `""` (no cap) | Spec stage.                                      |
+| `plan_max_turns`            | `""` (no cap) | Plan stage.                                      |
+| `impl_max_turns`            | `""` (no cap) | Implement stage. Set this if impl runs sprawl.   |
+| `review_max_turns_per_lens` | `""` (no cap) | Applies to each of the four review lenses.       |
 
 ## Budgets
 
@@ -141,6 +168,26 @@ Notes:
 - The workflow's default `GITHUB_TOKEN` is acceptable here. Cascading-trigger suppression does not bite (there's no downstream pipeline), and the self-review restriction doesn't apply (the PR author is human, not the bot).
 - Shopfloor refuses to route in this mode when the PR already carries Shopfloor metadata, so the review-only workflow and the full pipeline never double-review the same PR.
 
+## Split-runner mode
+
+By default Shopfloor runs as a single GitHub Actions job per event. For larger repos that want different runners per stage — typically a small runner for triage/spec/plan/review and a beefier one for implement — split the workflow into a `resolve` router job and one or more `execute` jobs gated on the router's `stage` output. See [`examples/shopfloor-split-runners.yml`](../../examples/shopfloor-split-runners.yml) for the full pattern.
+
+| Input    | Default  | Notes                                                                                                                                                                                                                                                          |
+| -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`   | `"auto"` | `auto` resolves and executes in one process (single-job consumer workflows). `resolve` runs only the state machine and emits the `stage` output — no mutex, no agent, no GitHub mutations. `execute` resolves, applies the `stages` allowlist, and then runs. |
+| `stages` | `""`     | Comma-separated allowlist for `mode: execute`. Empty (default) means all stages are accepted. Non-matching stages exit `0` silently with `executed: "false"`. Ignored when `mode != execute`. Valid names: `triage,spec,plan,implement,review`.                |
+
+In `execute` mode the orchestrator fetches live issue labels from the GitHub API before precheck instead of trusting the event-payload snapshot, so the resolve → execute label-flip race window closes. Prefer App credentials (not preminted tokens) in split mode — the resolve → execute gap eats into the 60-minute installation-token TTL.
+
+## Action outputs
+
+Every invocation sets these two outputs regardless of `mode`.
+
+| Output     | Notes                                                                                                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`    | The stage the state machine resolved for this event: one of `triage`, `spec`, `plan`, `implement`, `review`, or `none`. Read this from a `mode: resolve` job to gate downstream execute jobs. |
+| `executed` | `"true"` if the action actually ran a stage's agent and applied its decision, `"false"` otherwise. `false` covers `mode: resolve` invocations, filter misses, `none` routes, and precheck skips. |
+
 ## What the action does not configure
 
-The following knobs that v1 exposed were removed in v2 and are not currently configurable: per-stage `*_effort`, per-stage `*_max_turns`, per-lens `review_*_enabled`, `review_confidence_threshold` (hardcoded to 60), `display_report`, `branch_prefix`, `artifacts_dir`, `keep_artifacts_forever`, `runner_*`, `use_bedrock`/`use_vertex`/`use_foundry`, `impl_bash_allowlist`, `additional_tools`, `setup_stages` / `setup_env_json` / `setup_required`, `use_draft_prs` / `shopfloor:wip` toggle. Branch names (`shopfloor/{spec,plan,impl}/<N>-<slug>`) and artifact paths (`docs/shopfloor/{specs,plans}/<N>-<slug>.md`) are hardcoded; the review lens set is fixed at four cells. Open an issue if you need any of these back.
+The following knobs that v1 exposed were removed in v2 and are not currently configurable: per-lens `review_*_enabled`, `review_confidence_threshold` (hardcoded to 60), `display_report`, `branch_prefix`, `artifacts_dir`, `keep_artifacts_forever`, `runner_*`, `use_bedrock`/`use_vertex`/`use_foundry`, `impl_bash_allowlist`, `additional_tools`, `setup_stages` / `setup_env_json` / `setup_required`, `use_draft_prs` / `shopfloor:wip` toggle. Branch names (`shopfloor/{spec,plan,impl}/<N>-<slug>`) and artifact paths (`docs/shopfloor/{specs,plans}/<N>-<slug>.md`) are hardcoded; the review lens set is fixed at four cells. Open an issue if you need any of these back.

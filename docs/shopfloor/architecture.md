@@ -13,7 +13,7 @@ Agents never mutate GitHub directly. The pipeline stays predictable even when an
 
 ## How v2 is wired
 
-v2 ships as a single Node 24 GitHub Action (`niranjan94/shopfloor@v2`). There is no separate router package, no reusable workflow, and no `claude-code-action` subprocess. The action's entry point is [`src/entry.ts`](../../src/entry.ts):
+v2 ships as a single Node 24 GitHub Action (`niranjan94/shopfloor@v2`). There is no separate router package, no reusable workflow, and no `claude-code-action` subprocess. By default the action runs in `mode: auto` and resolves+executes the stage in one process; setting `mode: resolve` short-circuits after the state machine for use as a cheap router job, and `mode: execute` runs only stages permitted by the `stages` allowlist (fetching live labels before precheck to close the label-flip race). See [`examples/shopfloor-split-runners.yml`](../../examples/shopfloor-split-runners.yml) and [configuration.md](configuration.md#split-runner-mode) for the two-job pattern. The action's entry point is [`src/entry.ts`](../../src/entry.ts):
 
 1. Read inputs (via `@actions/core`), parse with Zod (`src/config/inputs.ts`).
 2. Resolve auth for the primary surface and the optional review surface (`src/github/app-token.ts`).
