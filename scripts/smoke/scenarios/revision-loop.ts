@@ -57,11 +57,9 @@ const REVISION_LOOP: Scenario = {
       timeoutMs: 10 * 60_000,
     });
 
-    await ctx.expectLabel(
-      issue,
-      /^shopfloor:(review-approved|review-stuck)$/,
-      { timeoutMs: 15 * 60_000 },
-    );
+    await ctx.expectLabel(issue, /^shopfloor:(review-approved|review-stuck)$/, {
+      timeoutMs: 15 * 60_000,
+    });
 
     return { kind: "pass" };
   },

@@ -1,12 +1,7 @@
 import chalk from "chalk";
 import type { Octokit } from "@octokit/rest";
 import { makeExpectClient } from "./expect.js";
-import type {
-  AppLogins,
-  Scenario,
-  ScenarioResult,
-  SmokeCtx,
-} from "./types.js";
+import type { AppLogins, Scenario, ScenarioResult, SmokeCtx } from "./types.js";
 
 export interface RunScenarioOpts {
   gh: Octokit;
@@ -165,7 +160,11 @@ export async function runScenario(
     },
     async expectNewCommitOn(pr, sinceSha, expectOpts) {
       log(`. waiting for new commit on PR #${pr} (since ${sinceSha})`);
-      const out = await expectClient.expectNewCommitOn(pr, sinceSha, expectOpts);
+      const out = await expectClient.expectNewCommitOn(
+        pr,
+        sinceSha,
+        expectOpts,
+      );
       log(`+ new commit on PR #${pr} (${out.headSha})`);
       return out;
     },

@@ -69,9 +69,7 @@ async function main(): Promise<void> {
 
   if (args.positional[0] === "cleanup") {
     const prefix = args.tag ?? "smoke-";
-    console.log(
-      chalk.bold(`Cleaning up artifacts with prefix "${prefix}"...`),
-    );
+    console.log(chalk.bold(`Cleaning up artifacts with prefix "${prefix}"...`));
     const report = await cleanupByTitlePrefix(gh, OWNER, REPO, prefix);
     console.log(
       `  PRs closed:        ${report.prsClosed}\n  Branches deleted:  ${report.branchesDeleted}\n  Issues deleted:    ${report.issuesDeleted}`,

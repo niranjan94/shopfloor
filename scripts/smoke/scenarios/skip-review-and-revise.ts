@@ -7,7 +7,7 @@ async function runSkipReview(ctx: SmokeCtx): Promise<void> {
     title: `${ctx.tag}: skip-review readme date`,
     body: [
       "Append today's date to the bottom of `README.md` in the form",
-      '`<!-- last-smoke: YYYY-MM-DD -->`.',
+      "`<!-- last-smoke: YYYY-MM-DD -->`.",
       "",
       "Trivial single-file change.",
     ].join("\n"),
