@@ -214,6 +214,10 @@ Shopfloor manages a set of `shopfloor:*` labels on your issues and PRs. These ar
 - [Troubleshooting](docs/shopfloor/troubleshooting.md)
 - [FAQ](docs/shopfloor/FAQ.md)
 
+### Smoke testing
+
+A developer-invoked end-to-end runner exercises the real action against `niranjan94/shopfloor-smoke`. See [`scripts/smoke/README.md`](scripts/smoke/README.md).
+
 ## License
 
 MIT
