@@ -99,6 +99,26 @@ export async function runOrchestrator(
     ...(liveLabels !== undefined ? { liveLabels } : {}),
   });
 
+  // advanceOnMerge is a pure label-flip transition that the state machine
+  // attaches to a stage="none" decision when a Shopfloor stage PR merges.
+  // It is owned by the router-side primary App token, requires no agent
+  // invocation, mutex, or precheck. In split-runner workflows the resolve
+  // job is the only job that runs for merge events (the execute jobs gate
+  // on stage != "none"), so the flip must happen here or it is dropped on
+  // the floor and the issue strands at <stage>-in-review.
+  if (
+    decision.stage === "none" &&
+    decision.advanceOnMerge !== undefined &&
+    decision.issueNumber !== undefined
+  ) {
+    const advanced = await advanceOnMerge(args.github, args.audit, {
+      issueNumber: decision.issueNumber,
+      mergedStage: decision.advanceOnMerge.mergedStage,
+      prNumber: decision.advanceOnMerge.prNumber,
+    });
+    return { stage: "none", executed: advanced };
+  }
+
   if (args.config.mode === "resolve") {
     return { stage: decision.stage, executed: false };
   }
@@ -113,17 +133,6 @@ export async function runOrchestrator(
   }
 
   if (decision.stage === "none") {
-    if (
-      decision.advanceOnMerge !== undefined &&
-      decision.issueNumber !== undefined
-    ) {
-      const advanced = await advanceOnMerge(args.github, args.audit, {
-        issueNumber: decision.issueNumber,
-        mergedStage: decision.advanceOnMerge.mergedStage,
-        prNumber: decision.advanceOnMerge.prNumber,
-      });
-      return { stage: "none", executed: advanced };
-    }
     return { stage: "none", executed: false };
   }
 

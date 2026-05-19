@@ -230,6 +230,40 @@ describe("orchestrator e2e against v1 fixtures", () => {
     expect(audit.map((e) => e.type)).toContain("label_applied");
   });
 
+  it("spec PR merged in mode=resolve still performs the advanceOnMerge label flip", async () => {
+    // Regression: in split-runner workflows the merge event lands on the
+    // resolve-only router job. The router's decision carries advanceOnMerge
+    // but stage="none", so the downstream execute jobs are gated off. The
+    // resolve path must therefore perform the label flip itself; otherwise
+    // the issue is stranded at spec-in-review forever.
+    const audit: AuditEvent[] = [];
+    const mg = makeMockGithub();
+    mg.getIssue.mockResolvedValue({
+      labels: [{ name: "shopfloor:spec-in-review" }],
+      state: "open",
+      title: "x",
+      body: null,
+    });
+    const result = await runOrchestrator({
+      event: { name: "pull_request", payload: prMergedSpec as never },
+      repo: { owner: "niranjan94", name: "shopfloor" },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([]),
+      audit: (e) => audit.push(e),
+      config: { ...baseConfig, mode: "resolve" },
+      runId: "e2e-merge-spec-resolve",
+    });
+    expect(result).toEqual({ stage: "none", executed: true });
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:spec-in-review");
+    expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:needs-plan");
+    expect(mg.postIssueComment).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining("Moving to planning stage"),
+    );
+    expect(audit.map((e) => e.type)).toContain("label_applied");
+  });
+
   it("merge transition is idempotent when the downstream label is already present", async () => {
     const mg = makeMockGithub();
     mg.getIssue.mockResolvedValue({
