@@ -58,43 +58,43 @@ Leave the review surface unset for a read-only review path: Shopfloor will still
 
 Per-stage model selection. Pass any model id the Claude Agent SDK understands. The defaults pin specific versions; aliases like `claude-haiku` / `claude-sonnet` / `claude-opus` also work if you want to track the latest in a family.
 
-| Input                     | Default                | Notes                                                                                                                       |
-| ------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `triage_model`            | `claude-sonnet-4-6`    | Classification is mostly pattern-matching; Sonnet is a balance between accuracy on ambiguous issues and per-event spend.    |
-| `spec_model`              | `claude-opus-4-7[1m]`  | Spec writing benefits from the strongest reasoning. The `[1m]` suffix selects the 1M-context tier for long-issue contexts.  |
-| `plan_model`              | `claude-opus-4-7[1m]`  | Plan decomposition benefits from strong reasoning.                                                                          |
-| `impl_model`              | `claude-opus-4-7[1m]`  | Implementation benefits from strong tool use and long-horizon planning.                                                     |
-| `review_compliance_model` | `claude-opus-4-7[1m]`  | Compliance lens.                                                                                                            |
-| `review_bugs_model`       | `claude-opus-4-7[1m]`  | Bug-hunting lens.                                                                                                           |
-| `review_security_model`   | `claude-opus-4-7[1m]`  | Security lens.                                                                                                              |
-| `review_smells_model`     | `claude-opus-4-7[1m]`  | Refactor/smells lens.                                                                                                       |
+| Input                     | Default               | Notes                                                                                                                      |
+| ------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `triage_model`            | `claude-sonnet-4-6`   | Classification is mostly pattern-matching; Sonnet is a balance between accuracy on ambiguous issues and per-event spend.   |
+| `spec_model`              | `claude-opus-4-7[1m]` | Spec writing benefits from the strongest reasoning. The `[1m]` suffix selects the 1M-context tier for long-issue contexts. |
+| `plan_model`              | `claude-opus-4-7[1m]` | Plan decomposition benefits from strong reasoning.                                                                         |
+| `impl_model`              | `claude-opus-4-7[1m]` | Implementation benefits from strong tool use and long-horizon planning.                                                    |
+| `review_compliance_model` | `claude-opus-4-7[1m]` | Compliance lens.                                                                                                           |
+| `review_bugs_model`       | `claude-opus-4-7[1m]` | Bug-hunting lens.                                                                                                          |
+| `review_security_model`   | `claude-opus-4-7[1m]` | Security lens.                                                                                                             |
+| `review_smells_model`     | `claude-opus-4-7[1m]` | Refactor/smells lens.                                                                                                      |
 
 ## Reasoning effort
 
 Per-stage reasoning effort. Accepts `low` | `medium` | `high` | `xhigh`. Higher effort spends more tokens on chain-of-thought before the final answer; `xhigh` is the deepest tier the SDK exposes.
 
-| Input                      | Default | Notes                            |
-| -------------------------- | ------- | -------------------------------- |
-| `triage_effort`            | `high`  | Triage stage.                    |
-| `spec_effort`              | `high`  | Spec stage.                      |
-| `plan_effort`              | `high`  | Plan stage.                      |
-| `impl_effort`              | `high`  | Implement stage.                 |
-| `review_compliance_effort` | `high`  | Compliance review lens.          |
-| `review_bugs_effort`       | `high`  | Bugs review lens.                |
-| `review_security_effort`   | `high`  | Security review lens.            |
-| `review_smells_effort`     | `high`  | Smells review lens.              |
+| Input                      | Default | Notes                   |
+| -------------------------- | ------- | ----------------------- |
+| `triage_effort`            | `high`  | Triage stage.           |
+| `spec_effort`              | `high`  | Spec stage.             |
+| `plan_effort`              | `high`  | Plan stage.             |
+| `impl_effort`              | `high`  | Implement stage.        |
+| `review_compliance_effort` | `high`  | Compliance review lens. |
+| `review_bugs_effort`       | `high`  | Bugs review lens.       |
+| `review_security_effort`   | `high`  | Security review lens.   |
+| `review_smells_effort`     | `high`  | Smells review lens.     |
 
 ## Turn caps
 
 Optional hard caps on agent turns per stage. Empty (the default) means no cap — the stage runs to natural completion within its budget and timeout. Set a positive integer to bound multi-turn loops explicitly.
 
-| Input                       | Default       | Notes                                            |
-| --------------------------- | ------------- | ------------------------------------------------ |
-| `triage_max_turns`          | `""` (no cap) | Triage stage.                                    |
-| `spec_max_turns`            | `""` (no cap) | Spec stage.                                      |
-| `plan_max_turns`            | `""` (no cap) | Plan stage.                                      |
-| `impl_max_turns`            | `""` (no cap) | Implement stage. Set this if impl runs sprawl.   |
-| `review_max_turns_per_lens` | `""` (no cap) | Applies to each of the four review lenses.       |
+| Input                       | Default       | Notes                                          |
+| --------------------------- | ------------- | ---------------------------------------------- |
+| `triage_max_turns`          | `""` (no cap) | Triage stage.                                  |
+| `spec_max_turns`            | `""` (no cap) | Spec stage.                                    |
+| `plan_max_turns`            | `""` (no cap) | Plan stage.                                    |
+| `impl_max_turns`            | `""` (no cap) | Implement stage. Set this if impl runs sprawl. |
+| `review_max_turns_per_lens` | `""` (no cap) | Applies to each of the four review lenses.     |
 
 ## Budgets
 
@@ -172,10 +172,10 @@ Notes:
 
 By default Shopfloor runs as a single GitHub Actions job per event. For larger repos that want different runners per stage — typically a small runner for triage/spec/plan/review and a beefier one for implement — split the workflow into a `resolve` router job and one or more `execute` jobs gated on the router's `stage` output. See [`examples/shopfloor-split-runners.yml`](../../examples/shopfloor-split-runners.yml) for the full pattern.
 
-| Input    | Default  | Notes                                                                                                                                                                                                                                                          |
-| -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Input    | Default  | Notes                                                                                                                                                                                                                                                         |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mode`   | `"auto"` | `auto` resolves and executes in one process (single-job consumer workflows). `resolve` runs only the state machine and emits the `stage` output — no mutex, no agent, no GitHub mutations. `execute` resolves, applies the `stages` allowlist, and then runs. |
-| `stages` | `""`     | Comma-separated allowlist for `mode: execute`. Empty (default) means all stages are accepted. Non-matching stages exit `0` silently with `executed: "false"`. Ignored when `mode != execute`. Valid names: `triage,spec,plan,implement,review`.                |
+| `stages` | `""`     | Comma-separated allowlist for `mode: execute`. Empty (default) means all stages are accepted. Non-matching stages exit `0` silently with `executed: "false"`. Ignored when `mode != execute`. Valid names: `triage,spec,plan,implement,review`.               |
 
 In `execute` mode the orchestrator fetches live issue labels from the GitHub API before precheck instead of trusting the event-payload snapshot, so the resolve → execute label-flip race window closes. Prefer App credentials (not preminted tokens) in split mode — the resolve → execute gap eats into the 60-minute installation-token TTL.
 
@@ -183,9 +183,9 @@ In `execute` mode the orchestrator fetches live issue labels from the GitHub API
 
 Every invocation sets these two outputs regardless of `mode`.
 
-| Output     | Notes                                                                                                                                                                                          |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stage`    | The stage the state machine resolved for this event: one of `triage`, `spec`, `plan`, `implement`, `review`, or `none`. Read this from a `mode: resolve` job to gate downstream execute jobs. |
+| Output     | Notes                                                                                                                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `stage`    | The stage the state machine resolved for this event: one of `triage`, `spec`, `plan`, `implement`, `review`, or `none`. Read this from a `mode: resolve` job to gate downstream execute jobs.    |
 | `executed` | `"true"` if the action actually ran a stage's agent and applied its decision, `"false"` otherwise. `false` covers `mode: resolve` invocations, filter misses, `none` routes, and precheck skips. |
 
 ## What the action does not configure

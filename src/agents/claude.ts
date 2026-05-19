@@ -146,9 +146,7 @@ function logAgentInput<T>(args: RunStageArgs<T>): void {
 
 function logSdkEvent(msg: SDKMessage): void {
   if (msg.type === "system" && msg.subtype === "init") {
-    const mcp = msg.mcp_servers
-      .map((s) => `${s.name}:${s.status}`)
-      .join(",");
+    const mcp = msg.mcp_servers.map((s) => `${s.name}:${s.status}`).join(",");
     core.info(
       `[init] model=${msg.model} cwd=${msg.cwd} tools=${msg.tools.length} mcp=${mcp || "(none)"}`,
     );
