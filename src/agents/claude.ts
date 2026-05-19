@@ -1,6 +1,10 @@
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  createSdkMcpServer,
+  type SDKMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import * as core from "@actions/core";
 import type { AgentAdapter, RunStageArgs } from "./adapter.js";
 import { AgentError } from "./adapter.js";
@@ -81,34 +85,40 @@ export class ClaudeAgentAdapter implements AgentAdapter {
         },
       });
 
-      for await (const msg of stream) {
-        if (msg.type !== "result") continue;
-        if (msg.subtype === "success") {
-          if (msg.structured_output === undefined) {
-            // The CLI reported a clean run but ignored --json-schema and
-            // emitted plain text. The SDK's `error_max_structured_output_retries`
-            // doesn't fire in this path; we surface our own diagnostic so the
-            // failing run prints what the model actually said.
-            throw new AgentError(
-              "agent_invalid_output",
-              formatMissingStructuredOutput(msg),
-              "success_without_structured_output",
-            );
+      core.startGroup("Claude agent events");
+      try {
+        for await (const msg of stream) {
+          logSdkEvent(msg);
+          if (msg.type !== "result") continue;
+          if (msg.subtype === "success") {
+            if (msg.structured_output === undefined) {
+              // The CLI reported a clean run but ignored --json-schema and
+              // emitted plain text. The SDK's `error_max_structured_output_retries`
+              // doesn't fire in this path; we surface our own diagnostic so the
+              // failing run prints what the model actually said.
+              throw new AgentError(
+                "agent_invalid_output",
+                formatMissingStructuredOutput(msg),
+                "success_without_structured_output",
+              );
+            }
+            return args.decisionSchema.parse(msg.structured_output);
           }
-          return args.decisionSchema.parse(msg.structured_output);
+          const kind =
+            SUBTYPE_TO_KIND[msg.subtype as string] ?? "agent_execution";
+          throw new AgentError(
+            kind,
+            `claude session ended with ${msg.subtype}`,
+            msg.subtype as string,
+          );
         }
-        const kind =
-          SUBTYPE_TO_KIND[msg.subtype as string] ?? "agent_execution";
         throw new AgentError(
-          kind,
-          `claude session ended with ${msg.subtype}`,
-          msg.subtype as string,
+          "agent_execution",
+          "claude session ended without a result message",
         );
+      } finally {
+        core.endGroup();
       }
-      throw new AgentError(
-        "agent_execution",
-        "claude session ended without a result message",
-      );
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -132,6 +142,80 @@ function logAgentInput<T>(args: RunStageArgs<T>): void {
   } finally {
     core.endGroup();
   }
+}
+
+function logSdkEvent(msg: SDKMessage): void {
+  if (msg.type === "system" && msg.subtype === "init") {
+    const mcp = msg.mcp_servers
+      .map((s) => `${s.name}:${s.status}`)
+      .join(",");
+    core.info(
+      `[init] model=${msg.model} cwd=${msg.cwd} tools=${msg.tools.length} mcp=${mcp || "(none)"}`,
+    );
+    return;
+  }
+  if (msg.type === "assistant") {
+    const content = msg.message?.content;
+    if (!Array.isArray(content)) return;
+    for (const block of content) {
+      const b = block as unknown as {
+        type?: string;
+        [k: string]: unknown;
+      };
+      if (b.type === "thinking" && typeof b.thinking === "string") {
+        core.info(`[thinking] ${truncate(b.thinking, 500)}`);
+      } else if (b.type === "tool_use") {
+        const name = typeof b.name === "string" ? b.name : "(unknown)";
+        const input = truncate(safeStringify(b.input), 300);
+        core.info(`[tool_use] ${name} input=${input}`);
+      }
+    }
+    return;
+  }
+  if (msg.type === "user") {
+    const content = msg.message?.content;
+    if (!Array.isArray(content)) return;
+    for (const block of content) {
+      const b = block as unknown as {
+        type?: string;
+        [k: string]: unknown;
+      };
+      if (b.type !== "tool_result") continue;
+      const status = b.is_error ? "error" : "ok";
+      core.info(
+        `[tool_result:${status}] ${truncate(extractToolResultText(b.content), 500)}`,
+      );
+    }
+  }
+}
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max)}... [truncated, ${s.length} chars]`;
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    return "(unserializable)";
+  }
+}
+
+function extractToolResultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return safeStringify(content);
+  return content
+    .map((b) => {
+      if (b && typeof b === "object") {
+        const block = b as { type?: string; text?: string };
+        if (block.type === "text" && typeof block.text === "string") {
+          return block.text;
+        }
+      }
+      return safeStringify(b);
+    })
+    .join(" ");
 }
 
 function formatMissingStructuredOutput(msg: {
