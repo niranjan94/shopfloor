@@ -585,7 +585,8 @@ function precheckStage(stage: Stage, labels: Set<string>): PrecheckResult {
     case "implement": {
       const needs = labels.has(LABELS.needsImpl);
       const revision = labels.has(LABELS.reviewRequestedChanges);
-      if (!needs && !revision) {
+      const revise = labels.has(LABELS.revise);
+      if (!needs && !revision && !revise) {
         return {
           ok: false,
           reason: "implement_neither_needs_impl_nor_revision_label_present",

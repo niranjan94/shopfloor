@@ -57,6 +57,7 @@ export async function applySpec(
   await ctx.github.addLabel(issueNumber, LABELS.specInReview);
   await ctx.github.removeLabel(issueNumber, LABELS.specRunning);
   await ctx.github.removeLabel(issueNumber, LABELS.needsSpec);
+  await ctx.github.removeLabel(issueNumber, LABELS.revise);
 
   ctx.audit({ type: "pr_opened", stage: "spec", prNumber: pr.number });
   ctx.audit({

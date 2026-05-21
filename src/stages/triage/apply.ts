@@ -64,6 +64,9 @@ export async function applyTriage(
     if (current.has(LABELS.triaging)) {
       await ctx.github.removeLabel(issueNumber, LABELS.triaging);
     }
+    if (current.has(LABELS.revise)) {
+      await ctx.github.removeLabel(issueNumber, LABELS.revise);
+    }
     await ctx.github.addLabel(issueNumber, LABELS.awaitingInfo);
     ctx.audit({
       type: "label_applied",
@@ -154,9 +157,11 @@ export async function applyTriage(
   ].join("\n");
   await ctx.github.postIssueComment(issueNumber, body);
 
-  const removeLabels = [LABELS.triaging, LABELS.awaitingInfo].filter((l) =>
-    current.has(l),
-  );
+  const removeLabels = [
+    LABELS.triaging,
+    LABELS.awaitingInfo,
+    LABELS.revise,
+  ].filter((l) => current.has(l));
   const addLabels = [complexityLabel(effectiveComplexity), nextStateLabel];
   for (const l of removeLabels) await ctx.github.removeLabel(issueNumber, l);
   for (const l of addLabels) await ctx.github.addLabel(issueNumber, l);

@@ -116,6 +116,55 @@ function resolveArtifactPaths(
   };
 }
 
+export function computeReviseStageFromLabels(
+  labels: Set<string>,
+  issue: { number: number; title: string; body: string | null },
+): RouterDecision | null {
+  const issueNumber = issue.number;
+  const metadata = parseIssueMetadata(issue.body);
+  const slug = metadata?.slug ?? branchSlug(issue.title);
+  const { specFilePath, planFilePath } = resolveArtifactPaths(
+    issueNumber,
+    slug,
+    metadata,
+  );
+  const complexity = complexityOf(labels);
+  if (labels.has("shopfloor:spec-in-review")) {
+    return {
+      stage: "spec",
+      issueNumber,
+      ...(complexity !== undefined ? { complexity } : {}),
+      branchName: `shopfloor/spec/${issueNumber}-${slug}`,
+      specFilePath,
+    };
+  }
+  if (labels.has("shopfloor:plan-in-review")) {
+    return {
+      stage: "plan",
+      issueNumber,
+      ...(complexity !== undefined ? { complexity } : {}),
+      branchName: `shopfloor/plan/${issueNumber}-${slug}`,
+      specFilePath,
+      planFilePath,
+    };
+  }
+  if (
+    labels.has("shopfloor:impl-in-review") ||
+    labels.has("shopfloor:needs-review") ||
+    labels.has("shopfloor:review-requested-changes")
+  ) {
+    return {
+      stage: "implement",
+      issueNumber,
+      ...(complexity !== undefined ? { complexity } : {}),
+      branchName: `shopfloor/impl/${issueNumber}-${slug}`,
+      specFilePath,
+      planFilePath,
+    };
+  }
+  return null;
+}
+
 export function computeStageFromLabels(
   labels: Set<string>,
   issue: { number: number; title: string; body: string | null },
@@ -268,6 +317,32 @@ function resolveIssueEvent(
       stage: "triage",
       issueNumber,
       reason: "re_triage_after_clarification",
+    };
+  }
+
+  // Manual stage re-run: adding shopfloor:revise tells Shopfloor to re-run
+  // whatever stage the issue is currently parked in (*-in-review). The stage's
+  // apply step is responsible for clearing the revise label so the trigger
+  // does not double-fire.
+  if (
+    payload.action === "labeled" &&
+    payload.label?.name === "shopfloor:revise"
+  ) {
+    if (labels.has("shopfloor:awaiting-info")) {
+      return {
+        stage: "triage",
+        issueNumber,
+        reason: "revise_label_added_re_triage",
+      };
+    }
+    const derived = computeReviseStageFromLabels(labels, payload.issue);
+    if (derived) {
+      return { ...derived, reason: "revise_label_added" };
+    }
+    return {
+      stage: "none",
+      issueNumber,
+      reason: "revise_label_added_no_in_review_state",
     };
   }
 

@@ -58,6 +58,7 @@ export async function applyPlan(
   await ctx.github.addLabel(issueNumber, LABELS.planInReview);
   await ctx.github.removeLabel(issueNumber, LABELS.planRunning);
   await ctx.github.removeLabel(issueNumber, LABELS.needsPlan);
+  await ctx.github.removeLabel(issueNumber, LABELS.revise);
 
   ctx.audit({ type: "pr_opened", stage: "plan", prNumber: pr.number });
   ctx.audit({

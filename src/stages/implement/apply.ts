@@ -107,6 +107,7 @@ export async function applyImplement(
   await ctx.github.removeLabel(issueNumber, LABELS.needsImpl);
   await ctx.github.removeLabel(issueNumber, LABELS.implementing);
   await ctx.github.removeLabel(issueNumber, LABELS.reviewRequestedChanges);
+  await ctx.github.removeLabel(issueNumber, LABELS.revise);
   // A new impl run produces a new head SHA, so any prior review-approved
   // label is stale. Strip it so downstream consumers see the correct state.
   if (nextLabel === LABELS.needsReview) {
