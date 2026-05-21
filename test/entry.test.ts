@@ -16,6 +16,15 @@ vi.mock("@actions/core", async (orig) => {
   };
 });
 
+// Stub the git-identity module so runEntry's setup phase doesn't write to the
+// host repo's .git/config or contact the GitHub API during unit tests.
+vi.mock("../src/git/identity.js", () => ({
+  resolveBotIdentity: vi
+    .fn()
+    .mockResolvedValue({ name: "test-bot", email: "test@bot" }),
+  applyGitIdentity: vi.fn().mockResolvedValue(undefined),
+}));
+
 import * as core from "@actions/core";
 import { runEntry } from "../src/entry.js";
 import type { AuditEvent } from "../src/audit/events.js";

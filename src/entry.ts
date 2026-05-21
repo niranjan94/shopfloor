@@ -7,6 +7,7 @@ import { buildAgentEnvFromConfig } from "./config/agent-env.js";
 import { resolveAuth, type AuthSpec } from "./github/app-token.js";
 import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
 import { ClaudeAgentAdapter } from "./agents/claude.js";
+import { applyGitIdentity, resolveBotIdentity } from "./git/identity.js";
 import {
   createAuditEmitter,
   combineEmitters,
@@ -125,6 +126,17 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
         "Shopfloor is running with the workflow's default GITHUB_TOKEN. Mutations made with this token will not trigger downstream workflows (label flips, PR pushes, and review submissions will fail to advance the pipeline). Install a Shopfloor GitHub App and provide github_app_client_id + github_app_private_key for full functionality.",
       );
     }
+
+    // Configure the repo-local git identity so the Claude implement agent
+    // can `git commit` without flailing. Without this, every implement run
+    // dies on `Committer identity unknown`. Done before the orchestrator
+    // dispatches so all stage agents inherit a fully configured identity.
+    const identity = await resolveBotIdentity(primaryAuth);
+    await applyGitIdentity({
+      cwd: process.cwd(),
+      identity,
+      sshSigningKey: config.sshSigningKey,
+    });
     if (
       reviewAuth &&
       reviewAuth.kind === "token" &&
