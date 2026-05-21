@@ -4,6 +4,20 @@ import type { AuditEmitter } from "../../audit/events.js";
 import type { Config } from "../../config/inputs.js";
 import type { EventPayload, RouterDecision } from "../../state/types.js";
 
+// Side-effecting git operations the implement stage performs against the
+// working tree. Closed over the resolved AuthSpec by entry.ts so individual
+// stage runners never see the raw token. Optional on StageContext because
+// stage-level tests construct their own context without a real checkout;
+// production wires these through.
+export interface GitOps {
+  prepareImplCheckout(opts: {
+    branchName: string;
+    baseBranch: string;
+    revisionMode: boolean;
+  }): Promise<void>;
+  pushImplCommits(opts: { branchName: string }): Promise<void>;
+}
+
 export interface StageContext {
   event: EventPayload;
   repo: { owner: string; name: string };
@@ -40,4 +54,10 @@ export interface StageContext {
   // counter, no Shopfloor label flips, no PR body mutation. Every push gets a
   // fresh review.
   reviewOnly?: boolean;
+  // Side-effecting git helpers used by the implement stage. Optional so unit
+  // tests that construct StageContext directly need not stub them. When unset
+  // in production code, the implement stage emits a loud warning and skips
+  // the working-tree mutations and the post-agent push, which will leave the
+  // PR creation to fail at GitHub's "no commits between base and head" check.
+  gitOps?: GitOps;
 }

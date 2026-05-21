@@ -1,3 +1,4 @@
+import * as core from "@actions/core";
 import type { Stage } from "./state/labels.js";
 import type { RouterDecision } from "./state/types.js";
 import type { StageContext } from "./stages/_shared/context.js";
@@ -167,6 +168,24 @@ export const RUNNERS: Record<Stage, StageHandler> = {
           : "";
       const issueComments = await formatIssueComments(ctx, ctx.issue.number);
 
+      // Configure the local working tree before the agent runs. First runs get
+      // a fresh branch off the default-branch HEAD that actions/checkout left
+      // in place; revision runs fetch the prior iteration's branch so the
+      // agent inherits the previous round's working tree. Done after the
+      // progress comment is created so we don't strand the orchestrator with
+      // a half-written comment when git fails.
+      if (ctx.gitOps) {
+        await ctx.gitOps.prepareImplCheckout({
+          branchName,
+          baseBranch: ctx.defaultBranch,
+          revisionMode: routed.revisionMode === true,
+        });
+      } else {
+        core.warning(
+          "Shopfloor implement stage ran without gitOps configured; the agent's commits will not be pushed and openStagePr will fail because the branch does not exist on origin. Wire OrchestratorArgs.gitOps in production callers.",
+        );
+      }
+
       const decision = await runImplement(ctx, {
         progressCommentId,
         branchName,
@@ -176,6 +195,17 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         revisionBlock,
         issueComments,
       });
+
+      // Push the agent's commits to origin before opening the PR. The router
+      // (not the agent) owns the network path; the agent is explicitly denied
+      // `git push` in src/agents/claude.ts so a malformed run cannot publish
+      // to the remote. Performing the push here, after the agent finishes
+      // cleanly, also means the resulting push event is attributed to the
+      // App identity so downstream review workflows trigger.
+      if (ctx.gitOps) {
+        await ctx.gitOps.pushImplCommits({ branchName });
+      }
+
       await applyImplement(ctx, {
         decision,
         progressCommentId,

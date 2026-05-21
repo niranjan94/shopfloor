@@ -51,10 +51,12 @@ export async function applyImplement(
     );
   }
 
-  // Open (or upsert) the impl PR as a draft. The agent has already pushed
-  // commits to branchName by this point. preserveBodyIfExists is true on the
-  // openStagePr adapter call so an in-flight review-iteration footer is not
-  // clobbered; we then update title+body explicitly here.
+  // Open (or upsert) the impl PR as a draft. The router pushed the agent's
+  // commits to branchName upstream of this call (see src/runners.ts and
+  // src/git/impl-checkout.ts); the branch is on origin by the time we get
+  // here. preserveBodyIfExists is true on the openStagePr adapter call so an
+  // in-flight review-iteration footer is not clobbered; we then update
+  // title+body explicitly here.
   const opened = await ctx.github.openStagePr({
     base: baseBranch,
     head: branchName,

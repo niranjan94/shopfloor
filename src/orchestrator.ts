@@ -18,7 +18,7 @@ import type {
   PullRequestReviewPayload,
   RouterDecision,
 } from "./state/types.js";
-import type { StageContext } from "./stages/_shared/context.js";
+import type { GitOps, StageContext } from "./stages/_shared/context.js";
 import { RUNNERS } from "./runners.js";
 
 export interface OrchestratorResult {
@@ -41,6 +41,11 @@ export interface OrchestratorArgs {
   // dogfood-review.yml) to add agent review on human-authored PRs that
   // carry no Shopfloor metadata. No-op for non-pull_request events.
   reviewOnly?: boolean;
+  // Git helpers seeded with the resolved AuthSpec by entry.ts. Plumbed into
+  // StageContext so the implement runner can configure the working tree and
+  // push the agent's commits. Optional for unit/e2e tests that drive the
+  // orchestrator without a real checkout.
+  gitOps?: GitOps;
 }
 
 const TRIAGE_BLOCKING_STATE_LABELS = new Set<string>([
@@ -184,6 +189,7 @@ export async function runOrchestrator(
   if (issue !== null) ctx.issue = issue;
   if (pr !== null) ctx.pr = pr;
   if (args.reviewOnly === true) ctx.reviewOnly = true;
+  if (args.gitOps !== undefined) ctx.gitOps = args.gitOps;
 
   // In execute mode, the resolve->execute gap can be 30-60s, long enough for
   // labels to flip after the event fired. Fetch live labels from the API so

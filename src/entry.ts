@@ -9,6 +9,12 @@ import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
 import { ClaudeAgentAdapter } from "./agents/claude.js";
 import { applyGitIdentity, resolveBotIdentity } from "./git/identity.js";
 import {
+  prepareImplCheckout,
+  pushImplCommits,
+  tokenResolverFor,
+} from "./git/impl-checkout.js";
+import type { GitOps } from "./stages/_shared/context.js";
+import {
   createAuditEmitter,
   combineEmitters,
   type AuditEmitter,
@@ -168,6 +174,36 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
 
     const reviewOnly = rawInputs.review_only === "true";
 
+    // Bind the resolved AuthSpec into a token resolver and the impl-stage git
+    // helpers. The implement runner calls these to set the local branch up
+    // before the agent runs and to push the agent's commits afterwards. We
+    // build the closure once at startup so each helper invocation can ask
+    // for a fresh installation token (relevant when the agent run outlives
+    // the installation-token TTL).
+    const resolveGitToken = tokenResolverFor(primaryAuth, owner, repo);
+    const gitOps: GitOps = {
+      async prepareImplCheckout(opts) {
+        const token = await resolveGitToken();
+        await prepareImplCheckout({
+          cwd: process.cwd(),
+          owner,
+          repo,
+          token,
+          ...opts,
+        });
+      },
+      async pushImplCommits(opts) {
+        const token = await resolveGitToken();
+        await pushImplCommits({
+          cwd: process.cwd(),
+          owner,
+          repo,
+          token,
+          ...opts,
+        });
+      },
+    };
+
     const result = await runOrchestrator({
       event,
       repo: { owner, name: repo },
@@ -177,6 +213,7 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       audit,
       config,
       runId,
+      gitOps,
       ...(reviewOnly ? { reviewOnly: true } : {}),
     });
     core.setOutput("stage", result.stage);
