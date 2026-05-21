@@ -443,4 +443,51 @@ describe("orchestrator e2e against v1 fixtures", () => {
       expect(verdict.verdict).toBe("approve");
     }
   });
+
+  it("review-stage labelTarget resolves to the issue, not the PR, when the orchestrator hydrates ctx.issue from the PR footer", async () => {
+    const mg = makeMockGithub();
+    mg.getPr.mockResolvedValue({
+      state: "open",
+      draft: false,
+      merged: false,
+      labels: [],
+      head: { sha: "abc" },
+      body: "Shopfloor-Review-Iteration: 0",
+    });
+    mg.listChangedFilePatches.mockResolvedValue([
+      {
+        filename: "src/auth.ts",
+        patch: "@@ -1,0 +1,1 @@\n+const x = 1;",
+        status: "added",
+      },
+    ]);
+    const cleanLens = {
+      verdict: "clean",
+      summary: "No issues found.",
+      comments: [],
+    };
+    const audit: AuditEvent[] = [];
+    await runOrchestrator({
+      event: { name: "pull_request", payload: prReadyImpl as never },
+      repo: { owner: "niranjan94", name: "shopfloor" },
+      github: asAdapter(mg),
+      reviewGithub: asAdapter(makeMockGithub()),
+      agent: new MockAgentAdapter([
+        { matchUserPromptIncludes: "src/auth.ts", decision: cleanLens },
+      ]),
+      audit: (e) => audit.push(e),
+      config: baseConfig,
+      runId: "e2e-review-hydrate",
+    });
+
+    // PR #45's footer references issue #42; hydration must call getIssue(42)
+    // so applyReview's labelTarget resolves to the issue, not the PR.
+    expect(mg.getIssue).toHaveBeenCalledWith(42);
+    expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:review-approved");
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:needs-review");
+    expect(mg.addLabel).not.toHaveBeenCalledWith(
+      45,
+      "shopfloor:review-approved",
+    );
+  });
 });

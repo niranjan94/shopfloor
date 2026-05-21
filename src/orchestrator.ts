@@ -157,14 +157,13 @@ export async function runOrchestrator(
   }
 
   // Hydrate the issue from the API when the event payload doesn't carry one
-  // (pull_request, pull_request_review) but the stage still needs ctx.issue.
-  // Without this, a human REQUEST_CHANGES on an impl PR routes to implement
-  // but the stage handler bails on "implement stage requires ctx.issue".
-  if (
-    issue === null &&
-    stage !== "review" &&
-    decision.issueNumber !== undefined
-  ) {
+  // (pull_request, pull_request_review). All stages that route from a PR event
+  // need ctx.issue: implement re-enters when a reviewer requests changes, and
+  // review writes pipeline-state labels (needs-review → review-approved) onto
+  // the issue, not the PR. Without hydration, applyReview's labelTarget falls
+  // back to the PR number and the issue strands with stale needs-review while
+  // review-approved lands on the wrong object.
+  if (issue === null && decision.issueNumber !== undefined) {
     const live = await args.github.getIssue(decision.issueNumber);
     issue = {
       number: decision.issueNumber,
