@@ -29,9 +29,11 @@ const AWAITING_INFO: Scenario = {
       `${ctx.tag} clarification: add a "tasks completed today" counter on the dashboard hero. Pure UI, no persistence. Read from the existing IndexedDB tasks store and count entries with status=done updated within the last 24 hours.`,
     );
 
-    await ctx.expectLabelMissing(issue, "shopfloor:awaiting-info", {
-      timeoutMs: 5 * 60_000,
-    });
+    // Removing the awaiting-info label is the documented user signal to
+    // re-trigger triage. The triage apply prompt instructs the user to do this
+    // after answering clarifying questions; the smoke run automates that step.
+    await ctx.removeLabel(issue, "shopfloor:awaiting-info");
+
     await ctx.expectLabel(issue, /^shopfloor:(quick|medium)$/, {
       timeoutMs: 5 * 60_000,
     });

@@ -9,15 +9,17 @@ const MEDIUM: Scenario = {
   timeoutMs: TIMEOUT_MS,
   async run(ctx): Promise<ScenarioOutcome> {
     const { number: issue } = await ctx.createIssue({
-      title: `${ctx.tag}: status filter on tasks list`,
+      title: `${ctx.tag}: bulk-select and delete tasks`,
       body: [
-        "Add a status filter to the tasks list in `app/page.tsx`. The filter",
-        "lets the user select one of: All, To Do, In Progress, Done, and",
-        "filters the visible tasks accordingly.",
+        "Add a bulk-select mode to the tasks list. When enabled, each task",
+        "card shows a checkbox; a 'Delete selected' button at the top of the",
+        "list removes every checked task via `db.deleteTask` and updates the",
+        "React `tasks` state.",
         "",
-        "Scope: UI + client-side filter state only. No persistence changes",
-        "and no schema changes. Touch only `app/page.tsx` and create one new",
-        "component file under `app/components/` if needed.",
+        "Scope: UI + client-side selection state only. No schema changes,",
+        "no new persistence fields. Touch `app/page.tsx` and at most one new",
+        "component file under `app/components/`. Selection state is local",
+        "React state and resets when bulk-select is toggled off.",
       ].join("\n"),
       labels: ["shopfloor:trigger"],
     });

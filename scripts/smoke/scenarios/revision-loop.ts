@@ -11,15 +11,16 @@ const REVISION_LOOP: Scenario = {
     const { number: issue } = await ctx.createIssue({
       title: `${ctx.tag}: clear-completed button`,
       body: [
-        "Add a 'Clear completed' button to the tasks list. The button should",
-        "remove all tasks with status=done.",
+        "Add a 'Clear completed' button to the tasks list. The button removes",
+        "every task with `status === 'done'` by calling `db.deleteTask` for",
+        "each and updating React state.",
         "",
-        "CRITICAL: the button MUST be implemented as a Next.js server action",
-        "that uses `revalidatePath`. Do NOT use client-side state mutation.",
-        "Reject any approach that mutates `useState` directly.",
+        "Scope: UI + client-side state only. No schema changes. Touch",
+        "`app/page.tsx` and at most one new helper file under",
+        "`app/components/` if it helps readability.",
         "",
-        "(Note: this constraint is intentionally hostile to the app's",
-        "client-only IndexedDB architecture.)",
+        "The button must be hidden when no completed tasks exist and must",
+        "show a confirmation prompt (window.confirm is fine) before deleting.",
       ].join("\n"),
       labels: ["shopfloor:trigger"],
     });
