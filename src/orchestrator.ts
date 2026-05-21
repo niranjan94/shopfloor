@@ -235,11 +235,12 @@ export async function runOrchestrator(
     runId: args.runId,
   });
 
-  // Acquire the mutex marker before the stage runs. Triage has no mutex
-  // label; spec/plan/implement/review do. Update the in-memory issue label
-  // snapshot too so apply() guards that read ctx.issue.labels can observe it.
-  const mutex = mutexLabelFor(stage);
-  if (mutex && decision.issueNumber !== undefined) {
+  // Acquire the mutex marker before the stage runs. Every stage has a mutex
+  // label (triaging / spec-running / plan-running / implementing / review-
+  // running). Update the in-memory issue label snapshot too so apply() guards
+  // that read ctx.issue.labels can observe it.
+  const mutex = runningLabelFor(stage);
+  if (decision.issueNumber !== undefined) {
     await args.github.addLabel(decision.issueNumber, mutex);
     if (ctx.issue && !ctx.issue.labels.includes(mutex)) {
       ctx.issue.labels.push(mutex);
@@ -253,8 +254,8 @@ export async function runOrchestrator(
     throw err;
   } finally {
     // Release the mutex even on failure. The stage's own apply() may have
-    // already removed it; replaceLabels' remove-then-add tolerates 404.
-    if (mutex && decision.issueNumber !== undefined) {
+    // already removed it; removeLabel tolerates 404.
+    if (decision.issueNumber !== undefined) {
       await args.github.removeLabel(decision.issueNumber, mutex);
     }
   }
@@ -363,12 +364,6 @@ async function applyHumanReviewRevision(
   if (add.length > 0 || remove.length > 0) {
     audit({ type: "label_applied", issueNumber, add, remove });
   }
-}
-
-function mutexLabelFor(stage: Stage): string | null {
-  // runningLabelFor throws for triage; we want null instead.
-  if (stage === "triage") return null;
-  return runningLabelFor(stage);
 }
 
 function modelForStage(stage: Stage, cfg: Config): string {

@@ -23,6 +23,7 @@ describe("labels", () => {
   });
 
   it("identifies running and failed labels", () => {
+    expect(isRunningLabel("shopfloor:triaging")).toBe(true);
     expect(isRunningLabel("shopfloor:spec-running")).toBe(true);
     expect(isRunningLabel("shopfloor:implementing")).toBe(true);
     expect(isRunningLabel("shopfloor:review-running")).toBe(true);
@@ -33,6 +34,7 @@ describe("labels", () => {
 
   it("derives stage-specific failed/running labels", () => {
     expect(failedLabelFor("implement")).toBe("shopfloor:failed:implement");
+    expect(runningLabelFor("triage")).toBe("shopfloor:triaging");
     expect(runningLabelFor("implement")).toBe("shopfloor:implementing");
     expect(runningLabelFor("review")).toBe("shopfloor:review-running");
   });

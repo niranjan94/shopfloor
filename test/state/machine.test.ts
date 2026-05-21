@@ -309,6 +309,21 @@ describe("resolveStage", () => {
     expect(decision.stage).toBe("spec");
   });
 
+  test("trigger_label set, issue carrying only shopfloor:review-running grandfathers past the gate", () => {
+    // Regression: an in-flight review must not be dropped from the gate just
+    // because the trigger label was removed mid-run. STATE_LABELS includes
+    // every mutex marker so the in-progress issue stays grandfathered.
+    const c = ctx("issues", "issue-opened-bare", {
+      triggerLabel: "shopfloor:enabled",
+    });
+    const issuesPayload = c.payload as {
+      issue: { labels: { name: string }[] };
+    };
+    issuesPayload.issue.labels = [{ name: "shopfloor:review-running" }];
+    const decision = resolveStage(c);
+    expect(decision.reason).not.toBe("trigger_label_absent");
+  });
+
   test("trigger_label empty string -> treated as unset, existing behavior preserved", () => {
     const decision = resolveStage(
       ctx("issues", "issue-opened-bare", { triggerLabel: "" }),

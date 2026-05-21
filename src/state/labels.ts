@@ -41,14 +41,15 @@ export const LABELS = {
 } as const;
 
 const RUNNING_LABELS = new Set<string>([
+  LABELS.triaging,
   LABELS.specRunning,
   LABELS.planRunning,
   LABELS.implementing,
   LABELS.reviewRunning,
 ]);
 
-const RUNNING_LABEL_FOR: Record<Stage, string | null> = {
-  triage: null,
+const RUNNING_LABEL_FOR: Record<Stage, string> = {
+  triage: LABELS.triaging,
   spec: LABELS.specRunning,
   plan: LABELS.planRunning,
   implement: LABELS.implementing,
@@ -72,9 +73,7 @@ export function failedLabelFor(stage: Stage): string {
 }
 
 export function runningLabelFor(stage: Stage): string {
-  const v = RUNNING_LABEL_FOR[stage];
-  if (!v) throw new Error(`no mutex label for stage: ${stage}`);
-  return v;
+  return RUNNING_LABEL_FOR[stage];
 }
 
 export function complexityLabel(c: Complexity): string {

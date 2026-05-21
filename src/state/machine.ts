@@ -31,6 +31,7 @@ const STATE_LABELS = new Set<string>([
   "shopfloor:spec-running",
   "shopfloor:plan-running",
   "shopfloor:implementing",
+  "shopfloor:review-running",
 ]);
 
 const COMPLEXITY_LABELS: Record<string, Complexity> = {

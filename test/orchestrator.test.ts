@@ -114,6 +114,11 @@ describe("runOrchestrator", () => {
     expect(types).toContain("stage_decided");
     expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:large");
     expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:needs-spec");
+    // Mutex consistency: every stage including triage wraps its execute() in
+    // an add/remove of its running label. Without the triaging marker, two
+    // racing issues.labeled events could re-fire triage in v2.
+    expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:triaging");
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:triaging");
   });
 
   it("on failure, applies failed:<stage> label, posts comment, audits stage_failed, and rethrows", async () => {
