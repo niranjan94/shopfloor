@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { aggregateFindings } from "../../src/stages/review/aggregate.js";
 import { applyReview } from "../../src/stages/review/apply.js";
+import { RUNNERS } from "../../src/runners.js";
+import { MockAgentAdapter } from "../../src/agents/mock.js";
+import { baseConfig } from "../_harness/config.js";
 import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 import type { LensOutcome } from "../../src/stages/review/runner.js";
 import type { StageContext } from "../../src/stages/_shared/context.js";
@@ -392,5 +395,66 @@ describe("applyReview", () => {
     expect(mg.updatePrBody).not.toHaveBeenCalled();
     expect(mg.addLabel).not.toHaveBeenCalled();
     expect(mg.removeLabel).not.toHaveBeenCalled();
+  });
+});
+
+describe("review runner labelTarget guard", () => {
+  function reviewCtx(opts: { reviewOnly: boolean; withIssue: boolean }) {
+    const mg = makeMockGithub();
+    mg.listChangedFilePatches.mockResolvedValue([
+      {
+        filename: "src/auth.ts",
+        patch: "@@ -1,0 +1,1 @@\n+const x = 1;",
+        status: "added",
+      },
+    ]);
+    const cleanLens = {
+      verdict: "clean",
+      summary: "clean",
+      comments: [],
+    };
+    const ctx: StageContext = {
+      event: {} as never,
+      repo: { owner: "octo", name: "demo" },
+      defaultBranch: "main",
+      decision: { stage: "review" },
+      pr: {
+        number: 100,
+        title: "feat: x",
+        body: "PR body\n\nShopfloor-Review-Iteration: 0",
+        headRef: "shopfloor/impl/42-x",
+        headSha: "head-sha",
+        baseRef: "main",
+      },
+      github: asAdapter(mg),
+      reviewGithub: null,
+      agent: new MockAgentAdapter([
+        { matchUserPromptIncludes: "src/auth.ts", decision: cleanLens },
+      ]),
+      audit: vi.fn(),
+      config: baseConfig,
+      runId: "r1",
+    };
+    if (opts.withIssue) {
+      ctx.issue = { number: 42, title: "t", body: null, labels: [] };
+    }
+    if (opts.reviewOnly) ctx.reviewOnly = true;
+    return { ctx, mg };
+  }
+
+  it("throws in pipeline mode when ctx.issue is missing so the silent PR fallback cannot regress", async () => {
+    const { ctx } = reviewCtx({ reviewOnly: false, withIssue: false });
+    await expect(
+      RUNNERS.review.execute(ctx, { stage: "review" }),
+    ).rejects.toThrow(/review stage requires ctx.issue in pipeline mode/);
+  });
+
+  it("does not throw in reviewOnly mode even though ctx.issue is null on a human-authored PR", async () => {
+    const { ctx, mg } = reviewCtx({ reviewOnly: true, withIssue: false });
+    await expect(
+      RUNNERS.review.execute(ctx, { stage: "review" }),
+    ).resolves.toBeUndefined();
+    // Sanity: reviewOnly still writes no pipeline-state labels.
+    expect(mg.addLabel).not.toHaveBeenCalled();
   });
 });

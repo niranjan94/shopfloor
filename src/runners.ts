@@ -266,7 +266,25 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         confidenceThreshold: CONFIDENCE_THRESHOLD,
       });
 
-      const labelTarget = ctx.issue?.number ?? ctx.pr.number;
+      // Pipeline mode (Shopfloor-authored impl PRs) writes pipeline-state
+      // labels onto the issue, not the PR. The orchestrator hydrates ctx.issue
+      // from the PR footer's Shopfloor-Issue: #N before dispatching; if it is
+      // still null here, something upstream is broken and we want to fail
+      // loud rather than silently retarget the PR. reviewOnly mode (human-
+      // authored PRs through dogfood-review.yml) writes no labels at all, so
+      // labelTarget is never read in that path; we pass the PR number as an
+      // unused placeholder to satisfy the ApplyReviewArgs contract.
+      let labelTarget: number;
+      if (ctx.reviewOnly) {
+        labelTarget = ctx.pr.number;
+      } else {
+        if (!ctx.issue) {
+          throw new Error(
+            "review stage requires ctx.issue in pipeline mode; orchestrator hydration must populate it from the PR footer's Shopfloor-Issue: #N",
+          );
+        }
+        labelTarget = ctx.issue.number;
+      }
       await applyReview(ctx, { outcome: aggregate, labelTarget });
     },
   },
