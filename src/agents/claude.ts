@@ -71,6 +71,7 @@ export class ClaudeAgentAdapter implements AgentAdapter {
           },
           mcpServers: { shopfloor: mcpServer },
           allowedTools: args.tools.map((t) => `mcp__shopfloor__${t.name}`),
+          permissionMode: "auto",
           outputFormat: {
             type: "json_schema",
             schema: zodToJsonSchema(args.decisionSchema as z.ZodTypeAny),
