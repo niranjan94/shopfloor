@@ -23,6 +23,143 @@ const SUBTYPE_TO_KIND: Record<
   error_during_execution: "agent_execution",
 };
 
+// Permission patterns Shopfloor pre-approves on every stage. The agent SDK's
+// pattern syntax is `Bash(<prefix>:*)` where the prefix can be a command alone
+// (`ls`) or with subcommands (`git add`). Non-bash tool names are matched as
+// literals. These defaults run in every project regardless of whether the
+// project has its own .claude/settings.json. Project settings stack on top.
+export const DEFAULT_AGENT_ALLOW: readonly string[] = [
+  // Built-in file ops and search.
+  "Read",
+  "Write",
+  "Edit",
+  "MultiEdit",
+  "NotebookEdit",
+  "Glob",
+  "Grep",
+  "LS",
+  // Git subcommands the impl prompt authorises. Push and history-rewriting
+  // commands are explicitly denied below; the router pushes commits on the
+  // agent's behalf at the end of the run.
+  "Bash(git log:*)",
+  "Bash(git diff:*)",
+  "Bash(git status:*)",
+  "Bash(git show:*)",
+  "Bash(git add:*)",
+  "Bash(git commit:*)",
+  "Bash(git rev-parse:*)",
+  // Standard read-only inspection.
+  "Bash(ls:*)",
+  "Bash(cat:*)",
+  "Bash(head:*)",
+  "Bash(tail:*)",
+  "Bash(grep:*)",
+  "Bash(find:*)",
+  "Bash(wc:*)",
+  "Bash(tree:*)",
+  "Bash(file:*)",
+  "Bash(stat:*)",
+  "Bash(which:*)",
+  "Bash(echo:*)",
+  "Bash(printf:*)",
+  "Bash(sort:*)",
+  "Bash(uniq:*)",
+  "Bash(jq:*)",
+  "Bash(yq:*)",
+  "Bash(xargs:*)",
+  "Bash(diff:*)",
+  "Bash(true:*)",
+  "Bash(false:*)",
+  // File mutation. Claude Code's sandbox already restricts writes to the
+  // session's cwd, so these can't escape the checkout.
+  "Bash(mkdir:*)",
+  "Bash(mv:*)",
+  "Bash(cp:*)",
+  "Bash(touch:*)",
+  "Bash(sed:*)",
+  "Bash(awk:*)",
+  "Bash(rm:*)",
+  "Bash(ln:*)",
+  // JavaScript / TypeScript toolchains.
+  "Bash(pnpm:*)",
+  "Bash(pnpx:*)",
+  "Bash(npm:*)",
+  "Bash(npx:*)",
+  "Bash(yarn:*)",
+  "Bash(bun:*)",
+  "Bash(bunx:*)",
+  "Bash(node:*)",
+  "Bash(deno:*)",
+  "Bash(tsc:*)",
+  "Bash(tsx:*)",
+  "Bash(eslint:*)",
+  "Bash(prettier:*)",
+  "Bash(vitest:*)",
+  "Bash(jest:*)",
+  // Python toolchains.
+  "Bash(python:*)",
+  "Bash(python3:*)",
+  "Bash(pip:*)",
+  "Bash(pip3:*)",
+  "Bash(poetry:*)",
+  "Bash(uv:*)",
+  "Bash(uvx:*)",
+  "Bash(ruff:*)",
+  "Bash(black:*)",
+  "Bash(mypy:*)",
+  "Bash(pytest:*)",
+  // Other compiled languages.
+  "Bash(go:*)",
+  "Bash(cargo:*)",
+  "Bash(rustc:*)",
+  "Bash(rustup:*)",
+  // Generic build runners.
+  "Bash(make:*)",
+  "Bash(just:*)",
+];
+
+// Hard-deny clear footguns. The classifier still gates anything not in the
+// allow list, but these get a fast no rather than a model round-trip.
+export const DEFAULT_AGENT_DENY: readonly string[] = [
+  // Privilege escalation.
+  "Bash(sudo:*)",
+  "Bash(su:*)",
+  "Bash(doas:*)",
+  // Outbound SSH and copy-over-network. The agent has zero legitimate reason
+  // to reach an external host from the CI runner.
+  "Bash(ssh:*)",
+  "Bash(scp:*)",
+  "Bash(sftp:*)",
+  "Bash(rsync:*)",
+  // Accidental package publishing. A bug in an impl stage must not be able to
+  // ship to a registry.
+  "Bash(npm publish:*)",
+  "Bash(pnpm publish:*)",
+  "Bash(yarn publish:*)",
+  "Bash(bun publish:*)",
+  "Bash(cargo publish:*)",
+  "Bash(gem push:*)",
+  "Bash(twine upload:*)",
+  "Bash(uv publish:*)",
+  "Bash(poetry publish:*)",
+  // Container-registry pushes and credential grabs.
+  "Bash(docker push:*)",
+  "Bash(docker login:*)",
+  "Bash(podman push:*)",
+  "Bash(podman login:*)",
+  // Git mutations the agent must not perform. The router owns the network
+  // path (push) and the agent has no business rewriting history, blowing away
+  // the working tree, or deleting branches.
+  "Bash(git push:*)",
+  "Bash(git reset --hard:*)",
+  "Bash(git checkout --:*)",
+  "Bash(git clean -f:*)",
+  "Bash(git branch -D:*)",
+  "Bash(git worktree add:*)",
+  "Bash(git worktree remove:*)",
+  "Bash(git rebase:*)",
+];
+
 export type ClaudeCliResolver = () => Promise<string>;
 
 export class ClaudeAgentAdapter implements AgentAdapter {
@@ -68,6 +205,21 @@ export class ClaudeAgentAdapter implements AgentAdapter {
             preset: "claude_code",
             append: args.systemPrompt,
             excludeDynamicSections: true,
+          },
+          settings: {
+            // Suppress the SDK's default "Co-Authored-By: Claude" trailer on
+            // commits and the "Generated with Claude Code" footer on PR bodies.
+            // Shopfloor stages produce committed artifacts that should read as
+            // neutral, project-appropriate prose; attribution belongs in the
+            // PR description, not the artifact itself.
+            attribution: {
+              commit: "",
+              pr: "",
+            },
+            permissions: {
+              allow: [...DEFAULT_AGENT_ALLOW],
+              deny: [...DEFAULT_AGENT_DENY],
+            },
           },
           mcpServers: { shopfloor: mcpServer },
           allowedTools: args.tools.map((t) => `mcp__shopfloor__${t.name}`),
