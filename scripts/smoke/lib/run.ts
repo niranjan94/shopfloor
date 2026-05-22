@@ -14,7 +14,6 @@ export interface RunAllOpts {
   repo: string;
   runTag: string;
   appLogins: AppLogins;
-  sequential: boolean;
   pollMs?: number;
 }
 
@@ -78,42 +77,45 @@ export async function preflight(opts: {
     }
   }
 
-  // Force-reset the default branch to the smoke-baseline tag so every run
-  // starts against an identical repo state. Without this, merged smoke PRs
-  // accumulate on main and subsequent runs produce no-op diffs that fail
-  // openStagePr with "No commits between main and <branch>".
-  const reset = await resetDefaultBranchToBaseline(
-    opts.gh,
-    opts.owner,
-    opts.repo,
-  );
+  // Force-reset the default branch to the smoke-baseline tag so the run starts
+  // against an identical repo state. Without this, merged smoke PRs accumulate
+  // on main and subsequent runs produce no-op diffs that fail openStagePr with
+  // "No commits between main and <branch>".
+  await resetToBaseline(opts.gh, opts.owner, opts.repo, "  baseline");
+}
+
+/**
+ * Force the default branch back to the smoke-baseline tag and sweep dangling
+ * shopfloor/* branches. Called in preflight and again between scenarios so
+ * each scenario runs against the same pristine baseline, fully isolated from
+ * the merges the previous scenario landed.
+ */
+export async function resetToBaseline(
+  gh: Octokit,
+  owner: string,
+  repo: string,
+  logPrefix: string,
+): Promise<void> {
+  const reset = await resetDefaultBranchToBaseline(gh, owner, repo);
   if (reset.noop) {
     console.log(
       chalk.dim(
-        `  baseline: ${reset.defaultBranch} already at ${reset.baselineSha.slice(0, 7)}`,
+        `${logPrefix}: ${reset.defaultBranch} already at ${reset.baselineSha.slice(0, 7)}`,
       ),
     );
   } else {
     console.log(
       chalk.yellow(
-        `  baseline: force-reset ${reset.defaultBranch} ${reset.mainBeforeSha.slice(0, 7)} -> ${reset.mainAfterSha.slice(0, 7)}`,
+        `${logPrefix}: force-reset ${reset.defaultBranch} ${reset.mainBeforeSha.slice(0, 7)} -> ${reset.mainAfterSha.slice(0, 7)}`,
       ),
     );
   }
 
-  // Sweep dangling shopfloor/* branches from prior runs. Closed PRs leave
-  // their head branches behind; over time those refs pile up and waste API
-  // listings. Doing this in preflight (not just per-scenario cleanup) catches
-  // branches whose PR was already cleaned but the ref lingered.
-  const branchSweep = await deleteShopfloorBranches(
-    opts.gh,
-    opts.owner,
-    opts.repo,
-  );
+  const branchSweep = await deleteShopfloorBranches(gh, owner, repo);
   if (branchSweep.deleted > 0 || branchSweep.errors.length > 0) {
     console.log(
       chalk.dim(
-        `  baseline: swept ${branchSweep.deleted} stale shopfloor/* branch(es)${
+        `${logPrefix}: swept ${branchSweep.deleted} stale shopfloor/* branch(es)${
           branchSweep.errors.length > 0
             ? `, ${branchSweep.errors.length} error(s)`
             : ""
@@ -127,22 +129,29 @@ export async function runAll(
   scenarios: Scenario[],
   opts: RunAllOpts,
 ): Promise<ScenarioResult[]> {
-  const exec = (s: Scenario) =>
-    runScenario(s, {
-      gh: opts.gh,
-      owner: opts.owner,
-      repo: opts.repo,
-      runTag: opts.runTag,
-      appLogins: opts.appLogins,
-      ...(opts.pollMs !== undefined ? { pollMs: opts.pollMs } : {}),
-    });
-
-  if (opts.sequential) {
-    const results: ScenarioResult[] = [];
-    for (const s of scenarios) results.push(await exec(s));
-    return results;
+  // Scenarios run strictly one at a time. Parallel execution is unsupported:
+  // scenarios that mutate the same files (e.g. medium and large both edit
+  // app/page.tsx) would race on merge, and the per-scenario baseline reset
+  // below would clobber a concurrently-running scenario's branch base.
+  const results: ScenarioResult[] = [];
+  for (const s of scenarios) {
+    results.push(
+      await runScenario(s, {
+        gh: opts.gh,
+        owner: opts.owner,
+        repo: opts.repo,
+        runTag: opts.runTag,
+        appLogins: opts.appLogins,
+        ...(opts.pollMs !== undefined ? { pollMs: opts.pollMs } : {}),
+      }),
+    );
+    // Reset main to the baseline after each scenario so the next one starts
+    // from a pristine tree, isolated from the merges this scenario landed.
+    // Runs regardless of pass/fail so a partial scenario can't pollute the
+    // next one's starting state.
+    await resetToBaseline(opts.gh, opts.owner, opts.repo, "  reset");
   }
-  return Promise.all(scenarios.map(exec));
+  return results;
 }
 
 export function printSummary(results: ScenarioResult[]): boolean {

@@ -94,23 +94,6 @@ export async function runScenario(
     },
     async mergePr(pr, method = "squash") {
       log(`> merging PR #${pr} (${method})`);
-      // Scenarios that run in parallel can land merges that put other
-      // scenarios' open PRs behind main. Updating the PR branch first
-      // (server-side merge of base into head) keeps simple line-level
-      // conflicts out of the merge call below; non-trivial conflicts still
-      // surface as updateBranch failures.
-      try {
-        await opts.gh.pulls.updateBranch({
-          owner: opts.owner,
-          repo: opts.repo,
-          pull_number: pr,
-        });
-      } catch (err) {
-        const status = (err as { status?: number }).status;
-        // 422 from updateBranch means "no update needed" or "branch is up to
-        // date"; both are fine and the subsequent merge call should proceed.
-        if (status !== 422) throw err;
-      }
       await opts.gh.pulls.merge({
         owner: opts.owner,
         repo: opts.repo,

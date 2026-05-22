@@ -23,11 +23,10 @@ This is a developer tool. It is not invoked from CI by default. Each full run bu
 ## Running
 
 ```bash
-pnpm smoke                            # all scenarios in parallel
+pnpm smoke                            # all scenarios, one at a time
 pnpm smoke -- --only quick,medium     # subset
-pnpm smoke -- --sequential            # one at a time (easier logs)
 pnpm smoke -- --tag X                 # reuse a tag (debugging)
-pnpm smoke -- --allow-stale           # skip the previous-run gate
+pnpm smoke -- --allow-stale           # skip the preflight auto-clean
 pnpm smoke -- --poll-ms 15000         # override default poll interval (debugging the runner)
 pnpm smoke -- cleanup                 # close PRs, delete branches, delete issues for any smoke-* artifact
 pnpm smoke -- cleanup --tag X         # cleanup only artifacts tagged X
@@ -35,12 +34,33 @@ pnpm smoke -- cleanup --tag X         # cleanup only artifacts tagged X
 
 Exit code: 0 if every scenario is PASS or PASS\*. Nonzero if any FAIL or TIMEOUT.
 
+## Execution model
+
+Scenarios run **strictly sequentially**, and the runner force-resets the smoke
+repo's default branch to the `smoke-baseline` tag before the first scenario
+(in preflight) and again after every scenario. Each scenario therefore starts
+against an identical, pristine tree:
+
+- No two scenarios ever race on a merge, even when they edit the same files
+  (e.g. `medium` and `large` both touch `app/page.tsx`).
+- A brief never turns into a no-op because a previous run (or a previous
+  scenario in the same run) already merged the same change.
+
+Parallel execution is intentionally unsupported: a mid-run reset would clobber
+a concurrently-running scenario's branch base. The full suite takes roughly an
+hour. Preflight also auto-cleans any leftover `smoke-*` PRs/issues from prior
+runs (use `--allow-stale` to inspect leftovers before they are removed).
+
+The baseline is whatever commit the `smoke-baseline` tag points at on
+`niranjan94/shopfloor-smoke`. To change the clean starting state, move that tag
+and the next run will reset to it.
+
 ## Scenarios
 
 | ID                     | Path                                                                               | Timeout | Notes                                         |
 | ---------------------- | ---------------------------------------------------------------------------------- | ------- | --------------------------------------------- |
 | quick                  | triage(quick) -> impl -> review -> merge -> done                                   | 10m     |                                               |
-| medium                 | triage(medium) -> plan -> merge -> impl -> review -> merge -> done                 | 20m     |                                               |
+| medium                 | triage(medium) -> plan -> merge -> impl -> review -> merge -> done                 | 30m     |                                               |
 | large                  | triage(large) -> spec -> merge -> plan -> merge -> impl -> review -> merge -> done | 40m     |                                               |
 | awaiting-info          | vague brief -> triage clarifies -> answer -> triage classifies                     | 10m     |                                               |
 | review-only            | human-authored PR -> shopfloor-review.yml posts review                             | 12m     | Asserts on `<!-- shopfloor-review -->` marker |

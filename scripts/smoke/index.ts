@@ -32,10 +32,10 @@ interface Args {
   positional: string[];
   only?: string;
   tag?: string;
-  sequential: boolean;
   allowStale: boolean;
   pollMs?: number;
 }
+
 
 function parseCliArgs(argv: string[]): Args {
   const parsed = parseArgs({
@@ -45,7 +45,6 @@ function parseCliArgs(argv: string[]): Args {
     options: {
       only: { type: "string" },
       tag: { type: "string" },
-      sequential: { type: "boolean", default: false },
       "allow-stale": { type: "boolean", default: false },
       "poll-ms": { type: "string" },
     },
@@ -54,7 +53,6 @@ function parseCliArgs(argv: string[]): Args {
     positional: parsed.positionals,
     ...(parsed.values.only !== undefined ? { only: parsed.values.only } : {}),
     ...(parsed.values.tag !== undefined ? { tag: parsed.values.tag } : {}),
-    sequential: parsed.values.sequential === true,
     allowStale: parsed.values["allow-stale"] === true,
     ...(parsed.values["poll-ms"] !== undefined
       ? { pollMs: Number(parsed.values["poll-ms"]) }
@@ -104,7 +102,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `Running ${selected.length} scenario(s) ${args.sequential ? "sequentially" : "in parallel"}: ${selected.map((s) => s.id).join(", ")}`,
+    `Running ${selected.length} scenario(s) sequentially (main resets between each): ${selected.map((s) => s.id).join(", ")}`,
   );
 
   const results = await runAll(selected, {
@@ -113,7 +111,6 @@ async function main(): Promise<void> {
     repo: REPO,
     runTag,
     appLogins,
-    sequential: args.sequential,
     ...(args.pollMs !== undefined ? { pollMs: args.pollMs } : {}),
   });
 
