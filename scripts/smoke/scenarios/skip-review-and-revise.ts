@@ -6,9 +6,8 @@ async function runSkipReview(ctx: SmokeCtx): Promise<void> {
   const { number: issue } = await ctx.createIssue({
     title: `${ctx.tag}: skip-review readme date`,
     body: [
-      `Append the marker \`<!-- last-smoke: ${ctx.tag} -->\` to the bottom of`,
-      "`README.md`. Replace any existing `<!-- last-smoke: ... -->` line",
-      "rather than adding alongside it.",
+      "Append today's date to the bottom of `README.md` in the form",
+      "`<!-- last-smoke: YYYY-MM-DD -->`.",
       "",
       "Trivial single-file change.",
     ].join("\n"),

@@ -2,6 +2,10 @@ import chalk from "chalk";
 import type { Octokit } from "@octokit/rest";
 import type { AppLogins, Scenario, ScenarioResult } from "./types.js";
 import { runScenario } from "./scenario.js";
+import {
+  resetDefaultBranchToBaseline,
+  deleteShopfloorBranches,
+} from "./baseline.js";
 
 export interface RunAllOpts {
   gh: Octokit;
@@ -49,6 +53,50 @@ export async function preflight(opts: {
         `${hits.data.total_count} open smoke artifact(s) found from previous runs. Run \`pnpm smoke -- cleanup\` or pass \`--allow-stale\`.`,
       );
     }
+  }
+
+  // Force-reset the default branch to the smoke-baseline tag so every run
+  // starts against an identical repo state. Without this, merged smoke PRs
+  // accumulate on main and subsequent runs produce no-op diffs that fail
+  // openStagePr with "No commits between main and <branch>".
+  const reset = await resetDefaultBranchToBaseline(
+    opts.gh,
+    opts.owner,
+    opts.repo,
+  );
+  if (reset.noop) {
+    console.log(
+      chalk.dim(
+        `  baseline: ${reset.defaultBranch} already at ${reset.baselineSha.slice(0, 7)}`,
+      ),
+    );
+  } else {
+    console.log(
+      chalk.yellow(
+        `  baseline: force-reset ${reset.defaultBranch} ${reset.mainBeforeSha.slice(0, 7)} -> ${reset.mainAfterSha.slice(0, 7)}`,
+      ),
+    );
+  }
+
+  // Sweep dangling shopfloor/* branches from prior runs. Closed PRs leave
+  // their head branches behind; over time those refs pile up and waste API
+  // listings. Doing this in preflight (not just per-scenario cleanup) catches
+  // branches whose PR was already cleaned but the ref lingered.
+  const branchSweep = await deleteShopfloorBranches(
+    opts.gh,
+    opts.owner,
+    opts.repo,
+  );
+  if (branchSweep.deleted > 0 || branchSweep.errors.length > 0) {
+    console.log(
+      chalk.dim(
+        `  baseline: swept ${branchSweep.deleted} stale shopfloor/* branch(es)${
+          branchSweep.errors.length > 0
+            ? `, ${branchSweep.errors.length} error(s)`
+            : ""
+        }`,
+      ),
+    );
   }
 }
 

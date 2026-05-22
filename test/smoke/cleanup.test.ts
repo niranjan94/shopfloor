@@ -29,6 +29,7 @@ function fakeGh(opts: {
     },
     git: {
       deleteRef: vi.fn(async () => ({})),
+      listMatchingRefs: vi.fn(async () => ({ data: [] })),
     },
     graphql: vi.fn(async (query: string) => {
       if (query.includes("repository(")) {

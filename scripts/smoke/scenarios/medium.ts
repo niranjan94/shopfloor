@@ -9,19 +9,17 @@ const MEDIUM: Scenario = {
   timeoutMs: TIMEOUT_MS,
   async run(ctx): Promise<ScenarioOutcome> {
     const { number: issue } = await ctx.createIssue({
-      title: `${ctx.tag}: dual smoke banner`,
+      title: `${ctx.tag}: bulk-select and delete tasks`,
       body: [
-        `Add a small \`<aside data-smoke>${ctx.tag}</aside>\` element as the`,
-        "first child of the top-level container in BOTH",
-        "`app/page.tsx` and `app/dashboard/page.tsx`. The text content must",
-        `be exactly \`${ctx.tag}\`.`,
+        "Add a bulk-select mode to the tasks list. When enabled, each task",
+        "card shows a checkbox; a 'Delete selected' button at the top of the",
+        "list removes every checked task via `db.deleteTask` and updates the",
+        "React `tasks` state.",
         "",
-        "If a prior `<aside data-smoke>...</aside>` element already exists at",
-        "the top of either file, replace it in place rather than appending",
-        "alongside it.",
-        "",
-        "Scope: UI only, two files, no new components, no state. Treat as a",
-        "small multi-file edit; no spec required, but a plan is.",
+        "Scope: UI + client-side selection state only. No schema changes,",
+        "no new persistence fields. Touch `app/page.tsx` and at most one new",
+        "component file under `app/components/`. Selection state is local",
+        "React state and resets when bulk-select is toggled off.",
       ].join("\n"),
       labels: ["shopfloor:trigger"],
     });

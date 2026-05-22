@@ -9,14 +9,13 @@ const QUICK: Scenario = {
   timeoutMs: TIMEOUT_MS,
   async run(ctx): Promise<ScenarioOutcome> {
     const { number: issue } = await ctx.createIssue({
-      title: `${ctx.tag}: tag dashboard heading`,
+      title: `${ctx.tag}: rename dashboard heading`,
       body: [
-        "Append a smoke-tag suffix to the visible `<h1>` heading on the",
-        `dashboard page so it reads exactly: \`Dashboard Overview (${ctx.tag})\`.`,
+        "Change the visible `<h1>` heading on the dashboard page from",
+        '`"Dashboard"` to `"Dashboard Overview"`.',
         "",
         "Touch only `app/dashboard/page.tsx`. No new components, no state",
-        "changes, no styling beyond the heading text. Replace any prior smoke",
-        "tag in the heading rather than appending alongside it.",
+        "changes, no styling beyond the heading text.",
       ].join("\n"),
       labels: ["shopfloor:trigger"],
     });

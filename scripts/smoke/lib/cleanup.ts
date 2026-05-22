@@ -1,5 +1,6 @@
 import type { Octokit } from "@octokit/rest";
 import { deleteIssueGraphQL } from "./github.js";
+import { deleteShopfloorBranches } from "./baseline.js";
 
 export interface CleanupReport {
   prsClosed: number;
@@ -84,6 +85,19 @@ export async function cleanupByTitlePrefix(
         message: (err as Error).message,
       });
     }
+  }
+
+  // Stage PRs target shopfloor/<stage>/<n>-<slug> branches. The per-PR loop
+  // above deletes a branch only when the PR list still matches the title; refs
+  // whose PRs were already closed in a prior cleanup are skipped. Sweep the
+  // namespace explicitly so nothing lingers across runs.
+  const sweep = await deleteShopfloorBranches(gh, owner, repo);
+  report.branchesDeleted += sweep.deleted;
+  for (const e of sweep.errors) {
+    report.errors.push({
+      context: `delete branch ${e.ref}`,
+      message: e.message,
+    });
   }
 
   return report;

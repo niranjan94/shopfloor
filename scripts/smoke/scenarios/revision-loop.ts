@@ -9,15 +9,18 @@ const REVISION_LOOP: Scenario = {
   timeoutMs: TIMEOUT_MS,
   async run(ctx): Promise<ScenarioOutcome> {
     const { number: issue } = await ctx.createIssue({
-      title: `${ctx.tag}: tasks page smoke marker`,
+      title: `${ctx.tag}: clear-completed button`,
       body: [
-        `Insert the HTML comment \`<!-- smoke: ${ctx.tag} -->\` as the first`,
-        "child of the top-level container element in `app/page.tsx`. If a",
-        "prior `<!-- smoke: ... -->` comment already exists in that position,",
-        "replace it rather than appending alongside it.",
+        "Add a 'Clear completed' button to the tasks list. The button removes",
+        "every task with `status === 'done'` by calling `db.deleteTask` for",
+        "each and updating React state.",
         "",
-        "Touch only `app/page.tsx`. No new files, no logic changes, no",
-        "styling. Trivial single-file edit.",
+        "Scope: UI + client-side state only. No schema changes. Touch",
+        "`app/page.tsx` and at most one new helper file under",
+        "`app/components/` if it helps readability.",
+        "",
+        "The button must be hidden when no completed tasks exist and must",
+        "show a confirmation prompt (window.confirm is fine) before deleting.",
       ].join("\n"),
       labels: ["shopfloor:trigger"],
     });
