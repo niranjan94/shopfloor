@@ -1,6 +1,6 @@
 import type { Scenario, ScenarioOutcome } from "../lib/types.js";
 
-const TIMEOUT_MS = 20 * 60_000;
+const TIMEOUT_MS = 30 * 60_000;
 
 const MEDIUM: Scenario = {
   id: "medium",

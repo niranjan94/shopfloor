@@ -29,6 +29,24 @@ const REVISION_LOOP: Scenario = {
       timeoutMs: 5 * 60_000,
     });
 
+    // Quick skips planning; medium goes through plan-in-review first. The
+    // scenario doesn't care which path triage picked, so merge the plan PR
+    // when one shows up and otherwise jump straight to expecting the impl PR.
+    const issueAfterTriage = await ctx.gh.issues.get({
+      owner: ctx.owner,
+      repo: ctx.repo,
+      issue_number: issue,
+    });
+    const isMedium = issueAfterTriage.data.labels.some(
+      (l) => (typeof l === "string" ? l : l.name) === "shopfloor:medium",
+    );
+    if (isMedium) {
+      const planPr = await ctx.expectPrOpenedFor(issue, "plan", {
+        timeoutMs: 8 * 60_000,
+      });
+      await ctx.mergePr(planPr.number);
+    }
+
     const implPr = await ctx.expectPrOpenedFor(issue, "implement", {
       timeoutMs: 10 * 60_000,
     });
