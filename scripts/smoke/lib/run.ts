@@ -6,6 +6,7 @@ import {
   resetDefaultBranchToBaseline,
   deleteShopfloorBranches,
 } from "./baseline.js";
+import { cleanupByTitlePrefix } from "./cleanup.js";
 
 export interface RunAllOpts {
   gh: Octokit;
@@ -43,14 +44,36 @@ export async function preflight(opts: {
     );
   }
 
+  // Auto-clean any leftover smoke-* PRs and issues from prior runs that
+  // didn't reach the per-scenario cleanup step (timeouts, failures). The
+  // baseline reset below blows away the merged commits, so re-opening the
+  // pipeline against the new main needs a clean issue/PR slate too.
+  // --allow-stale opts out of the auto-clean for the rare case where the user
+  // wants to inspect leftovers before they vanish.
   if (!opts.allowStale) {
-    const hits = await opts.gh.search.issuesAndPullRequests({
-      q: `repo:${opts.owner}/${opts.repo} state:open in:title "smoke-"`,
-      per_page: 1,
-    });
-    if (hits.data.total_count > 0) {
+    const stale = await cleanupByTitlePrefix(
+      opts.gh,
+      opts.owner,
+      opts.repo,
+      "smoke-",
+    );
+    if (
+      stale.prsClosed > 0 ||
+      stale.issuesDeleted > 0 ||
+      stale.branchesDeleted > 0
+    ) {
+      console.log(
+        chalk.dim(
+          `  preflight cleanup: ${stale.prsClosed} PR(s), ${stale.issuesDeleted} issue(s), ${stale.branchesDeleted} branch(es)`,
+        ),
+      );
+    }
+    if (stale.errors.length > 0) {
+      const head = stale.errors.slice(0, 3);
+      const tail =
+        stale.errors.length > 3 ? ` (+${stale.errors.length - 3} more)` : "";
       throw new Error(
-        `${hits.data.total_count} open smoke artifact(s) found from previous runs. Run \`pnpm smoke -- cleanup\` or pass \`--allow-stale\`.`,
+        `preflight cleanup hit ${stale.errors.length} error(s): ${head.map((e) => `${e.context}: ${e.message}`).join("; ")}${tail}`,
       );
     }
   }
