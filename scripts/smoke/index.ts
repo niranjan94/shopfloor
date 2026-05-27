@@ -38,8 +38,14 @@ interface Args {
 
 
 function parseCliArgs(argv: string[]): Args {
+  // `pnpm smoke -- --only X` forwards the `--` separator into our argv. Node's
+  // parseArgs treats `--` as an options terminator, which would turn `--only`
+  // and friends into positionals and silently drop them. Strip any standalone
+  // `--` tokens so both `pnpm smoke --only X` and `pnpm smoke -- --only X`
+  // work. The only real positional this CLI takes is `cleanup`.
+  const cleaned = argv.filter((a) => a !== "--");
   const parsed = parseArgs({
-    args: argv,
+    args: cleaned,
     allowPositionals: true,
     strict: true,
     options: {
