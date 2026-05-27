@@ -1,8 +1,8 @@
-import type { StageContext } from "../_shared/context.js";
-import type { ImplementDecision } from "./decision.js";
 import { LABELS } from "../../state/labels.js";
-import { finalizeProgressComment } from "../_shared/progress-comment.js";
 import { checkReviewSkip } from "../_shared/check-review-skip.js";
+import type { StageContext } from "../_shared/context.js";
+import { finalizeProgressComment } from "../_shared/progress-comment.js";
+import type { ImplementDecision } from "./decision.js";
 
 export interface ApplyImplementArgs {
   decision: ImplementDecision;
@@ -16,7 +16,7 @@ const ITERATION_LINE = /Shopfloor-Review-Iteration:\s*(\d+)/;
 function parseIterationFromBody(body: string | null | undefined): number {
   if (!body) return 0;
   const m = body.match(ITERATION_LINE);
-  if (!m || !m[1]) return 0;
+  if (!m?.[1]) return 0;
   return Number(m[1]);
 }
 

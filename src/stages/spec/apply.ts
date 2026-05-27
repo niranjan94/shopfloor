@@ -1,6 +1,6 @@
+import { LABELS } from "../../state/labels.js";
 import type { StageContext } from "../_shared/context.js";
 import type { SpecDecision } from "./decision.js";
-import { LABELS } from "../../state/labels.js";
 
 export interface ApplySpecArgs {
   decision: SpecDecision;

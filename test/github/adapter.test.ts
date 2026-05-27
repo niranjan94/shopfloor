@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import { GitHubAdapter } from "../../src/github/adapter.js";
 import type { OctokitLike } from "../../src/github/adapter.js";
+import { GitHubAdapter } from "../../src/github/adapter.js";
 
 type MockFn = ReturnType<typeof vi.fn>;
 
@@ -248,7 +248,7 @@ describe("GitHubAdapter", () => {
       }),
     );
     expect(mocks.updatePr).not.toHaveBeenCalled();
-    const call = mocks.createPr.mock.calls[0]![0] as { body: string };
+    const call = mocks.createPr.mock.calls[0]?.[0] as { body: string };
     expect(call.body).toMatch(/Shopfloor-Issue: #42/);
     expect(call.body).toMatch(/Shopfloor-Stage: spec/);
     expect(call.body).toMatch(/Body text\./);
@@ -585,7 +585,7 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
       { owner: "o", repo: "r" },
     );
     await adapter.upsertIssueMetadata(7, { slug: "do-thing" });
-    const call = updateIssue.mock.calls[0]![0] as { body: string };
+    const call = updateIssue.mock.calls[0]?.[0] as { body: string };
     expect(call.body).toContain("Original body.");
     expect(call.body).toMatch(
       /<!-- shopfloor:metadata[\s\S]*Shopfloor-Slug: do-thing[\s\S]*-->/,
@@ -615,7 +615,7 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
     await adapter.upsertIssueMetadata(7, {
       planPath: "docs/shopfloor/plans/7-x.md",
     });
-    const call = updateIssue.mock.calls[0]![0] as { body: string };
+    const call = updateIssue.mock.calls[0]?.[0] as { body: string };
     expect(call.body).toContain("Shopfloor-Slug: original-slug");
     expect(call.body).toContain(
       "Shopfloor-Plan-Path: docs/shopfloor/plans/7-x.md",
@@ -686,7 +686,7 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
         content: Buffer.from("hi", "utf8").toString("base64"),
       }),
     );
-    const callWithSha = put.mock.calls[0]![0] as { sha?: string };
+    const callWithSha = put.mock.calls[0]?.[0] as { sha?: string };
     expect(callWithSha.sha).toBeUndefined();
 
     await adapter.putFileContents({
@@ -696,7 +696,7 @@ describe("GitHubAdapter Git Data + Contents API surface", () => {
       content: "hi2",
       sha: "blob123",
     });
-    const second = put.mock.calls[1]![0] as { sha?: string };
+    const second = put.mock.calls[1]?.[0] as { sha?: string };
     expect(second.sha).toBe("blob123");
   });
 });

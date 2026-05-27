@@ -1,26 +1,26 @@
-import * as core from "@actions/core";
 import { readFileSync } from "node:fs";
-import { Octokit } from "@octokit/rest";
+import * as core from "@actions/core";
 import { createAppAuth } from "@octokit/auth-app";
-import { parseConfig } from "./config/inputs.js";
-import { buildAgentEnvFromConfig } from "./config/agent-env.js";
-import { resolveAuth, type AuthSpec } from "./github/app-token.js";
-import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
+import { Octokit } from "@octokit/rest";
 import { ClaudeAgentAdapter } from "./agents/claude.js";
+import {
+  type AuditEmitter,
+  combineEmitters,
+  createAuditEmitter,
+} from "./audit/events.js";
+import { createStepSummaryMirror } from "./audit/step-summary.js";
+import { buildAgentEnvFromConfig } from "./config/agent-env.js";
+import { parseConfig } from "./config/inputs.js";
 import { applyGitIdentity, resolveBotIdentity } from "./git/identity.js";
 import {
   prepareImplCheckout,
   pushImplCommits,
   tokenResolverFor,
 } from "./git/impl-checkout.js";
-import type { GitOps } from "./stages/_shared/context.js";
-import {
-  createAuditEmitter,
-  combineEmitters,
-  type AuditEmitter,
-} from "./audit/events.js";
-import { createStepSummaryMirror } from "./audit/step-summary.js";
+import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
+import { type AuthSpec, resolveAuth } from "./github/app-token.js";
 import { runOrchestrator } from "./orchestrator.js";
+import type { GitOps } from "./stages/_shared/context.js";
 import type { EventPayload } from "./state/types.js";
 
 export interface RunEntryDeps {

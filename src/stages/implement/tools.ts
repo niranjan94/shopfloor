@@ -1,6 +1,6 @@
 import type { SdkTool } from "../../tools/types.js";
-import type { StageContext } from "../_shared/context.js";
 import { updateProgressTool } from "../../tools/update-progress.js";
+import type { StageContext } from "../_shared/context.js";
 
 export interface ImplToolsArgs {
   progressCommentId: number;

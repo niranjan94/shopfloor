@@ -1,6 +1,6 @@
+import { LABELS } from "../../state/labels.js";
 import type { StageContext } from "../_shared/context.js";
 import type { AggregateOutcome } from "./aggregate.js";
-import { LABELS } from "../../state/labels.js";
 
 export interface ApplyReviewArgs {
   outcome: AggregateOutcome;

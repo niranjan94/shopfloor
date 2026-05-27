@@ -1,12 +1,12 @@
-import chalk from "chalk";
 import type { Octokit } from "@octokit/rest";
-import type { AppLogins, Scenario, ScenarioResult } from "./types.js";
-import { runScenario } from "./scenario.js";
+import chalk from "chalk";
 import {
-  resetDefaultBranchToBaseline,
   deleteShopfloorBranches,
+  resetDefaultBranchToBaseline,
 } from "./baseline.js";
 import { cleanupByTitlePrefix } from "./cleanup.js";
+import { runScenario } from "./scenario.js";
+import type { AppLogins, Scenario, ScenarioResult } from "./types.js";
 
 export interface RunAllOpts {
   gh: Octokit;
@@ -23,7 +23,7 @@ export async function preflight(opts: {
   repo: string;
   allowStale: boolean;
 }): Promise<void> {
-  let repoInfo;
+  let repoInfo: Awaited<ReturnType<typeof opts.gh.repos.get>>["data"];
   try {
     const res = await opts.gh.repos.get({
       owner: opts.owner,

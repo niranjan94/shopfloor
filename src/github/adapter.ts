@@ -1,5 +1,5 @@
-import { parseIssueMetadata } from "../state/metadata.js";
 import type { AuditEmitter } from "../audit/events.js";
+import { parseIssueMetadata } from "../state/metadata.js";
 
 export interface OctokitLike {
   rest: {
@@ -412,7 +412,7 @@ export class GitHubAdapter {
         page,
       });
       for (const pr of res.data) {
-        if (pr.head?.ref && pr.head.ref.startsWith(prefix)) {
+        if (pr.head?.ref?.startsWith(prefix)) {
           return { number: pr.number, body: pr.body ?? null };
         }
       }

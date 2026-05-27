@@ -1,20 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { runOrchestrator } from "../../src/orchestrator.js";
 import { MockAgentAdapter } from "../../src/agents/mock.js";
-import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
-import { baseConfig } from "../_harness/config.js";
 import type { AuditEvent } from "../../src/audit/events.js";
+import { runOrchestrator } from "../../src/orchestrator.js";
 import type { EventPayload } from "../../src/state/types.js";
-
-import issueOpenedBare from "./fixtures/issue-opened-bare.json" with { type: "json" };
-import issueLabeledNeedsSpec from "./fixtures/issue-labeled-needs-spec.json" with { type: "json" };
-import issueLabeledNeedsPlan from "./fixtures/issue-labeled-needs-plan-no-title.json" with { type: "json" };
-import issueLabeledNeedsImpl from "./fixtures/issue-labeled-needs-impl.json" with { type: "json" };
+import { baseConfig } from "../_harness/config.js";
+import prMergedSpec from "../fixtures/events/pr-closed-merged-spec.json" with {
+  type: "json",
+};
+import prReviewChangesRequested from "../fixtures/events/pr-review-submitted-changes-requested.json" with {
+  type: "json",
+};
+import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 import issueClosed from "./fixtures/issue-closed.json" with { type: "json" };
-import issueRetrySpec from "./fixtures/issue-unlabeled-failed-spec-with-needs-spec.json" with { type: "json" };
-import prReadyImpl from "./fixtures/pr-ready-for-review-impl.json" with { type: "json" };
-import prMergedSpec from "../fixtures/events/pr-closed-merged-spec.json" with { type: "json" };
-import prReviewChangesRequested from "../fixtures/events/pr-review-submitted-changes-requested.json" with { type: "json" };
+import issueLabeledNeedsImpl from "./fixtures/issue-labeled-needs-impl.json" with {
+  type: "json",
+};
+import issueLabeledNeedsPlan from "./fixtures/issue-labeled-needs-plan-no-title.json" with {
+  type: "json",
+};
+import issueLabeledNeedsSpec from "./fixtures/issue-labeled-needs-spec.json" with {
+  type: "json",
+};
+import issueOpenedBare from "./fixtures/issue-opened-bare.json" with {
+  type: "json",
+};
+import issueRetrySpec from "./fixtures/issue-unlabeled-failed-spec-with-needs-spec.json" with {
+  type: "json",
+};
+import prReadyImpl from "./fixtures/pr-ready-for-review-impl.json" with {
+  type: "json",
+};
 
 type FixturePayload = EventPayload;
 

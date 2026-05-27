@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { runTriage } from "../../src/stages/triage/runner.js";
-import { applyTriage } from "../../src/stages/triage/apply.js";
-import { RUNNERS } from "../../src/runners.js";
 import { MockAgentAdapter } from "../../src/agents/mock.js";
-import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
-import type { MockGithub } from "../github/_mock-github.js";
-import type { StageContext } from "../../src/stages/_shared/context.js";
 import type { Config } from "../../src/config/inputs.js";
+import { RUNNERS } from "../../src/runners.js";
+import type { StageContext } from "../../src/stages/_shared/context.js";
+import { applyTriage } from "../../src/stages/triage/apply.js";
+import { runTriage } from "../../src/stages/triage/runner.js";
+import type { MockGithub } from "../github/_mock-github.js";
+import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 
 const baseConfig: Config = {
   anthropicApiKey: "x",

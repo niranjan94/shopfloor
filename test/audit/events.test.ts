@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAuditEmitter, type AuditEvent } from "../../src/audit/events.js";
+import { type AuditEvent, createAuditEmitter } from "../../src/audit/events.js";
 
 describe("AuditEmitter", () => {
   it("writes one JSONL line per event with ts and runId", () => {

@@ -1,5 +1,5 @@
-import chalk from "chalk";
 import type { Octokit } from "@octokit/rest";
+import chalk from "chalk";
 import { makeExpectClient } from "./expect.js";
 import type { AppLogins, Scenario, ScenarioResult, SmokeCtx } from "./types.js";
 

@@ -1,6 +1,6 @@
+import { LABELS } from "../../state/labels.js";
 import type { StageContext } from "../_shared/context.js";
 import type { PlanDecision } from "./decision.js";
-import { LABELS } from "../../state/labels.js";
 
 export interface ApplyPlanArgs {
   decision: PlanDecision;

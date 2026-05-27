@@ -1,10 +1,10 @@
 import type { StageContext } from "../_shared/context.js";
 import type { LensDecision, LensName } from "./decision.js";
-import { runComplianceLens } from "./lenses/compliance/runner.js";
 import { runBugsLens } from "./lenses/bugs/runner.js";
+import { runComplianceLens } from "./lenses/compliance/runner.js";
 import { runSecurityLens } from "./lenses/security/runner.js";
-import { runSmellsLens } from "./lenses/smells/runner.js";
 import type { LensRunnerArgs } from "./lenses/shared.js";
+import { runSmellsLens } from "./lenses/smells/runner.js";
 
 export interface LensOutcome {
   lens: LensName;

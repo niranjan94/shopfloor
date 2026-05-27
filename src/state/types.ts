@@ -1,6 +1,6 @@
-import type { Stage, Complexity } from "./labels.js";
+import type { Complexity, Stage } from "./labels.js";
 
-export type { Stage, Complexity };
+export type { Complexity, Stage };
 
 // Re-exported for convenience so callers only need one import.
 export type ShopfloorLabel =

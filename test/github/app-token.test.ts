@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  mintInstallationToken,
   __resetTokenCache,
+  mintInstallationToken,
 } from "../../src/github/app-token.js";
 
 describe("mintInstallationToken", () => {

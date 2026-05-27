@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { MockAgentAdapter } from "../../src/agents/mock.js";
+import { RUNNERS } from "../../src/runners.js";
+import type { StageContext } from "../../src/stages/_shared/context.js";
 import { aggregateFindings } from "../../src/stages/review/aggregate.js";
 import { applyReview } from "../../src/stages/review/apply.js";
-import { RUNNERS } from "../../src/runners.js";
-import { MockAgentAdapter } from "../../src/agents/mock.js";
+import type { ReviewComment } from "../../src/stages/review/decision.js";
+import type { LensOutcome } from "../../src/stages/review/runner.js";
 import { baseConfig } from "../_harness/config.js";
 import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
-import type { LensOutcome } from "../../src/stages/review/runner.js";
-import type { StageContext } from "../../src/stages/_shared/context.js";
-import type { ReviewComment } from "../../src/stages/review/decision.js";
 
 function cleanOutcome(lens: LensOutcome["lens"]): LensOutcome {
   return {
@@ -237,7 +237,7 @@ describe("aggregateFindings", () => {
     expect(result.kind).toBe("request_changes");
     if (result.kind === "request_changes") {
       expect(result.anchoredComments).toHaveLength(1);
-      expect(result.anchoredComments[0]!.confidence).toBe(95);
+      expect(result.anchoredComments[0]?.confidence).toBe(95);
     }
   });
 });

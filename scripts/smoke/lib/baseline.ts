@@ -21,7 +21,7 @@ async function resolveBaselineSha(
   owner: string,
   repo: string,
 ): Promise<string> {
-  let ref;
+  let ref: Awaited<ReturnType<typeof gh.git.getRef>>;
   try {
     ref = await gh.git.getRef({
       owner,
@@ -106,7 +106,10 @@ export async function deleteShopfloorBranches(
   gh: Octokit,
   owner: string,
   repo: string,
-): Promise<{ deleted: number; errors: Array<{ ref: string; message: string }> }> {
+): Promise<{
+  deleted: number;
+  errors: Array<{ ref: string; message: string }>;
+}> {
   let refs: Array<{ ref: string }>;
   try {
     const res = await gh.git.listMatchingRefs({

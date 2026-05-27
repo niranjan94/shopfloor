@@ -13,8 +13,8 @@
     "test:live": "vitest run --reporter=verbose test/agents/claude.live.test.ts",
     "smoke": "tsx scripts/smoke/index.ts",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "lint": "biome check",
+    "format": "biome check --write --unsafe"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
@@ -25,6 +25,7 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.15",
     "@types/node": "^22.10.0",
     "chalk": "^5.6.2",
     "dotenv": "^17.4.2",

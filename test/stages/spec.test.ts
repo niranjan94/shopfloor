@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSpec } from "../../src/stages/spec/runner.js";
+import { MockAgentAdapter } from "../../src/agents/mock.js";
+import type { Config } from "../../src/config/inputs.js";
+import type { StageContext } from "../../src/stages/_shared/context.js";
 import { applySpec } from "../../src/stages/spec/apply.js";
 import { SpecDecision } from "../../src/stages/spec/decision.js";
-import { MockAgentAdapter } from "../../src/agents/mock.js";
-import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
+import { runSpec } from "../../src/stages/spec/runner.js";
 import type { MockGithub } from "../github/_mock-github.js";
-import type { StageContext } from "../../src/stages/_shared/context.js";
-import type { Config } from "../../src/config/inputs.js";
+import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 
 const baseConfig: Config = {
   anthropicApiKey: "x",

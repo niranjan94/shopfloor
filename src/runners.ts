@@ -1,25 +1,20 @@
 import * as core from "@actions/core";
-import type { Stage } from "./state/labels.js";
-import type { RouterDecision } from "./state/types.js";
 import type { StageContext } from "./stages/_shared/context.js";
-import { parseIssueMetadata } from "./state/metadata.js";
-
-import { runTriage } from "./stages/triage/runner.js";
-import { applyTriage } from "./stages/triage/apply.js";
-
-import { runSpec } from "./stages/spec/runner.js";
-import { applySpec } from "./stages/spec/apply.js";
-
-import { runPlan } from "./stages/plan/runner.js";
-import { applyPlan } from "./stages/plan/apply.js";
-
-import { runImplement } from "./stages/implement/runner.js";
-import { applyImplement } from "./stages/implement/apply.js";
 import { createProgressComment } from "./stages/_shared/progress-comment.js";
-
-import { runReview } from "./stages/review/runner.js";
-import { applyReview } from "./stages/review/apply.js";
+import { applyImplement } from "./stages/implement/apply.js";
+import { runImplement } from "./stages/implement/runner.js";
+import { applyPlan } from "./stages/plan/apply.js";
+import { runPlan } from "./stages/plan/runner.js";
 import { aggregateFindings } from "./stages/review/aggregate.js";
+import { applyReview } from "./stages/review/apply.js";
+import { runReview } from "./stages/review/runner.js";
+import { applySpec } from "./stages/spec/apply.js";
+import { runSpec } from "./stages/spec/runner.js";
+import { applyTriage } from "./stages/triage/apply.js";
+import { runTriage } from "./stages/triage/runner.js";
+import type { Stage } from "./state/labels.js";
+import { parseIssueMetadata } from "./state/metadata.js";
+import type { RouterDecision } from "./state/types.js";
 
 const CONFIDENCE_THRESHOLD = 60;
 

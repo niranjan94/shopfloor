@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import * as core from "@actions/core";
-import { mintInstallationToken, type AuthSpec } from "../github/app-token.js";
+import { type AuthSpec, mintInstallationToken } from "../github/app-token.js";
 
 export interface PrepareImplCheckoutOpts {
   cwd: string;

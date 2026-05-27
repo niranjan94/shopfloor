@@ -66,7 +66,7 @@ export interface CreateAuditEmitterArgs {
 }
 
 export function createAuditEmitter(args: CreateAuditEmitterArgs): AuditEmitter {
-  const sink = args.sink ?? ((line) => process.stdout.write(line + "\n"));
+  const sink = args.sink ?? ((line) => process.stdout.write(`${line}\n`));
   return (event) => {
     const payload = {
       ts: new Date().toISOString(),

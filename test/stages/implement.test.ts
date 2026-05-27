@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { runImplement } from "../../src/stages/implement/runner.js";
-import { applyImplement } from "../../src/stages/implement/apply.js";
 import { MockAgentAdapter } from "../../src/agents/mock.js";
-import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
-import type { MockGithub } from "../github/_mock-github.js";
-import type { StageContext } from "../../src/stages/_shared/context.js";
 import type { Config } from "../../src/config/inputs.js";
+import type { StageContext } from "../../src/stages/_shared/context.js";
+import { applyImplement } from "../../src/stages/implement/apply.js";
+import { runImplement } from "../../src/stages/implement/runner.js";
+import type { MockGithub } from "../github/_mock-github.js";
+import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 
 const baseConfig: Config = {
   anthropicApiKey: "x",
@@ -296,7 +296,7 @@ describe("applyImplement", () => {
       branchName: "shopfloor/impl/42-do-thing",
       baseBranch: "main",
     });
-    const updateCall = mg.updatePr.mock.calls[0]![1] as { body: string };
+    const updateCall = mg.updatePr.mock.calls[0]?.[1] as { body: string };
     expect(updateCall.body).toContain("Shopfloor-Review-Iteration: 2");
   });
 });

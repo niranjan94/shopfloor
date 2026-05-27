@@ -1,9 +1,9 @@
 import type { Complexity } from "./labels.js";
 import {
-  parsePrMetadata,
-  parseIssueMetadata,
-  parseStageBranchRef,
   branchSlug,
+  parseIssueMetadata,
+  parsePrMetadata,
+  parseStageBranchRef,
 } from "./metadata.js";
 import type {
   IssuePayload,

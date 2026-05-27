@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs";
-import type { AuditEvent, AuditEmitter } from "./events.js";
+import type { AuditEmitter, AuditEvent } from "./events.js";
 
 const MIRRORED = new Set<AuditEvent["type"]>([
   "stage_started",
@@ -22,7 +22,7 @@ export function createStepSummaryMirror(
   return (event) => {
     if (!path) return;
     if (!MIRRORED.has(event.type)) return;
-    appendFileSync(path, renderRow(event) + "\n");
+    appendFileSync(path, `${renderRow(event)}\n`);
   };
 }
 

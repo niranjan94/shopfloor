@@ -1,9 +1,9 @@
-import { LensDecision } from "../../decision.js";
-import { renderLensUserPrompt, type LensRunnerArgs } from "../shared.js";
-import { smellsTools } from "./tools.js";
 import type { StageContext } from "../../../_shared/context.js";
+import { LensDecision } from "../../decision.js";
+import { type LensRunnerArgs, renderLensUserPrompt } from "../shared.js";
 import SYSTEM from "./prompt.system.md";
 import USER_TMPL from "./prompt.user.md.tmpl";
+import { smellsTools } from "./tools.js";
 
 export async function runSmellsLens(
   ctx: StageContext,

@@ -1,13 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { writeFileSync, readFileSync, mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { combineEmitters, createAuditEmitter } from "../../src/audit/events.js";
 import { createStepSummaryMirror } from "../../src/audit/step-summary.js";
-import {
-  combineEmitters,
-  createAuditEmitter,
-  type AuditEvent,
-} from "../../src/audit/events.js";
 
 describe("step-summary mirror", () => {
   it("appends a markdown row for curated event types", () => {

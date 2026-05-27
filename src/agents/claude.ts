@@ -1,14 +1,14 @@
-import type { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import * as core from "@actions/core";
 import {
-  query,
   createSdkMcpServer,
+  query,
   type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import * as core from "@actions/core";
+import type { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { ensureClaudeCli } from "../setup/ensure-claude-cli.js";
 import type { AgentAdapter, RunStageArgs } from "./adapter.js";
 import { AgentError } from "./adapter.js";
-import { ensureClaudeCli } from "../setup/ensure-claude-cli.js";
 
 const SUBTYPE_TO_KIND: Record<
   string,

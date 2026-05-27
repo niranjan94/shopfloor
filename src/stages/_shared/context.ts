@@ -1,7 +1,7 @@
 import type { AgentAdapter } from "../../agents/adapter.js";
-import type { GitHubAdapter } from "../../github/adapter.js";
 import type { AuditEmitter } from "../../audit/events.js";
 import type { Config } from "../../config/inputs.js";
+import type { GitHubAdapter } from "../../github/adapter.js";
 import type { EventPayload, RouterDecision } from "../../state/types.js";
 
 // Side-effecting git operations the implement stage performs against the

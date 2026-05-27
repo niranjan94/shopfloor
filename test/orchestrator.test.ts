@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { runOrchestrator } from "../src/orchestrator.js";
 import { MockAgentAdapter } from "../src/agents/mock.js";
-import { asAdapter, makeMockGithub } from "./github/_mock-github.js";
-import type { MockGithub } from "./github/_mock-github.js";
-import { baseConfig } from "./_harness/config.js";
 import type { AuditEvent } from "../src/audit/events.js";
+import { runOrchestrator } from "../src/orchestrator.js";
+import { baseConfig } from "./_harness/config.js";
+import type { MockGithub } from "./github/_mock-github.js";
+import { asAdapter, makeMockGithub } from "./github/_mock-github.js";
 
 function makeAudit() {
   const events: AuditEvent[] = [];

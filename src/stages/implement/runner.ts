@@ -1,13 +1,13 @@
-import { renderTemplate } from "../_shared/prompts.js";
-import { implementTools } from "./tools.js";
-import { ImplementDecision } from "./decision.js";
-import type { StageContext } from "../_shared/context.js";
 import { LABELS } from "../../state/labels.js";
-import SYSTEM from "./prompt.system.md";
-import USER_TMPL from "./prompt.user.md.tmpl";
-import SYSTEM_QUICK from "./prompt.system.quick.md";
-import USER_QUICK_TMPL from "./prompt.user.quick.md.tmpl";
+import type { StageContext } from "../_shared/context.js";
 import TDD_PARTIAL from "../_shared/prompts/tdd-and-anti-patterns.md";
+import { renderTemplate } from "../_shared/prompts.js";
+import { ImplementDecision } from "./decision.js";
+import SYSTEM from "./prompt.system.md";
+import SYSTEM_QUICK from "./prompt.system.quick.md";
+import USER_TMPL from "./prompt.user.md.tmpl";
+import USER_QUICK_TMPL from "./prompt.user.quick.md.tmpl";
+import { implementTools } from "./tools.js";
 
 export interface RunImplementArgs {
   progressCommentId: number;

@@ -1,16 +1,15 @@
 import { parseArgs } from "node:util";
 import chalk from "chalk";
+import { cleanupByTitlePrefix } from "./lib/cleanup.js";
 import { loadAndResolveEnv } from "./lib/env.js";
 import { makeGh } from "./lib/github.js";
+import { preflight, printSummary, runAll } from "./lib/run.js";
 import { newRunTag } from "./lib/tag.js";
-import { preflight, runAll, printSummary } from "./lib/run.js";
-import { cleanupByTitlePrefix } from "./lib/cleanup.js";
 import type { Scenario } from "./lib/types.js";
-
-import QUICK from "./scenarios/quick.js";
-import MEDIUM from "./scenarios/medium.js";
-import LARGE from "./scenarios/large.js";
 import AWAITING_INFO from "./scenarios/awaiting-info.js";
+import LARGE from "./scenarios/large.js";
+import MEDIUM from "./scenarios/medium.js";
+import QUICK from "./scenarios/quick.js";
 import REVIEW_ONLY from "./scenarios/review-only.js";
 import REVISION_LOOP from "./scenarios/revision-loop.js";
 import SKIP_REVIEW_AND_REVISE from "./scenarios/skip-review-and-revise.js";
@@ -35,7 +34,6 @@ interface Args {
   allowStale: boolean;
   pollMs?: number;
 }
-
 
 function parseCliArgs(argv: string[]): Args {
   // `pnpm smoke -- --only X` forwards the `--` separator into our argv. Node's

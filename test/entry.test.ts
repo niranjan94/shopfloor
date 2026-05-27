@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@actions/core", async (orig) => {
   const real = (await orig()) as typeof import("@actions/core");
@@ -26,8 +26,8 @@ vi.mock("../src/git/identity.js", () => ({
 }));
 
 import * as core from "@actions/core";
-import { runEntry } from "../src/entry.js";
 import type { AuditEvent } from "../src/audit/events.js";
+import { runEntry } from "../src/entry.js";
 
 describe("runEntry", () => {
   let tmpEventPath: string;

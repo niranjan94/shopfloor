@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  LABELS,
-  isShopfloorLabel,
-  isRunningLabel,
-  isFailedLabel,
-  failedLabelFor,
-  runningLabelFor,
   complexityLabel,
+  failedLabelFor,
+  isFailedLabel,
+  isRunningLabel,
+  isShopfloorLabel,
+  LABELS,
   needsLabelFor,
+  runningLabelFor,
 } from "../../src/state/labels.js";
 
 describe("labels", () => {

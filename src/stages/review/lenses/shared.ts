@@ -1,5 +1,5 @@
-import { renderTemplate } from "../../_shared/prompts.js";
 import type { StageContext } from "../../_shared/context.js";
+import { renderTemplate } from "../../_shared/prompts.js";
 
 export interface LensRunnerArgs {
   iteration: number;

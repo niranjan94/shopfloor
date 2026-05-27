@@ -1,9 +1,9 @@
-import { renderTemplate } from "../_shared/prompts.js";
-import { triageTools } from "./tools.js";
-import { TriageDecision } from "./decision.js";
 import type { StageContext } from "../_shared/context.js";
+import { renderTemplate } from "../_shared/prompts.js";
+import { TriageDecision } from "./decision.js";
 import SYSTEM from "./prompt.system.md";
 import USER_TMPL from "./prompt.user.md.tmpl";
+import { triageTools } from "./tools.js";
 
 export interface RunTriageArgs {
   issueComments: string;

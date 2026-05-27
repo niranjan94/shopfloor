@@ -1,10 +1,10 @@
-import type { LensOutcome } from "./runner.js";
 import type { Category, LensName, ReviewComment } from "./decision.js";
 import {
   buildPositionMap,
-  partitionCommentsByDiff,
   type DiffFilePatch,
+  partitionCommentsByDiff,
 } from "./diff-positions.js";
+import type { LensOutcome } from "./runner.js";
 
 export interface AggregateInput {
   outcomes: LensOutcome[];

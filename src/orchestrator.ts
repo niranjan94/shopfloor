@@ -1,16 +1,18 @@
-import { AgentError } from "./agents/adapter.js";
 import type { AgentAdapter } from "./agents/adapter.js";
+import { AgentError } from "./agents/adapter.js";
 import type { AuditEmitter } from "./audit/events.js";
 import type { Config } from "./config/inputs.js";
 import type { GitHubAdapter } from "./github/adapter.js";
-import { resolveStage, resolveReviewOnly } from "./state/machine.js";
+import { RUNNERS } from "./runners.js";
+import type { GitOps, StageContext } from "./stages/_shared/context.js";
 import {
-  LABELS,
-  LABEL_DEFS,
   failedLabelFor,
+  LABEL_DEFS,
+  LABELS,
   runningLabelFor,
   type Stage,
 } from "./state/labels.js";
+import { resolveReviewOnly, resolveStage } from "./state/machine.js";
 import type {
   EventPayload,
   IssuePayload,
@@ -18,8 +20,6 @@ import type {
   PullRequestReviewPayload,
   RouterDecision,
 } from "./state/types.js";
-import type { GitOps, StageContext } from "./stages/_shared/context.js";
-import { RUNNERS } from "./runners.js";
 
 export interface OrchestratorResult {
   stage: Stage | "none";

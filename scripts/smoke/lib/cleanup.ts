@@ -1,6 +1,6 @@
 import type { Octokit } from "@octokit/rest";
-import { deleteIssueGraphQL } from "./github.js";
 import { deleteShopfloorBranches } from "./baseline.js";
+import { deleteIssueGraphQL } from "./github.js";
 
 export interface CleanupReport {
   prsClosed: number;
