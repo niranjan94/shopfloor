@@ -155,7 +155,7 @@ inputs:
   review_max_budget_usd_per_lens:
     description: USD budget cap per review lens.
     required: false
-    default: "0.75"
+    default: "2.00"
   triage_max_turns:
     description: Optional hard cap on agent turns for the triage stage. Unset by default (no cap).
     required: false

@@ -85,7 +85,7 @@ const RawInputs = z
     spec_max_budget_usd: num(0).default("1.50"),
     plan_max_budget_usd: num(0).default("1.50"),
     impl_max_budget_usd: num(0).default("2.50"),
-    review_max_budget_usd_per_lens: num(0).default("0.75"),
+    review_max_budget_usd_per_lens: num(0).default("2.00"),
     triage_max_turns: optionalTurns(),
     spec_max_turns: optionalTurns(),
     plan_max_turns: optionalTurns(),
