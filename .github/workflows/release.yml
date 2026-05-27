@@ -1,0 +1,46 @@
+name: Release tags
+on:
+  release:
+    types: [published]
+
+jobs:
+  move-version-tags:
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with: { version: 10 }
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Verify dist bundle is up to date
+        run: |
+          if ! git diff --exit-code dist; then
+            echo "dist/index.cjs is out of date for ${{ github.event.release.tag_name }}. Run 'pnpm build' and commit."
+            exit 1
+          fi
+      - name: Move major and minor tags
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag '$TAG' is not a vMAJOR.MINOR.PATCH tag; refusing to move version tags."
+            exit 1
+          fi
+          MAJOR="${TAG%%.*}"           # v2.3.1 -> v2
+          MINOR="${TAG%.*}"            # v2.3.1 -> v2.3
+          SHA="$(git rev-parse HEAD)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for ALIAS in "$MAJOR" "$MINOR"; do
+            echo "Pointing $ALIAS at $SHA"
+            git tag -f "$ALIAS" "$SHA"
+            git push -f origin "refs/tags/$ALIAS"
+          done
