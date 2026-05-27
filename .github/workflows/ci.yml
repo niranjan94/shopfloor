@@ -20,7 +20,7 @@ jobs:
       - run: pnpm build
       - name: Verify dist bundle is up to date
         run: |
-          if ! git diff --exit-code dist; then
+          if ! git diff --quiet dist; then
             echo "dist/index.cjs is out of date. Run 'pnpm build' and commit."
             exit 1
           fi
