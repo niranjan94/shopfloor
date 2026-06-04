@@ -16,6 +16,9 @@ export interface GitOps {
     revisionMode: boolean;
   }): Promise<void>;
   pushImplCommits(opts: { branchName: string }): Promise<void>;
+  // Provisions the base branch as a local `origin/<baseRef>` ref so the review
+  // lenses can diff the PR against it via `git diff origin/<baseRef> HEAD`.
+  prepareReviewBase(opts: { baseRef: string }): Promise<void>;
 }
 
 export interface StageContext {

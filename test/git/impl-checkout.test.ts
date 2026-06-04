@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   checkoutImplBranch,
+  fetchReviewBase,
   prepareImplCheckout,
+  prepareReviewBase,
   pushImplCommits,
   setRemoteWithToken,
   tokenResolverFor,
@@ -302,6 +304,64 @@ describe("pushImplCommits", () => {
     }
     expect(captured).not.toBeNull();
     expect(captured?.message ?? "").not.toContain("ghs_supersecret");
+  });
+});
+
+describe("fetchReviewBase", () => {
+  let scratch: Scratch;
+  beforeEach(() => {
+    scratch = makeScratch();
+  });
+  afterEach(() => scratch.cleanup());
+
+  it("provisions origin/<base> so a two-dot diff against HEAD lists the PR's files", async () => {
+    // Simulate the review checkout: HEAD carries a change the base does not,
+    // and the origin/<base> remote-tracking ref is absent (as it is in a
+    // shallow `pull/N/merge` checkout).
+    writeFileSync(join(scratch.workDir, "feature.txt"), "feature\n");
+    gitSync(scratch.workDir, ["add", "feature.txt"]);
+    gitSync(scratch.workDir, ["commit", "-q", "-m", "feat: add feature"]);
+    gitSync(scratch.workDir, ["update-ref", "-d", "refs/remotes/origin/main"]);
+
+    await fetchReviewBase({
+      cwd: scratch.workDir,
+      baseRef: "main",
+      remote: "origin",
+    });
+
+    const changed = await git(scratch.workDir, [
+      "diff",
+      "--name-only",
+      "origin/main",
+      "HEAD",
+    ]);
+    expect(changed).toBe("feature.txt");
+  });
+});
+
+describe("prepareReviewBase", () => {
+  let scratch: Scratch;
+  beforeEach(() => {
+    scratch = makeScratch();
+  });
+  afterEach(() => scratch.cleanup());
+
+  it("rewrites the origin URL with the x-access-token credential before fetching", async () => {
+    // The fetch itself targets github.com once the URL is rewritten, so it
+    // fails locally; we only assert the credential rewrite happened.
+    await prepareReviewBase({
+      cwd: scratch.workDir,
+      baseRef: "main",
+      owner: "octo",
+      repo: "demo",
+      token: "ghs_zzz",
+    }).catch(() => {});
+    const url = await git(scratch.workDir, [
+      "config",
+      "--get",
+      "remote.origin.url",
+    ]);
+    expect(url).toBe("https://x-access-token:ghs_zzz@github.com/octo/demo.git");
   });
 });
 

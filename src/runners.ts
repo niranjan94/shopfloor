@@ -220,6 +220,24 @@ export const RUNNERS: Record<Stage, StageHandler> = {
       const maxIterations = ctx.reviewOnly
         ? Number.POSITIVE_INFINITY
         : ctx.config.maxReviewIterations;
+      // Provision origin/<base> so the lenses can run `git diff origin/<base>
+      // HEAD`. The review checkout is a shallow `pull/N/merge` commit with no
+      // base tracking ref and `persist-credentials: false`, so without this
+      // the agents cannot fetch or name the base and burn turns flailing
+      // through failing git commands. A fetch hiccup degrades the diff but
+      // should not fail an entire PR check, so we warn and continue.
+      if (ctx.gitOps) {
+        try {
+          await ctx.gitOps.prepareReviewBase({ baseRef: ctx.pr.baseRef });
+        } catch (err) {
+          core.warning(
+            `Shopfloor review could not fetch base ref '${ctx.pr.baseRef}'; lenses may be unable to diff. ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+
       const patches = await ctx.github.listChangedFilePatches(ctx.pr.number);
       const changedFiles = patches.map((p) => p.filename);
 

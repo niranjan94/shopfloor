@@ -14,6 +14,7 @@ import { parseConfig } from "./config/inputs.js";
 import { applyGitIdentity, resolveBotIdentity } from "./git/identity.js";
 import {
   prepareImplCheckout,
+  prepareReviewBase,
   pushImplCommits,
   tokenResolverFor,
 } from "./git/impl-checkout.js";
@@ -195,6 +196,16 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       async pushImplCommits(opts) {
         const token = await resolveGitToken();
         await pushImplCommits({
+          cwd: process.cwd(),
+          owner,
+          repo,
+          token,
+          ...opts,
+        });
+      },
+      async prepareReviewBase(opts) {
+        const token = await resolveGitToken();
+        await prepareReviewBase({
           cwd: process.cwd(),
           owner,
           repo,
