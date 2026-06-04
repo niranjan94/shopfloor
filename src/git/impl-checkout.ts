@@ -107,6 +107,51 @@ export async function setRemoteWithToken(
   await runGit(cwd, ["remote", "set-url", remote, url]);
 }
 
+export interface FetchReviewBaseOpts {
+  cwd: string;
+  baseRef: string;
+  /** Override the remote name. Defaults to "origin". */
+  remote?: string;
+}
+
+export interface PrepareReviewBaseOpts extends FetchReviewBaseOpts {
+  owner: string;
+  repo: string;
+  token: string;
+}
+
+// Provisions the base branch as a local `refs/remotes/<remote>/<base>` ref so
+// the review lenses can diff the PR against it. A `pull/N/merge` checkout is a
+// shallow merge commit whose parents are not present as objects and whose
+// base-branch tracking ref does not exist, so any `origin/<base>...HEAD` the
+// lens agent tries fails outright. We fetch the base tip at depth 1 (enough,
+// because the lenses use a two-dot `git diff origin/<base> HEAD`, which
+// compares tree snapshots and needs no shared ancestry).
+export async function fetchReviewBase(
+  opts: FetchReviewBaseOpts,
+): Promise<void> {
+  const remote = opts.remote ?? "origin";
+  await runGit(opts.cwd, [
+    "fetch",
+    "--no-tags",
+    "--depth=1",
+    remote,
+    `+refs/heads/${opts.baseRef}:refs/remotes/${remote}/${opts.baseRef}`,
+  ]);
+}
+
+// Embeds the App installation token in the remote URL (the review checkout
+// runs with `persist-credentials: false`, so the agent has no usable git
+// credential) and then fetches the base ref. Mirrors prepareImplCheckout's
+// set-url-then-fetch shape.
+export async function prepareReviewBase(
+  opts: PrepareReviewBaseOpts,
+): Promise<void> {
+  const remote = opts.remote ?? "origin";
+  await setRemoteWithToken(opts.cwd, remote, opts.owner, opts.repo, opts.token);
+  await fetchReviewBase({ cwd: opts.cwd, baseRef: opts.baseRef, remote });
+}
+
 export interface CheckoutImplBranchOpts {
   cwd: string;
   branchName: string;
