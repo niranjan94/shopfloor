@@ -10,9 +10,9 @@ import {
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { ensureCodexCli } from "../setup/ensure-codex-cli.js";
-import { startToolBridge, type ToolBridge } from "./mcp-http-bridge.js";
 import type { AgentAdapter, RunStageArgs } from "./adapter.js";
 import { AgentError } from "./adapter.js";
+import { startToolBridge, type ToolBridge } from "./mcp-http-bridge.js";
 
 // Resolved Codex configuration the adapter holds. Built once at startup by
 // buildCodexOptions() in src/config/codex-options.ts (auth branch, temp
