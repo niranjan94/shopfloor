@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import * as core from "@actions/core";
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
+import type { AgentAdapter } from "./agents/adapter.js";
 import { ClaudeAgentAdapter } from "./agents/claude.js";
+import { CodexAgentAdapter } from "./agents/codex.js";
 import {
   type AuditEmitter,
   combineEmitters,
@@ -10,6 +12,7 @@ import {
 } from "./audit/events.js";
 import { createStepSummaryMirror } from "./audit/step-summary.js";
 import { buildAgentEnvFromConfig } from "./config/agent-env.js";
+import { buildCodexOptions } from "./config/codex-options.js";
 import { parseConfig } from "./config/inputs.js";
 import { applyGitIdentity, resolveBotIdentity } from "./git/identity.js";
 import {
@@ -27,8 +30,9 @@ import type { EventPayload } from "./state/types.js";
 export interface RunEntryDeps {
   // Inject an Octokit factory in tests so we don't hit the network.
   octokitFactory?: (auth: AuthSpec) => OctokitLike;
-  // Inject the agent adapter in tests; defaults to ClaudeAgentAdapter.
-  agentFactory?: () => InstanceType<typeof ClaudeAgentAdapter>;
+  // Inject the agent adapter in tests; defaults to the provider selected by
+  // config.agentProvider (ClaudeAgentAdapter or CodexAgentAdapter).
+  agentFactory?: () => AgentAdapter;
   // Override audit sink for tests.
   auditSink?: AuditEmitter;
 }
@@ -36,6 +40,13 @@ export interface RunEntryDeps {
 const INPUT_KEYS = [
   "anthropic_api_key",
   "claude_code_oauth_token",
+  "agent_provider",
+  "openai_api_key",
+  "codex_auth_json",
+  "codex_sandbox_mode",
+  "codex_approval_policy",
+  "codex_network_access",
+  "codex_skip_git_repo_check",
   "github_app_client_id",
   "github_app_private_key",
   "github_app_review_client_id",
@@ -171,7 +182,9 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
 
     const agent = deps.agentFactory
       ? deps.agentFactory()
-      : new ClaudeAgentAdapter(buildAgentEnvFromConfig(config));
+      : config.agentProvider === "codex"
+        ? new CodexAgentAdapter(buildCodexOptions(config))
+        : new ClaudeAgentAdapter(buildAgentEnvFromConfig(config));
 
     const reviewOnly = rawInputs.review_only === "true";
 

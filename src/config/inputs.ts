@@ -20,6 +20,26 @@ const EFFORT_LEVELS = ["low", "medium", "high", "xhigh"] as const;
 export type Effort = (typeof EFFORT_LEVELS)[number];
 const effort = () => z.enum(EFFORT_LEVELS).default("high");
 
+const SANDBOX_MODES = [
+  "read-only",
+  "workspace-write",
+  "danger-full-access",
+] as const;
+const APPROVAL_POLICIES = [
+  "never",
+  "on-request",
+  "on-failure",
+  "untrusted",
+] as const;
+
+// Action inputs arrive as strings; treat anything other than the literal
+// "false" as true so an unset/garbled boolean fails safe to the default.
+const boolish = (def: "true" | "false") =>
+  z
+    .string()
+    .default(def)
+    .transform((s) => s !== "false");
+
 // Optional positive-integer input. Empty string means unset (no cap).
 const optionalTurns = () =>
   z
@@ -58,6 +78,13 @@ const RawInputs = z
   .object({
     anthropic_api_key: z.string().optional().default(""),
     claude_code_oauth_token: z.string().optional().default(""),
+    agent_provider: z.enum(["claude", "codex"]).default("claude"),
+    openai_api_key: z.string().optional().default(""),
+    codex_auth_json: z.string().optional().default(""),
+    codex_sandbox_mode: z.enum(SANDBOX_MODES).default("workspace-write"),
+    codex_approval_policy: z.enum(APPROVAL_POLICIES).default("never"),
+    codex_network_access: boolish("true"),
+    codex_skip_git_repo_check: boolish("true"),
     github_app_client_id: z.string().optional().default(""),
     github_app_private_key: z.string().optional().default(""),
     github_app_review_client_id: z.string().optional().default(""),
@@ -99,9 +126,16 @@ const RawInputs = z
     mode: z.enum(["auto", "resolve", "execute"]).default("auto"),
     stages: z.string().default(""),
   })
-  .refine((v) => v.anthropic_api_key || v.claude_code_oauth_token, {
-    message: "one of anthropic_api_key or claude_code_oauth_token is required",
-  });
+  .refine(
+    (v) =>
+      v.agent_provider === "codex" ||
+      v.anthropic_api_key ||
+      v.claude_code_oauth_token,
+    {
+      message:
+        "one of anthropic_api_key or claude_code_oauth_token is required when agent_provider=claude",
+    },
+  );
 
 export type Config = ReturnType<typeof parseConfig>;
 
@@ -113,6 +147,13 @@ export function parseConfig(raw: Record<string, string | undefined>) {
   return {
     anthropicApiKey: parsed.anthropic_api_key,
     claudeCodeOAuthToken: parsed.claude_code_oauth_token,
+    agentProvider: parsed.agent_provider,
+    openaiApiKey: parsed.openai_api_key,
+    codexAuthJson: parsed.codex_auth_json,
+    codexSandboxMode: parsed.codex_sandbox_mode,
+    codexApprovalPolicy: parsed.codex_approval_policy,
+    codexNetworkAccess: parsed.codex_network_access,
+    codexSkipGitRepoCheck: parsed.codex_skip_git_repo_check,
     githubApp:
       parsed.github_app_client_id && parsed.github_app_private_key
         ? {

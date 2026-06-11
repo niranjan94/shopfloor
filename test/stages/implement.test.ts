@@ -10,6 +10,13 @@ import { asAdapter, makeMockGithub } from "../github/_mock-github.js";
 const baseConfig: Config = {
   anthropicApiKey: "x",
   claudeCodeOAuthToken: "",
+  agentProvider: "claude" as const,
+  openaiApiKey: "",
+  codexAuthJson: "",
+  codexSandboxMode: "workspace-write" as const,
+  codexApprovalPolicy: "never" as const,
+  codexNetworkAccess: true,
+  codexSkipGitRepoCheck: true,
   githubApp: { clientId: "id", privateKey: "key" },
   reviewGithubApp: { clientId: "rid", privateKey: "rkey" },
   sshSigningKey: null,

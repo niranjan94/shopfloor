@@ -3,6 +3,13 @@ import type { Config } from "../../src/config/inputs.js";
 export const baseConfig: Config = {
   anthropicApiKey: "x",
   claudeCodeOAuthToken: "",
+  agentProvider: "claude" as const,
+  openaiApiKey: "",
+  codexAuthJson: "",
+  codexSandboxMode: "workspace-write" as const,
+  codexApprovalPolicy: "never" as const,
+  codexNetworkAccess: true,
+  codexSkipGitRepoCheck: true,
   githubApp: { clientId: "id", privateKey: "key" },
   reviewGithubApp: null,
   sshSigningKey: null,
