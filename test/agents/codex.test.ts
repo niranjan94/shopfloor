@@ -142,8 +142,11 @@ describe("CodexAgentAdapter", () => {
       items: [],
       usage: null,
     }));
-    const { apiKey: _omit, ...noKeyOpts } = baseOpts();
+    // No apiKey, but a CODEX_HOME (the auth.json path) so credentials still
+    // resolve and the adapter reaches the SDK instead of the no-creds guard.
+    const { apiKey: _omit, ...rest } = baseOpts();
     void _omit;
+    const noKeyOpts = { ...rest, env: { ...rest.env, CODEX_HOME: "/tmp/ch" } };
     const agent = new CodexAgentAdapter(noKeyOpts);
     await agent.runStage({
       systemPrompt: "S",
@@ -200,7 +203,7 @@ describe("CodexAgentAdapter", () => {
     expect(err.message).toMatch(/model exploded/);
   });
 
-  it("maps an abort (timeout) to agent_timeout", async () => {
+  it("maps our timeout abort to agent_timeout", async () => {
     runImpl.fn = vi.fn(
       (_input: string, turnOptions: { signal: AbortSignal }) =>
         new Promise((_resolve, reject) => {
@@ -224,7 +227,53 @@ describe("CodexAgentAdapter", () => {
     expect(err.kind).toBe("agent_timeout");
   });
 
-  it("warns and proceeds when budgetUsd or maxTurns is set", async () => {
+  it("maps a caller-initiated abort (not our timeout) to agent_execution", async () => {
+    // Pre-aborted controller, no timeoutMs: the signal is already aborted when
+    // thread.run is reached, so the run rejects and `timedOut` stays false ->
+    // a caller abort, not a timeout.
+    const ctrl = new AbortController();
+    ctrl.abort();
+    runImpl.fn = vi.fn(
+      (_input: string, turnOptions: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          if (turnOptions.signal.aborted) {
+            reject(new Error("aborted"));
+            return;
+          }
+          turnOptions.signal.addEventListener("abort", () =>
+            reject(new Error("aborted")),
+          );
+        }),
+    );
+    const agent = new CodexAgentAdapter(baseOpts());
+    const err = await agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "m",
+        abortController: ctrl,
+      })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(AgentError);
+    expect(err.kind).toBe("agent_execution");
+  });
+
+  it("throws agent_execution on first runStage when no credentials are resolved", async () => {
+    const { apiKey: _omit, ...noKeyOpts } = baseOpts();
+    void _omit;
+    // env carries no CODEX_HOME either -> no auth resolved.
+    const agent = new CodexAgentAdapter(noKeyOpts);
+    const err = await runAndCatchWith(agent);
+    expect(err).toBeInstanceOf(AgentError);
+    expect(err.kind).toBe("agent_execution");
+    expect(err.message).toMatch(/requires one of openai_api_key/);
+    // The SDK must never be reached when creds are missing.
+    expect(runImpl.fn).not.toHaveBeenCalled();
+  });
+
+  it("emits the caps warning only once across multiple runStage calls", async () => {
     const warn = vi.spyOn(core, "warning").mockImplementation(() => {});
     runImpl.fn = vi.fn(async () => ({
       finalResponse: JSON.stringify({ verdict: "ok" }),
@@ -232,22 +281,28 @@ describe("CodexAgentAdapter", () => {
       usage: null,
     }));
     const agent = new CodexAgentAdapter(baseOpts());
-    await agent.runStage({
-      systemPrompt: "S",
-      userPrompt: "U",
-      tools: [],
-      decisionSchema: Decision,
-      model: "m",
-      budgetUsd: 2.5,
-      maxTurns: 10,
-    });
+    const call = () =>
+      agent.runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "m",
+        budgetUsd: 2.5,
+      });
+    await call();
+    await call();
+    await call();
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toMatch(/does not enforce/);
   });
 });
 
 async function runAndCatch(): Promise<AgentError> {
-  const agent = new CodexAgentAdapter(baseOpts());
+  return runAndCatchWith(new CodexAgentAdapter(baseOpts()));
+}
+
+async function runAndCatchWith(agent: CodexAgentAdapter): Promise<AgentError> {
   return agent
     .runStage({
       systemPrompt: "S",

@@ -37,6 +37,11 @@ export interface CodexAdapterOptions {
 export type CodexCliResolver = () => Promise<string>;
 
 export class CodexAgentAdapter implements AgentAdapter {
+  // Latches the one-time "caps are ignored" warning so it fires once per
+  // adapter instance instead of on every stage (budgetUsd always carries a
+  // numeric default, so an unconditional warn would spam every run).
+  private capsWarned = false;
+
   // resolveCli is invoked lazily on the first runStage call. Like the Claude
   // adapter, it locates (or installs) the native `codex` binary, which ships
   // as platform-specific artifacts that won't be present in the committed
@@ -47,13 +52,39 @@ export class CodexAgentAdapter implements AgentAdapter {
   ) {}
 
   async runStage<T>(args: RunStageArgs<T>): Promise<T> {
+    // Credentials are validated here, on first use, rather than at construction
+    // time. Constructing the adapter must not throw: entry.ts builds it
+    // unconditionally, including for `mode: resolve` router jobs that never run
+    // an agent. A split-runner setup may legitimately scope Codex creds to the
+    // execute job only, so a construction-time throw would deadlock the router.
+    // This mirrors the Claude path, whose env builder never throws either.
+    if (
+      this.opts.apiKey === undefined &&
+      this.opts.env.CODEX_HOME === undefined
+    ) {
+      throw new AgentError(
+        "agent_execution",
+        "agent_provider=codex requires one of openai_api_key or codex_auth_json.",
+      );
+    }
+
     const controller = args.abortController ?? new AbortController();
+    // Distinguish our own timeout from a caller-initiated abort so the catch
+    // can map them to different AgentError kinds.
+    let timedOut = false;
     const timer =
       args.timeoutMs != null
-        ? setTimeout(() => controller.abort(), args.timeoutMs)
+        ? setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+          }, args.timeoutMs)
         : null;
 
-    if (args.budgetUsd !== undefined || args.maxTurns !== undefined) {
+    if (
+      !this.capsWarned &&
+      (args.budgetUsd !== undefined || args.maxTurns !== undefined)
+    ) {
+      this.capsWarned = true;
       core.warning(
         "Codex does not enforce budgetUsd or maxTurns; these caps are ignored under agent_provider=codex.",
       );
@@ -154,11 +185,14 @@ export class CodexAgentAdapter implements AgentAdapter {
       }
     } catch (err) {
       if (err instanceof AgentError) throw err;
-      if (controller.signal.aborted) {
+      if (timedOut) {
         throw new AgentError(
           "agent_timeout",
-          `codex run aborted after ${args.timeoutMs ?? "?"}ms`,
+          `codex run exceeded ${args.timeoutMs}ms`,
         );
+      }
+      if (controller.signal.aborted) {
+        throw new AgentError("agent_execution", "codex run was aborted");
       }
       throw new AgentError(
         "agent_execution",

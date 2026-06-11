@@ -1,38 +1,9 @@
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CodexAdapterOptions } from "../agents/codex.js";
+import { collectPassthroughEnv } from "./agent-env.js";
 import type { Config } from "./inputs.js";
-
-// Host env vars forwarded to the Codex CLI process. The SDK does NOT inherit
-// process.env when an `env` is provided, so the CLI needs PATH/HOME/etc. to
-// find git and write to the workspace. Kept tight for the same reason as the
-// Claude adapter's passthrough: avoid leaking INPUT_* secrets and tokens into
-// the subprocess. Grow on demand.
-const PASSTHROUGH_KEYS = [
-  "PATH",
-  "HOME",
-  "BASH",
-  "TMPDIR",
-  "USER",
-  "TERM",
-  "EDITOR",
-  "LANG",
-  "PAGER",
-  "LESS",
-  "MANPATH",
-] as const;
-
-function passthroughEnv(
-  hostEnv: NodeJS.ProcessEnv = process.env,
-): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const k of PASSTHROUGH_KEYS) {
-    const v = hostEnv[k];
-    if (typeof v === "string" && v.length > 0) env[k] = v;
-  }
-  return env;
-}
 
 // Resolves Codex auth + env + sandbox defaults once at startup, mirroring
 // buildAgentEnvFromConfig for the Claude adapter. Auth resolution order
@@ -41,9 +12,10 @@ function passthroughEnv(
 //   2. codex_auth_json -> verbatim contents written to a run-scoped temp
 //      CODEX_HOME/auth.json (chmod 600), cli_auth_credentials_store="file".
 //      Stateless: reseeded each run, any in-run refresh discarded.
-//   3. neither         -> throw a clear error at construction time.
+//   3. neither         -> return options without auth; the adapter raises a
+//      clear error on first runStage (construction must not throw — see below).
 export function buildCodexOptions(config: Config): CodexAdapterOptions {
-  const env = passthroughEnv();
+  const env = collectPassthroughEnv();
   const codexConfig: Record<string, unknown> = {};
   let apiKey: string | undefined;
 
@@ -52,15 +24,19 @@ export function buildCodexOptions(config: Config): CodexAdapterOptions {
   } else if (config.codexAuthJson) {
     const codexHome = mkdtempSync(join(tmpdir(), "codex-home-"));
     const authPath = join(codexHome, "auth.json");
+    // mkdtempSync makes a fresh dir, so authPath never pre-exists and the
+    // create-time mode is honored atomically (no world-readable window). 0o600
+    // survives any sane umask since umask only clears bits and 0o600 has none
+    // to clear, so a follow-up chmod would be redundant.
     writeFileSync(authPath, config.codexAuthJson, { mode: 0o600 });
-    chmodSync(authPath, 0o600);
     env.CODEX_HOME = codexHome;
     codexConfig.cli_auth_credentials_store = "file";
-  } else {
-    throw new Error(
-      "agent_provider=codex requires one of openai_api_key (recommended) or codex_auth_json.",
-    );
   }
+  // When neither credential is set, return options without auth. The missing-
+  // credential failure is raised by the adapter on first runStage (see
+  // CodexAgentAdapter), not here: construction must not throw because entry.ts
+  // builds the adapter unconditionally, including for `mode: resolve` jobs that
+  // never run an agent.
 
   return {
     ...(apiKey !== undefined ? { apiKey } : {}),

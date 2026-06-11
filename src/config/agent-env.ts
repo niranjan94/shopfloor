@@ -7,7 +7,7 @@ import type { Config } from "./inputs.js";
 // would leak INPUT_* secrets, ACTIONS_RUNTIME_TOKEN, and GITHUB_TOKEN into
 // every subprocess the SDK spawns — keep this list tight and grow it on
 // demand when a stage actually needs something.
-const PASSTHROUGH_KEYS = [
+export const PASSTHROUGH_KEYS = [
   "PATH",
   "HOME",
   "BASH",
@@ -21,6 +21,21 @@ const PASSTHROUGH_KEYS = [
   "MANPATH",
 ] as const;
 
+// Copy the allowlisted host vars (those that are set and non-empty) into a
+// fresh record. Shared by both agent adapters' env builders so the allowlist
+// has a single source of truth — the Claude and Codex subprocess environments
+// must not silently diverge when a key is added or removed.
+export function collectPassthroughEnv(
+  hostEnv: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const k of PASSTHROUGH_KEYS) {
+    const v = hostEnv[k];
+    if (typeof v === "string" && v.length > 0) env[k] = v;
+  }
+  return env;
+}
+
 export interface BuildAgentEnvOptions {
   anthropicApiKey: string;
   claudeCodeOAuthToken: string;
@@ -30,12 +45,7 @@ export interface BuildAgentEnvOptions {
 export function buildAgentEnv(
   opts: BuildAgentEnvOptions,
 ): Record<string, string> {
-  const host = opts.hostEnv ?? process.env;
-  const env: Record<string, string> = {};
-  for (const k of PASSTHROUGH_KEYS) {
-    const v = host[k];
-    if (typeof v === "string" && v.length > 0) env[k] = v;
-  }
+  const env = collectPassthroughEnv(opts.hostEnv ?? process.env);
   // OAuth token wins when both are set. Setting both confuses the SDK's auth
   // resolution; the Zod refinement upstream only enforces "at least one."
   if (opts.claudeCodeOAuthToken) {
