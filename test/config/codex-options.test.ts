@@ -31,9 +31,17 @@ describe("buildCodexOptions", () => {
     expect(statSync(authPath).mode & 0o777).toBe(0o600);
   });
 
-  it("throws when neither openai_api_key nor codex_auth_json is set", () => {
-    expect(() =>
-      buildCodexOptions({ ...baseConfig, openaiApiKey: "", codexAuthJson: "" }),
-    ).toThrow(/requires one of openai_api_key/);
+  it("does not throw when neither credential is set; returns options without auth", () => {
+    // Construction must not throw — entry.ts builds the adapter even for
+    // mode=resolve jobs that never run an agent. The missing-credential error
+    // is deferred to the adapter's first runStage.
+    const opts = buildCodexOptions({
+      ...baseConfig,
+      openaiApiKey: "",
+      codexAuthJson: "",
+    });
+    expect(opts.apiKey).toBeUndefined();
+    expect(opts.env.CODEX_HOME).toBeUndefined();
+    expect(opts.config.cli_auth_credentials_store).toBeUndefined();
   });
 });
