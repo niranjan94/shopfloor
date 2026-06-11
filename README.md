@@ -169,6 +169,29 @@ Notes:
 - Always set a workflow-level `concurrency:` group keyed on issue number when
   splitting; see the example.
 
+### Agent provider (Claude or Codex)
+
+Shopfloor runs every stage through one agent backend, selected globally with the `agent_provider` input:
+
+- `claude` (default) drives the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-typescript). Authenticate with `anthropic_api_key` or `claude_code_oauth_token`.
+- `codex` drives OpenAI's Codex via [`@openai/codex-sdk`](https://www.npmjs.com/package/@openai/codex-sdk). Authenticate with one of:
+  - `openai_api_key` — an OpenAI API key. **Recommended**, especially for long implement stages: it does not expire mid-run.
+  - `codex_auth_json` — the verbatim contents of a ChatGPT-managed `auth.json`. Re-seeded into a run-scoped temporary `CODEX_HOME` on every run; any in-run token refresh is discarded. A token that expires mid-run surfaces as a Codex auth failure, so re-seeding a stale token is a manual/ops concern. Prefer `openai_api_key` for long runs.
+
+Selection is global; per-stage mixing (Claude for one stage, Codex for another) is not supported. The per-stage `*_model` and `*_effort` inputs are provider-neutral strings passed straight through, so set them to the chosen provider's model ids. Codex does not surface cost or turn caps, so `*_max_budget_usd` and `*_max_turns` are accepted and ignored (with a warning) under `agent_provider: codex`. The GitHub auth surfaces below are identical for both providers.
+
+See [`examples/shopfloor-codex.yml`](examples/shopfloor-codex.yml) for a copy-pasteable Codex workflow.
+
+| Input                       | Default           | Notes                                                                    |
+| --------------------------- | ----------------- | ------------------------------------------------------------------------ |
+| `agent_provider`            | `claude`          | `claude` or `codex`.                                                     |
+| `openai_api_key`            | `""`              | Codex auth (recommended). One of this or `codex_auth_json` is required.  |
+| `codex_auth_json`           | `""`              | Codex auth via a ChatGPT `auth.json`. Re-seeded each run; no refresh.    |
+| `codex_sandbox_mode`        | `workspace-write` | Codex sandbox: `read-only`, `workspace-write`, or `danger-full-access`.  |
+| `codex_approval_policy`     | `never`           | Codex approvals: `never`, `on-request`, `on-failure`, or `untrusted`.    |
+| `codex_network_access`      | `true`            | Whether the `workspace-write` sandbox may reach the network.             |
+| `codex_skip_git_repo_check` | `true`            | Skip Codex's own git precheck (Shopfloor guarantees a checkout).         |
+
 ### Authentication modes
 
 Shopfloor resolves credentials for two surfaces — the primary App (every mutation except code reviews) and the optional review App (code reviews posted on Shopfloor-authored PRs) — independently. For each surface, the first source set wins, evaluated in this order:

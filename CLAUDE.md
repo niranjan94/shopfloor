@@ -29,6 +29,10 @@ The `dist/index.cjs` bundle is committed (standard JS Action pattern). CI fails 
 | `src/github/adapter.ts`          | Every Octokit mutation Shopfloor performs                                               |
 | `src/github/app-token.ts`        | Three-source auth (`preminted` → App-creds in-process minting → GITHUB_TOKEN fallback)  |
 | `src/agents/claude.ts`           | Wraps `@anthropic-ai/claude-agent-sdk`; registers the `shopfloor` in-process MCP server |
+| `src/agents/codex.ts`            | Wraps `@openai/codex-sdk`; `CodexAgentAdapter` + `CodexAdapterOptions`                  |
+| `src/agents/mcp-http-bridge.ts`  | `SdkTool[]` → in-process Streamable HTTP MCP server for the Codex CLI subprocess        |
+| `src/config/codex-options.ts`    | `buildCodexOptions(config)`: Codex auth branch, temp `CODEX_HOME` write, sandbox defaults |
+| `src/setup/ensure-codex-cli.ts`  | Locate/install the native `codex` binary (mirrors `ensure-claude-cli.ts`)               |
 | `src/stages/<stage>/runner.ts`   | Build prompt context, invoke agent, return typed decision                               |
 | `src/stages/<stage>/apply.ts`    | Translate decision into GitHub mutations                                                |
 | `src/stages/<stage>/decision.ts` | Zod schema for the agent's structured output                                            |
@@ -41,6 +45,13 @@ The `dist/index.cjs` bundle is committed (standard JS Action pattern). CI fails 
 `triage` (classify quick/medium/large) → `spec` (large only) → `plan` (medium/large) → `implement` → `review` (4 lenses in parallel: compliance, bugs, security, smells).
 
 Controlled entirely by `shopfloor:*` labels on issues. Agents emit structured JSON (Zod-validated); only the apply step in each stage mutates GitHub.
+
+## Agent providers
+
+The `agent_provider` input (`claude` default | `codex`) globally selects which `AgentAdapter` `entry.ts` constructs; everything downstream depends only on the `AgentAdapter` contract and the `AgentError` taxonomy. Per-stage mixing is not supported.
+
+- **Claude** (`ClaudeAgentAdapter`): auth via `anthropic_api_key` / `claude_code_oauth_token`; tools exposed via the SDK's in-process `createSdkMcpServer`.
+- **Codex** (`CodexAgentAdapter`): auth via `openai_api_key` (preferred) or `codex_auth_json` (ChatGPT `auth.json`, re-seeded each run into a temp `CODEX_HOME`, no refresh). Tools (only `update_progress`, implement stage) are exposed through `startToolBridge` — a real Streamable HTTP MCP server bound to loopback on an ephemeral port, guarded by a random bearer token, running the same handler closures against the live Octokit. The bridge runs in **stateful** mode (session-id handshake), because the SDK transport refuses more than one request per stateless instance. `budgetUsd` / `maxTurns` are accepted and dropped with a warning (Codex surfaces neither). The system prompt is prepended to the user prompt (Codex has no separate system-prompt field).
 
 ## Modes
 
