@@ -84,6 +84,12 @@ export async function startToolBridge(tools: SdkTool[]): Promise<ToolBridge> {
     async close() {
       await transport.close().catch(() => {});
       await mcpServer.close().catch(() => {});
+      // httpServer.close()'s callback only fires once every connection has
+      // drained, and Server.close() does not terminate idle keep-alive
+      // sockets. The Codex MCP client holds a persistent keep-alive socket for
+      // the stateful session, so without forcibly destroying live connections
+      // this await would hang indefinitely (wedging the stage in its finally).
+      httpServer.closeAllConnections();
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     },
   };
