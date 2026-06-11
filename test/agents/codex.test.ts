@@ -38,8 +38,8 @@ vi.mock("../../src/agents/mcp-http-bridge.js", () => ({
 
 import { Codex } from "@openai/codex-sdk";
 import {
-  CodexAgentAdapter,
   type CodexAdapterOptions,
+  CodexAgentAdapter,
 } from "../../src/agents/codex.js";
 import { startToolBridge } from "../../src/agents/mcp-http-bridge.js";
 

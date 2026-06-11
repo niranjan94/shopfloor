@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { startToolBridge, type ToolBridge } from "../../src/agents/mcp-http-bridge.js";
+import {
+  startToolBridge,
+  type ToolBridge,
+} from "../../src/agents/mcp-http-bridge.js";
 import type { SdkTool } from "../../src/tools/types.js";
 
 let bridge: ToolBridge | null = null;
@@ -106,7 +109,11 @@ describe("startToolBridge", () => {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
-      params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } },
+      params: {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "t", version: "0" },
+      },
     });
     expect(wrongToken.status).toBe(401);
     expect(handler).not.toHaveBeenCalled();

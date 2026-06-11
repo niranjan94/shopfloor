@@ -5,9 +5,9 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import type { AddressInfo } from "node:net";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { AddressInfo } from "node:net";
 import type { SdkTool } from "../tools/types.js";
 
 export interface ToolBridge {
@@ -57,7 +57,9 @@ export async function startToolBridge(tools: SdkTool[]): Promise<ToolBridge> {
   // The SDK's transport class types `onclose` as non-optional while the
   // Transport interface marks it optional; under exactOptionalPropertyTypes
   // that read as incompatible. The instance is a valid Transport at runtime.
-  await mcpServer.connect(transport as unknown as Parameters<typeof mcpServer.connect>[0]);
+  await mcpServer.connect(
+    transport as unknown as Parameters<typeof mcpServer.connect>[0],
+  );
 
   const httpServer: Server = createServer(
     (req: IncomingMessage, res: ServerResponse) => {
