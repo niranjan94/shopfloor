@@ -11,9 +11,47 @@ inputs:
     required: false
     default: ""
   claude_code_oauth_token:
-    description: Anthropic OAuth token. One of anthropic_api_key or claude_code_oauth_token is required.
+    description: Anthropic OAuth token. One of anthropic_api_key or claude_code_oauth_token is required when agent_provider is claude.
     required: false
     default: ""
+  agent_provider:
+    description: |
+      Which agent backend runs every stage: `claude` (default) drives the
+      Claude Agent SDK; `codex` drives OpenAI's Codex via @openai/codex-sdk.
+      Selection is global; per-stage mixing is not supported.
+    required: false
+    default: "claude"
+  openai_api_key:
+    description: |
+      OpenAI API key for agent_provider=codex. Recommended for CI and for long
+      implement stages (no mid-run token expiry). Mutually exclusive with
+      codex_auth_json; one of the two is required when agent_provider=codex.
+    required: false
+    default: ""
+  codex_auth_json:
+    description: |
+      Verbatim contents of a ChatGPT-managed Codex auth.json for
+      agent_provider=codex. Seeded into a run-scoped temp CODEX_HOME on every
+      run; any in-run token refresh is discarded (re-seeding a stale token is a
+      manual/ops concern). Prefer openai_api_key for long runs.
+    required: false
+    default: ""
+  codex_sandbox_mode:
+    description: Codex sandbox mode (read-only|workspace-write|danger-full-access). Default workspace-write.
+    required: false
+    default: "workspace-write"
+  codex_approval_policy:
+    description: Codex approval policy (never|on-request|on-failure|untrusted). Default never.
+    required: false
+    default: "never"
+  codex_network_access:
+    description: Whether Codex's workspace-write sandbox may access the network. Default true.
+    required: false
+    default: "true"
+  codex_skip_git_repo_check:
+    description: Skip Codex's own git-repo precheck (Shopfloor guarantees a checkout). Default true.
+    required: false
+    default: "true"
   github_app_client_id:
     description: |
       GitHub App client id for Shopfloor's primary App (mutations). When set
