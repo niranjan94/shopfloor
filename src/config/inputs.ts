@@ -32,13 +32,15 @@ const APPROVAL_POLICIES = [
   "untrusted",
 ] as const;
 
-// Action inputs arrive as strings; treat anything other than the literal
-// "false" as true so an unset/garbled boolean fails safe to the default.
-const boolish = (def: "true" | "false") =>
+// Action inputs arrive as strings. Validate boolean toggles strictly against
+// exactly "true"/"false" (like the enum inputs) so a typo on a security-
+// relevant switch such as codex_network_access is rejected loudly rather than
+// silently coerced to a fail-open default.
+const strictBool = (def: "true" | "false") =>
   z
-    .string()
+    .enum(["true", "false"])
     .default(def)
-    .transform((s) => s !== "false");
+    .transform((s) => s === "true");
 
 // Optional positive-integer input. Empty string means unset (no cap).
 const optionalTurns = () =>
@@ -83,8 +85,8 @@ const RawInputs = z
     codex_auth_json: z.string().optional().default(""),
     codex_sandbox_mode: z.enum(SANDBOX_MODES).default("workspace-write"),
     codex_approval_policy: z.enum(APPROVAL_POLICIES).default("never"),
-    codex_network_access: boolish("true"),
-    codex_skip_git_repo_check: boolish("true"),
+    codex_network_access: strictBool("true"),
+    codex_skip_git_repo_check: strictBool("true"),
     github_app_client_id: z.string().optional().default(""),
     github_app_private_key: z.string().optional().default(""),
     github_app_review_client_id: z.string().optional().default(""),
