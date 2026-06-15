@@ -21,8 +21,12 @@ export const ReviewComment = z.object({
 });
 export type ReviewComment = z.infer<typeof ReviewComment>;
 
+// `blocked` is distinct from `clean`: it means the lens could not inspect the
+// diff at all (e.g. the read-only git/Read commands failed in the sandbox), so
+// its silence is not evidence of correctness. The aggregator never approves on
+// a blocked lens. `clean` asserts the lens looked and found nothing.
 export const LensDecision = z.object({
-  verdict: z.enum(["clean", "issues_found"]),
+  verdict: z.enum(["clean", "issues_found", "blocked"]),
   summary: z.string().min(1),
   comments: z.array(ReviewComment).default([]),
 });

@@ -50,7 +50,7 @@ Return your decision via the structured-output channel.
 
 Schema:
 
-- `verdict`: "clean" | "issues_found"
+- `verdict`: "clean" | "issues_found" | "blocked"
 - `summary`: one-sentence summary
 - `comments`: array of review-comment objects (see below)
 
@@ -59,5 +59,6 @@ Each comment object includes `path`, `line`, `side` ("LEFT" or "RIGHT"), optiona
 Rules:
 
 - `verdict: "clean"` requires `comments: []`.
+- If you could not inspect the diff at all — for example `git diff`, `git show`, or file reads failed and you never saw the changed code — return `verdict: "blocked"` with a `summary` naming the command that failed and `comments: []`. Do NOT return `clean` when you were unable to look; `clean` means you inspected the changes and found nothing.
 - Every bug comment must cite the execution path or expected-vs-actual behavior explicitly in the body. "This might be wrong because X and Y would cause Z" is acceptable; "Looks off" is not.
   </output>

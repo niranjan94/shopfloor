@@ -46,7 +46,7 @@ Return your decision via the structured-output channel.
 
 Schema:
 
-- `verdict`: "clean" | "issues_found"
+- `verdict`: "clean" | "issues_found" | "blocked"
 - `summary`: one-sentence summary the aggregator will quote in its combined review
 - `comments`: array of review-comment objects
 
@@ -63,4 +63,5 @@ Each comment object:
 Rules:
 
 - `verdict: "clean"` requires `comments: []`.
+- If you could not inspect the diff at all — for example `git diff`, `git show`, or file reads failed and you never saw the changed code — return `verdict: "blocked"` with a `summary` naming the command that failed and `comments: []`. Do NOT return `clean` when you were unable to look; `clean` means you inspected the changes and found nothing.
   </output>

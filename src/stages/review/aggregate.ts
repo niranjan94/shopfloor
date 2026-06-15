@@ -105,6 +105,13 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     }
   }
 
+  // A `blocked` lens ran but could not inspect the diff, so its empty comment
+  // set is not evidence of cleanliness. Treat it like a failure: it must not
+  // contribute to an approval, and it is surfaced so the cause is visible.
+  const blockedLenses = succeeded.filter(
+    (s) => s.decision.verdict === "blocked",
+  );
+
   const allComments = succeeded.flatMap((s) => s.decision.comments);
   const deduped = dedupeComments(allComments);
   const filtered = deduped.filter(
@@ -116,11 +123,18 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     succeeded.every((s) => s.decision.verdict === "clean");
   const noFilteredComments = filtered.length === 0;
   const noLensFailures = failedLenses.length === 0;
+  const noBlockedLenses = blockedLenses.length === 0;
 
   // Approve only when every lens that ran returned clean AND no failures AND
-  // no above-threshold findings survived dedupe. Any lens failure forces
-  // request-changes so the impl agent at least has a chance to address it.
-  if (allCleanVerdicts && noFilteredComments && noLensFailures) {
+  // no blocked (could-not-inspect) lenses AND no above-threshold findings
+  // survived dedupe. Any lens failure or block forces request-changes so the
+  // impl agent at least has a chance to address it.
+  if (
+    allCleanVerdicts &&
+    noFilteredComments &&
+    noLensFailures &&
+    noBlockedLenses
+  ) {
     const body = [
       SHOPFLOOR_REVIEW_MARKER,
       `**Shopfloor agent review: clean** across ${succeeded.length}/4 reviewers.`,
@@ -154,6 +168,13 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     bodyParts.push("**Lens failures:**");
     for (const f of failedLenses) {
       bodyParts.push(`- \`${f.lens}\` failed (${f.kind}): ${f.message}`);
+    }
+  }
+  if (blockedLenses.length > 0) {
+    bodyParts.push("");
+    bodyParts.push("**Lenses blocked (could not inspect the diff):**");
+    for (const b of blockedLenses) {
+      bodyParts.push(`- \`${b.lens}\`: ${b.decision.summary}`);
     }
   }
   if (dropped.length > 0) {

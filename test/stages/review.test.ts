@@ -36,6 +36,18 @@ function commentOutcome(
   };
 }
 
+function blockedOutcome(lens: LensOutcome["lens"]): LensOutcome {
+  return {
+    lens,
+    decision: {
+      verdict: "blocked",
+      summary: `${lens} could not run git diff`,
+      comments: [],
+    },
+    error: null,
+  };
+}
+
 const patch = `@@ -1,1 +1,3 @@
 -old line
 +new line a
@@ -61,6 +73,27 @@ describe("aggregateFindings", () => {
     if (result.kind === "approve") {
       expect(result.body).toContain("clean");
       expect(result.successfulLenses).toBe(4);
+    }
+  });
+
+  it("does not approve when a lens is blocked, even with no findings", () => {
+    const result = aggregateFindings({
+      outcomes: [
+        cleanOutcome("compliance"),
+        cleanOutcome("bugs"),
+        cleanOutcome("security"),
+        blockedOutcome("smells"),
+      ],
+      patches: [],
+      currentIteration: 0,
+      maxIterations: 3,
+      confidenceThreshold: 80,
+    });
+    expect(result.kind).toBe("request_changes");
+    if (result.kind === "request_changes") {
+      expect(result.body).toContain("Lenses blocked");
+      expect(result.body).toContain("smells");
+      expect(result.anchoredComments).toHaveLength(0);
     }
   });
 
