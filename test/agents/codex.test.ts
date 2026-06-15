@@ -194,6 +194,63 @@ describe("CodexAgentAdapter", () => {
     expect(err.subtype).toBe("schema_validation_error");
   });
 
+  it("treats null-valued optional fields as absent (OpenAI strict output)", async () => {
+    // OpenAI strict structured outputs return absent optionals as explicit
+    // null rather than omitting them. The adapter must strip these so Zod's
+    // `.optional()` accepts the decision instead of failing on `null`.
+    const schema = z.object({
+      verdict: z.string(),
+      note: z.string().optional(),
+      items: z
+        .array(z.object({ id: z.number(), label: z.string().optional() }))
+        .default([]),
+    });
+    runImpl.fn = vi.fn(async () => ({
+      finalResponse: JSON.stringify({
+        verdict: "ok",
+        note: null,
+        items: [{ id: 1, label: null }],
+      }),
+      items: [],
+      usage: null,
+    }));
+    const agent = new CodexAgentAdapter(baseOpts());
+    const result = await agent.runStage({
+      systemPrompt: "SYS",
+      userPrompt: "USER",
+      tools: [],
+      decisionSchema: schema,
+      model: "gpt-5.5",
+    });
+    expect(result).toEqual({ verdict: "ok", items: [{ id: 1 }] });
+  });
+
+  it("preserves a meaningful null on a nullable+default field", async () => {
+    // A genuinely nullable field (paired with .default(null)) must still end
+    // up null after stripping, via the default.
+    const schema = z.object({
+      verdict: z.string(),
+      supplied: z
+        .object({ path: z.string() })
+        .nullable()
+        .default(null),
+    });
+    runImpl.fn = vi.fn(async () => ({
+      finalResponse: JSON.stringify({ verdict: "ok", supplied: null }),
+      items: [],
+      usage: null,
+    }));
+    const agent = new CodexAgentAdapter(baseOpts());
+    const result = await agent.runStage({
+      systemPrompt: "SYS",
+      userPrompt: "USER",
+      tools: [],
+      decisionSchema: schema,
+      model: "gpt-5.5",
+    });
+    expect(result).toEqual({ verdict: "ok", supplied: null });
+  });
+
   it("maps a thrown turn failure to agent_execution", async () => {
     runImpl.fn = vi.fn(async () => {
       throw new Error("turn failed: model exploded");
