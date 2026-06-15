@@ -29,6 +29,53 @@ describe("parseConfig", () => {
     expect(cfg.implMaxBudgetUsd).toBe(2.5);
   });
 
+  it("fills provider-aware model defaults when models are unset (claude)", () => {
+    const {
+      triage_model: _t,
+      spec_model: _s,
+      plan_model: _p,
+      impl_model: _i,
+      review_compliance_model: _rc,
+      review_bugs_model: _rb,
+      review_security_model: _rs,
+      review_smells_model: _rsm,
+      ...rest
+    } = baseInputs;
+    const cfg = parseConfig(rest);
+    expect(cfg.triageModel).toBe("claude-sonnet-4-6");
+    expect(cfg.specModel).toBe("claude-opus-4-8[1m]");
+    expect(cfg.implModel).toBe("claude-opus-4-8[1m]");
+    expect(cfg.reviewModels.security).toBe("claude-opus-4-8[1m]");
+  });
+
+  it("fills gpt-5.5 model defaults when provider is codex and models are unset", () => {
+    const {
+      anthropic_api_key: _a,
+      triage_model: _t,
+      spec_model: _s,
+      plan_model: _p,
+      impl_model: _i,
+      review_compliance_model: _rc,
+      review_bugs_model: _rb,
+      review_security_model: _rs,
+      review_smells_model: _rsm,
+      ...rest
+    } = baseInputs;
+    const cfg = parseConfig({ ...rest, agent_provider: "codex" });
+    expect(cfg.triageModel).toBe("gpt-5.5");
+    expect(cfg.implModel).toBe("gpt-5.5");
+    expect(cfg.reviewModels.compliance).toBe("gpt-5.5");
+  });
+
+  it("lets an explicit model input override the provider default", () => {
+    const cfg = parseConfig({
+      ...baseInputs,
+      agent_provider: "codex",
+      impl_model: "gpt-5.5-pro",
+    });
+    expect(cfg.implModel).toBe("gpt-5.5-pro");
+  });
+
   it("rejects missing required inputs", () => {
     const { anthropic_api_key: _omitted, ...rest } = baseInputs;
     expect(() =>
