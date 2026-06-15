@@ -110,38 +110,41 @@ inputs:
     description: Maximum review revision loops before bailing out.
     required: false
     default: "3"
+  # Model defaults are blank on purpose: the action resolves a provider-aware
+  # default (claude-opus-4-8[1m] / claude-sonnet-4-6 for claude, gpt-5.5 for
+  # codex) when left unset. Set a value here to override for a specific stage.
   triage_model:
-    description: Model id for the triage stage.
+    description: Model id for the triage stage. Defaults per agent_provider when unset.
     required: false
-    default: "claude-sonnet-4-6"
+    default: ""
   spec_model:
-    description: Model id for the spec stage.
+    description: Model id for the spec stage. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   plan_model:
-    description: Model id for the plan stage.
+    description: Model id for the plan stage. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   impl_model:
-    description: Model id for the implement stage.
+    description: Model id for the implement stage. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   review_compliance_model:
-    description: Model id for the compliance review lens.
+    description: Model id for the compliance review lens. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   review_bugs_model:
-    description: Model id for the bugs review lens.
+    description: Model id for the bugs review lens. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   review_security_model:
-    description: Model id for the security review lens.
+    description: Model id for the security review lens. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   review_smells_model:
-    description: Model id for the smells review lens.
+    description: Model id for the smells review lens. Defaults per agent_provider when unset.
     required: false
-    default: "claude-opus-4-7[1m]"
+    default: ""
   triage_effort:
     description: Reasoning effort for the triage stage (low|medium|high|xhigh).
     required: false

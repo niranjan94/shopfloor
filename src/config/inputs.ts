@@ -16,6 +16,28 @@ const num = (min = 0) =>
 const STAGE_NAMES = ["triage", "spec", "plan", "implement", "review"] as const;
 type StageName = (typeof STAGE_NAMES)[number];
 
+// Provider-aware default model ids. Action inputs left unset arrive as "" (the
+// action.yml model defaults are blank), so parseConfig substitutes the default
+// for the selected agent_provider. Claude keeps the cheaper triage tier; Codex
+// uses one model across every stage.
+type ModelKey = "triage" | "spec" | "plan" | "impl" | "review";
+const DEFAULT_MODELS: Record<"claude" | "codex", Record<ModelKey, string>> = {
+  claude: {
+    triage: "claude-sonnet-4-6",
+    spec: "claude-opus-4-8[1m]",
+    plan: "claude-opus-4-8[1m]",
+    impl: "claude-opus-4-8[1m]",
+    review: "claude-opus-4-8[1m]",
+  },
+  codex: {
+    triage: "gpt-5.5",
+    spec: "gpt-5.5",
+    plan: "gpt-5.5",
+    impl: "gpt-5.5",
+    review: "gpt-5.5",
+  },
+};
+
 const EFFORT_LEVELS = ["low", "medium", "high", "xhigh"] as const;
 export type Effort = (typeof EFFORT_LEVELS)[number];
 const effort = () => z.enum(EFFORT_LEVELS).default("high");
@@ -94,14 +116,16 @@ const RawInputs = z
     ssh_signing_key: z.string().optional().default(""),
     trigger_label: z.string().default(""),
     max_review_iterations: num(1).default("3"),
-    triage_model: z.string().default("claude-sonnet-4-6"),
-    spec_model: z.string().default("claude-opus-4-7[1m]"),
-    plan_model: z.string().default("claude-opus-4-7[1m]"),
-    impl_model: z.string().default("claude-opus-4-7[1m]"),
-    review_compliance_model: z.string().default("claude-opus-4-7[1m]"),
-    review_bugs_model: z.string().default("claude-opus-4-7[1m]"),
-    review_security_model: z.string().default("claude-opus-4-7[1m]"),
-    review_smells_model: z.string().default("claude-opus-4-7[1m]"),
+    // Blank by default; parseConfig fills in the provider-aware default
+    // (DEFAULT_MODELS) when the input is empty. An explicit value always wins.
+    triage_model: z.string().default(""),
+    spec_model: z.string().default(""),
+    plan_model: z.string().default(""),
+    impl_model: z.string().default(""),
+    review_compliance_model: z.string().default(""),
+    review_bugs_model: z.string().default(""),
+    review_security_model: z.string().default(""),
+    review_smells_model: z.string().default(""),
     triage_effort: effort(),
     spec_effort: effort(),
     plan_effort: effort(),
@@ -146,6 +170,8 @@ export function parseConfig(raw: Record<string, string | undefined>) {
     Object.entries(raw).map(([k, v]) => [k, v ?? ""]),
   );
   const parsed = RawInputs.parse(cleaned);
+  const modelDefaults = DEFAULT_MODELS[parsed.agent_provider];
+  const model = (value: string, key: ModelKey) => value || modelDefaults[key];
   return {
     anthropicApiKey: parsed.anthropic_api_key,
     claudeCodeOAuthToken: parsed.claude_code_oauth_token,
@@ -172,15 +198,15 @@ export function parseConfig(raw: Record<string, string | undefined>) {
     sshSigningKey: parsed.ssh_signing_key || null,
     triggerLabel: parsed.trigger_label || null,
     maxReviewIterations: parsed.max_review_iterations,
-    triageModel: parsed.triage_model,
-    specModel: parsed.spec_model,
-    planModel: parsed.plan_model,
-    implModel: parsed.impl_model,
+    triageModel: model(parsed.triage_model, "triage"),
+    specModel: model(parsed.spec_model, "spec"),
+    planModel: model(parsed.plan_model, "plan"),
+    implModel: model(parsed.impl_model, "impl"),
     reviewModels: {
-      compliance: parsed.review_compliance_model,
-      bugs: parsed.review_bugs_model,
-      security: parsed.review_security_model,
-      smells: parsed.review_smells_model,
+      compliance: model(parsed.review_compliance_model, "review"),
+      bugs: model(parsed.review_bugs_model, "review"),
+      security: model(parsed.review_security_model, "review"),
+      smells: model(parsed.review_smells_model, "review"),
     },
     triageEffort: parsed.triage_effort,
     specEffort: parsed.spec_effort,
