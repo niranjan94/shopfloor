@@ -230,10 +230,7 @@ describe("CodexAgentAdapter", () => {
     // up null after stripping, via the default.
     const schema = z.object({
       verdict: z.string(),
-      supplied: z
-        .object({ path: z.string() })
-        .nullable()
-        .default(null),
+      supplied: z.object({ path: z.string() }).nullable().default(null),
     });
     runImpl.fn = vi.fn(async () => ({
       finalResponse: JSON.stringify({ verdict: "ok", supplied: null }),
