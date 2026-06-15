@@ -175,7 +175,7 @@ export class CodexAgentAdapter implements AgentAdapter {
       }
 
       try {
-        return args.decisionSchema.parse(parsedJson);
+        return args.decisionSchema.parse(stripNullProperties(parsedJson));
       } catch (err) {
         throw new AgentError(
           "agent_invalid_output",
@@ -203,6 +203,31 @@ export class CodexAgentAdapter implements AgentAdapter {
       if (bridge) await bridge.close().catch(() => {});
     }
   }
+}
+
+// OpenAI strict structured outputs cannot express an optional property: every
+// field is required and an absent value is returned as explicit `null`.
+// zodToJsonSchema(target: "openAi") therefore renders our `.optional()` fields
+// as nullable, and Codex emits `null` for the ones it chose to omit (e.g. a
+// review comment's start_line/start_side). Zod `.optional()` accepts
+// `undefined`, not `null`, so those decisions would fail schema validation.
+// Recursively drop null-valued properties before parsing so they read as
+// "absent". Fields that are genuinely `.nullable()` in our schemas pair it
+// with `.default(null)`, so a stripped null round-trips back to null via the
+// default and no information is lost.
+function stripNullProperties(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stripNullProperties);
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      if (val === null) continue;
+      out[key] = stripNullProperties(val);
+    }
+    return out;
+  }
+  return value;
 }
 
 function logAgentInput<T>(args: RunStageArgs<T>): void {
