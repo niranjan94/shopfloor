@@ -113,7 +113,7 @@ Schema:
 - `complexity`: "quick" | "medium" | "large" (your best guess even when needs_clarification)
 - `rationale`: 1-3 sentences explaining the classification and what the next stage should focus on
 - `clarifying_questions`: array of single-question strings (empty when classified)
-- `supplied_spec`: { source: "body" | "path", path?, content? } | null
+- `supplied_spec`: { source: "body" | "path", path?, content? } | null. When `source` is `"body"`, `content` is REQUIRED and must hold the full extracted artifact text; when `source` is `"path"`, `path` is REQUIRED.
 - `supplied_plan`: same shape | null
 
 Rules:
@@ -122,5 +122,5 @@ Rules:
 - `status: "needs_clarification"` requires a non-empty `clarifying_questions` array.
 - Every string in `clarifying_questions` must be a single, specific, answerable question. No multi-part questions.
 - If the issue is bug-shaped per `<root_cause_analysis>` and `status` is `classified` and no `supplied_spec` or `supplied_plan` is detected, the `rationale` string MUST end with a `### Suspected root cause` subsection. Otherwise the `rationale` MUST NOT contain such a subsection.
-- `supplied_spec` and `supplied_plan` default to `null`. Set them only when you detect a supplied artifact per `<artifact_detection>`. When `source` is `path`, omit `content`; when `source` is `body`, omit `path`.
+- `supplied_spec` and `supplied_plan` default to `null`. Set them only when you detect a supplied artifact per `<artifact_detection>`. When `source` is `path`, set `path` and omit `content`; when `source` is `body`, put the full extracted artifact text in `content` and omit `path`. An artifact missing its required field (a `body` artifact with no `content`, or a `path` artifact with no `path`) is unusable and will be discarded as if no artifact was detected, so always populate the required field.
   </output>

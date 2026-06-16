@@ -326,6 +326,51 @@ describe("applyTriage", () => {
     );
   });
 
+  it("degrades a body-source supplied_spec with no content to null instead of failing triage", async () => {
+    const ctx = makeCtx({
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "the body reads like a spec but no content was extracted",
+        supplied_spec: { source: "body" },
+      },
+      issueTitle: "feat: do the thing",
+    });
+    const d = await runTriage(ctx, { issueComments: "" });
+    expect(d.supplied_spec).toBeNull();
+    await applyTriage(ctx, { decision: d, baseBranch: "main" });
+    // Unusable artifact discarded: no spec PR seeded, routes through the
+    // normal large -> needs-spec path.
+    expect(ctx._mockGithub.openStagePr).not.toHaveBeenCalled();
+    expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
+      7,
+      "shopfloor:needs-spec",
+    );
+  });
+
+  it("degrades a path-source supplied_spec with no path to null instead of failing triage", async () => {
+    const ctx = makeCtx({
+      decision: {
+        status: "classified",
+        complexity: "large",
+        rationale: "referenced a spec path but did not name it",
+        supplied_spec: { source: "path" },
+      },
+      issueTitle: "feat: do the thing",
+    });
+    const d = await runTriage(ctx, { issueComments: "" });
+    expect(d.supplied_spec).toBeNull();
+    await applyTriage(ctx, { decision: d, baseBranch: "main" });
+    expect(ctx._mockGithub.upsertIssueMetadata).toHaveBeenCalledWith(
+      7,
+      expect.not.objectContaining({ specPath: expect.anything() }),
+    );
+    expect(ctx._mockGithub.addLabel).toHaveBeenCalledWith(
+      7,
+      "shopfloor:needs-spec",
+    );
+  });
+
   it("refuses to re-triage when an advanced state label is present", async () => {
     const ctx = makeCtx({
       decision: {
