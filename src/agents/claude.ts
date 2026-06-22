@@ -179,9 +179,17 @@ export class ClaudeAgentAdapter implements AgentAdapter {
 
   async runStage<T>(args: RunStageArgs<T>): Promise<T> {
     const controller = args.abortController ?? new AbortController();
+    // Track whether *our* timer fired the abort. The SDK throws a generic
+    // Error("Claude Code process aborted by user") for any abort and gives us
+    // no way to tell a wall-clock timeout from an external/user abort, so we
+    // record the cause here and reclassify the thrown error below.
+    let timedOut = false;
     const timer =
       args.timeoutMs != null
-        ? setTimeout(() => controller.abort(), args.timeoutMs)
+        ? setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+          }, args.timeoutMs)
         : null;
 
     try {
@@ -269,6 +277,19 @@ export class ClaudeAgentAdapter implements AgentAdapter {
           "agent_execution",
           "claude session ended without a result message",
         );
+      } catch (err) {
+        // A timeout-triggered abort reaches us as a raw SDK Error. Reclassify
+        // it as agent_timeout so the failure surfaces with the right kind
+        // instead of falling through to "internal" in the orchestrator.
+        // Externally-aborted runs and intentional AgentErrors pass through.
+        if (timedOut && !(err instanceof AgentError)) {
+          throw new AgentError(
+            "agent_timeout",
+            `claude session aborted after exceeding the ${args.timeoutMs}ms stage timeout`,
+            "timeout",
+          );
+        }
+        throw err;
       } finally {
         core.endGroup();
       }

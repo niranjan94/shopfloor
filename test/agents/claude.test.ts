@@ -166,6 +166,69 @@ describe("ClaudeAgentAdapter", () => {
     expect(err.message).toMatch(/I'll classify this issue/);
   });
 
+  it("maps a timeout-triggered abort to AgentError(agent_timeout)", async () => {
+    // The SDK throws a raw Error("...aborted by user") when its AbortController
+    // fires, with no way to distinguish a wall-clock timeout from a deliberate
+    // abort. When *our* timeout timer triggered the abort, the adapter must
+    // reclassify it as agent_timeout rather than letting it surface as internal.
+    (sdk as any).query.mockImplementation((opts: any) => {
+      const signal = opts.options.abortController.signal as AbortSignal;
+      return (async function* () {
+        yield { type: "system" };
+        await new Promise<void>((_resolve, reject) => {
+          const fail = () =>
+            reject(new Error("Claude Code process aborted by user"));
+          if (signal.aborted) fail();
+          else signal.addEventListener("abort", fail);
+        });
+      })();
+    });
+    const agent = new ClaudeAgentAdapter();
+    const err = await agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+        timeoutMs: 5,
+      })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(AgentError);
+    expect(err.kind).toBe("agent_timeout");
+  });
+
+  it("does not reclassify an externally-triggered abort as a timeout", async () => {
+    const ctrl = new AbortController();
+    (sdk as any).query.mockImplementation((opts: any) => {
+      const signal = opts.options.abortController.signal as AbortSignal;
+      return (async function* () {
+        yield { type: "system" };
+        await new Promise<void>((_resolve, reject) => {
+          const fail = () =>
+            reject(new Error("Claude Code process aborted by user"));
+          if (signal.aborted) fail();
+          else signal.addEventListener("abort", fail);
+        });
+      })();
+    });
+    const agent = new ClaudeAgentAdapter();
+    const promise = agent
+      .runStage({
+        systemPrompt: "S",
+        userPrompt: "U",
+        tools: [],
+        decisionSchema: Decision,
+        model: "claude-haiku",
+        abortController: ctrl,
+      })
+      .catch((e) => e);
+    ctrl.abort();
+    const err = await promise;
+    expect(err).not.toBeInstanceOf(AgentError);
+    expect(err.message).toMatch(/aborted by user/);
+  });
+
   it("throws agent_execution when no result message arrives", async () => {
     (sdk as any).query.mockImplementation(() =>
       (async function* () {
