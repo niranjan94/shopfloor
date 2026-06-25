@@ -9,6 +9,7 @@ export interface ApplyReviewArgs {
 }
 
 const ITERATION_LINE = /Shopfloor-Review-Iteration:\s*\d+/;
+const ERROR_COUNT_LINE = /\n?Shopfloor-Review-Error-Count:\s*\d+/g;
 
 function writeIterationToBody(body: string | null, iteration: number): string {
   const baseBody = body ?? "";
@@ -19,6 +20,17 @@ function writeIterationToBody(body: string | null, iteration: number): string {
     ITERATION_LINE,
     `Shopfloor-Review-Iteration: ${iteration}`,
   );
+}
+
+// The consecutive-error counter is a footer line that only the errored path
+// writes. A review that actually completes (clean or with findings) proves the
+// CLI works, so strip the line to reset the count for any future transient run.
+function stripErrorCountLine(body: string | null): string {
+  return (body ?? "").replace(ERROR_COUNT_LINE, "");
+}
+
+function writeErrorCountToBody(body: string | null, count: number): string {
+  return `${stripErrorCountLine(body).trimEnd()}\n\nShopfloor-Review-Error-Count: ${count}\n`;
 }
 
 export async function applyReview(
@@ -94,6 +106,82 @@ export async function applyReview(
     return;
   }
 
+  if (outcome.kind === "errored") {
+    // No verdict was produced: every reviewer failed before inspecting the
+    // diff. Always post a non-blocking COMMENT (no distinct review App needed);
+    // this is an operational failure, not a code verdict.
+    await ctx.github.postReview({
+      prNumber,
+      commitSha: headSha,
+      event: "COMMENT",
+      body: outcome.body,
+      comments: [],
+    });
+
+    // reviewOnly: stateless per-push review, so never persist a counter or
+    // touch labels. Each push is reviewed fresh.
+    if (ctx.reviewOnly) {
+      await ctx.github.setReviewStatus(
+        headSha,
+        "error",
+        "Shopfloor review could not complete (infrastructure error)",
+        workflowRunUrl,
+      );
+      ctx.audit({
+        type: "review_posted",
+        prNumber,
+        verdict: "errored",
+        iteration: 0,
+      });
+      return;
+    }
+
+    if (outcome.escalate) {
+      // Persistent infrastructure failure: stop retrying silently and page a
+      // human, mirroring the iteration-cap backstop.
+      await ctx.github.addLabel(labelTarget, LABELS.reviewStuck);
+      await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
+      await ctx.github.postIssueComment(
+        prNumber,
+        `Shopfloor agent review could not complete after ${outcome.errorCount} consecutive attempts (infrastructure failures). A human should take over this PR. See commit status for the latest failure detail.`,
+      );
+      await ctx.github.setReviewStatus(
+        headSha,
+        "error",
+        `Shopfloor review could not complete after ${outcome.errorCount} attempts`,
+        workflowRunUrl,
+      );
+      ctx.audit({
+        type: "label_applied",
+        issueNumber: labelTarget,
+        add: [LABELS.reviewStuck],
+        remove: [LABELS.needsReview],
+      });
+      return;
+    }
+
+    // Below the threshold: persist the incremented count so a subsequent run
+    // can escalate, and leave the verdict labels untouched so a re-trigger
+    // re-reviews rather than the PR being parked as request-changes.
+    await ctx.github.setReviewStatus(
+      headSha,
+      "error",
+      "Shopfloor review could not complete (infrastructure error)",
+      workflowRunUrl,
+    );
+    await ctx.github.updatePrBody(
+      prNumber,
+      writeErrorCountToBody(ctx.pr.body, outcome.errorCount),
+    );
+    ctx.audit({
+      type: "review_posted",
+      prNumber,
+      verdict: "errored",
+      iteration: 0,
+    });
+    return;
+  }
+
   // request_changes
   await reviewer.postReview({
     prNumber,
@@ -124,7 +212,12 @@ export async function applyReview(
   if (!ctx.reviewOnly) {
     await ctx.github.addLabel(labelTarget, LABELS.reviewRequestedChanges);
     await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
-    const newBody = writeIterationToBody(ctx.pr.body, outcome.nextIteration);
+    // A completed review proves the CLI works, so reset any consecutive-error
+    // counter while writing the iteration line.
+    const newBody = writeIterationToBody(
+      stripErrorCountLine(ctx.pr.body),
+      outcome.nextIteration,
+    );
     await ctx.github.updatePrBody(prNumber, newBody);
   }
   ctx.audit({

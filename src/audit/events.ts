@@ -47,7 +47,7 @@ export type AuditEvent =
   | {
       type: "review_posted";
       prNumber: number;
-      verdict: "approve" | "request_changes";
+      verdict: "approve" | "request_changes" | "errored";
       iteration: number;
     }
   | {

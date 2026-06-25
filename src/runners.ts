@@ -17,6 +17,11 @@ import { parseIssueMetadata } from "./state/metadata.js";
 import type { RouterDecision } from "./state/types.js";
 
 const CONFIDENCE_THRESHOLD = 60;
+// Consecutive errored review runs (every lens failed to start) tolerated before
+// the review escalates to review-stuck and pages a human. Each run already
+// retries the CLI install internally, so this guards against a persistent
+// infrastructure failure parking the pipeline silently.
+const MAX_CONSECUTIVE_REVIEW_ERRORS = 3;
 
 // Each stage handler assembles its own extras (revision context, progress
 // comment, PR/file lookups) so the orchestrator stays generic. Returning the
@@ -217,6 +222,10 @@ export const RUNNERS: Record<Stage, StageHandler> = {
       // stateless reviewer: no iteration counter is persisted, every push
       // gets a fresh review, and the iteration cap never fires.
       const iteration = ctx.reviewOnly ? 0 : (routed.reviewIteration ?? 0);
+      const errorCount = ctx.reviewOnly ? 0 : (routed.reviewErrorCount ?? 0);
+      const maxConsecutiveReviewErrors = ctx.reviewOnly
+        ? Number.POSITIVE_INFINITY
+        : MAX_CONSECUTIVE_REVIEW_ERRORS;
       const maxIterations = ctx.reviewOnly
         ? Number.POSITIVE_INFINITY
         : ctx.config.maxReviewIterations;
@@ -277,6 +286,8 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         currentIteration: iteration,
         maxIterations,
         confidenceThreshold: CONFIDENCE_THRESHOLD,
+        currentErrorCount: errorCount,
+        maxConsecutiveReviewErrors,
       });
 
       // Pipeline mode (Shopfloor-authored impl PRs) writes pipeline-state

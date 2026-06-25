@@ -596,9 +596,15 @@ export function resolveReviewOnly(payload: PullRequestPayload): RouterDecision {
   const iterMatch = pr.body?.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
   const reviewIteration = iterMatch ? Number(iterMatch[1]) : 0;
 
+  // Consecutive errored review runs, persisted by the errored apply path. Used
+  // to escalate a persistent infrastructure failure to review-stuck.
+  const errMatch = pr.body?.match(/Shopfloor-Review-Error-Count:\s*(\d+)/);
+  const reviewErrorCount = errMatch ? Number(errMatch[1]) : 0;
+
   return {
     stage: "review",
     implPrNumber: pr.number,
     reviewIteration,
+    reviewErrorCount,
   };
 }

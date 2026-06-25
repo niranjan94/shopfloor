@@ -12,6 +12,13 @@ export interface AggregateInput {
   currentIteration: number;
   maxIterations: number;
   confidenceThreshold: number;
+  // Consecutive prior review runs that ended in `errored` (read from the PR
+  // footer). Defaults to 0. When the incremented count reaches
+  // `maxConsecutiveReviewErrors`, the errored outcome escalates so a human is
+  // paged instead of the pipeline spinning on a persistent infrastructure
+  // failure. Both are irrelevant (0 / infinity) in reviewOnly mode.
+  currentErrorCount?: number;
+  maxConsecutiveReviewErrors?: number;
 }
 
 export type AggregateOutcome =
@@ -31,9 +38,27 @@ export type AggregateOutcome =
   | {
       kind: "iteration_cap";
       maxIterations: number;
+    }
+  | {
+      kind: "errored";
+      body: string;
+      failures: Array<{ lens: LensName; kind: string; message: string }>;
+      // Consecutive errored runs including this one.
+      errorCount: number;
+      // True once errorCount reaches maxConsecutiveReviewErrors: stop retrying
+      // silently and page a human via the review-stuck label.
+      escalate: boolean;
     };
 
 const SHOPFLOOR_REVIEW_MARKER = "<!-- shopfloor-review -->";
+
+function renderLensFailure(f: {
+  lens: LensName;
+  kind: string;
+  message: string;
+}): string {
+  return `- \`${f.lens}\` failed (${f.kind}): ${f.message}`;
+}
 
 const SOURCE_CATEGORY: Record<LensName, Category> = {
   compliance: "compliance",
@@ -112,6 +137,37 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     (s) => s.decision.verdict === "blocked",
   );
 
+  // Every lens failed before returning a verdict (e.g. the Claude CLI never
+  // installed, all agents timed out). There is no review result at all, so this
+  // is an operational error rather than a "changes requested" verdict. Surface
+  // it as such instead of blocking an unevaluated PR with a misleading
+  // REQUEST_CHANGES review.
+  if (succeeded.length === 0 && failedLenses.length > 0) {
+    const errorCount = (input.currentErrorCount ?? 0) + 1;
+    const maxErrors =
+      input.maxConsecutiveReviewErrors ?? Number.POSITIVE_INFINITY;
+    const escalate = errorCount >= maxErrors;
+    const closing = escalate
+      ? `This has now failed ${errorCount} consecutive times. A human should take over this PR.`
+      : "This is an infrastructure error, not a code-review result. The pull request has not been evaluated and will be re-reviewed.";
+    const body = [
+      SHOPFLOOR_REVIEW_MARKER,
+      "**Shopfloor agent review: could not complete.** Every reviewer failed before returning a verdict.",
+      "",
+      closing,
+      "",
+      "**Reviewer failures:**",
+      ...failedLenses.map(renderLensFailure),
+    ].join("\n");
+    return {
+      kind: "errored",
+      body,
+      failures: failedLenses,
+      errorCount,
+      escalate,
+    };
+  }
+
   const allComments = succeeded.flatMap((s) => s.decision.comments);
   const deduped = dedupeComments(allComments);
   const filtered = deduped.filter(
@@ -167,7 +223,7 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     bodyParts.push("");
     bodyParts.push("**Lens failures:**");
     for (const f of failedLenses) {
-      bodyParts.push(`- \`${f.lens}\` failed (${f.kind}): ${f.message}`);
+      bodyParts.push(renderLensFailure(f));
     }
   }
   if (blockedLenses.length > 0) {
