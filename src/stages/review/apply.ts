@@ -73,6 +73,14 @@ export async function applyReview(
       await ctx.github.addLabel(labelTarget, LABELS.reviewApproved);
       await ctx.github.removeLabel(labelTarget, LABELS.needsReview);
       await ctx.github.removeLabel(labelTarget, LABELS.reviewRequestedChanges);
+      // A clean approval proves the CLI works, so reset any consecutive-error
+      // counter (only rewrite the body when one is actually present).
+      if (ctx.pr.body?.includes("Shopfloor-Review-Error-Count")) {
+        await ctx.github.updatePrBody(
+          prNumber,
+          stripErrorCountLine(ctx.pr.body),
+        );
+      }
     }
     ctx.audit({
       type: "review_posted",

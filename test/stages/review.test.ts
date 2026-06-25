@@ -428,6 +428,32 @@ describe("applyReview", () => {
     expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:needs-review");
   });
 
+  it("approve clears a persisted consecutive-error count", async () => {
+    const reviewGh = makeMockGithub();
+    const { ctx, mg } = ctxFor(reviewGh);
+    ctx.pr!.body =
+      "PR body\n\nShopfloor-Review-Iteration: 0\nShopfloor-Review-Error-Count: 2";
+    await applyReview(ctx, {
+      outcome: { kind: "approve", body: "clean", successfulLenses: 4 },
+      labelTarget: 42,
+    });
+    // A clean approval proves the CLI works, so the counter must be reset.
+    expect(mg.updatePrBody).toHaveBeenCalledWith(
+      100,
+      expect.not.stringContaining("Shopfloor-Review-Error-Count"),
+    );
+  });
+
+  it("approve does not rewrite the body when no error count is present", async () => {
+    const reviewGh = makeMockGithub();
+    const { ctx, mg } = ctxFor(reviewGh);
+    await applyReview(ctx, {
+      outcome: { kind: "approve", body: "clean", successfulLenses: 4 },
+      labelTarget: 42,
+    });
+    expect(mg.updatePrBody).not.toHaveBeenCalled();
+  });
+
   it("posts REQUEST_CHANGES and writes iteration line to PR body", async () => {
     const reviewGh = makeMockGithub();
     const { ctx, mg } = ctxFor(reviewGh);
