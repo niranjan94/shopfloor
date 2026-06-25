@@ -64,6 +64,24 @@ describe("resolveStage", () => {
     expect(decision.stage).toBe("review");
     expect(decision.implPrNumber).toBe(45);
     expect(decision.reviewIteration).toBe(0);
+    expect(decision.reviewErrorCount).toBe(0);
+  });
+
+  test("review routing forwards the persisted consecutive-error count", () => {
+    const base = ctx("pull_request", "pr-synchronize-impl");
+    const pr = (base.payload as PullRequestPayload).pull_request;
+    const decision = resolveStage({
+      ...base,
+      payload: {
+        ...(base.payload as PullRequestPayload),
+        pull_request: {
+          ...pr,
+          body: `${pr.body ?? ""}\nShopfloor-Review-Error-Count: 2`,
+        },
+      },
+    });
+    expect(decision.stage).toBe("review");
+    expect(decision.reviewErrorCount).toBe(2);
   });
 
   test("spec PR merged -> none (reason triggers label flip)", () => {

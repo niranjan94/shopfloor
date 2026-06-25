@@ -30,6 +30,7 @@ describe("renderPrBodyWithMetadata", () => {
       issueNumber: 42,
       stage: "spec",
       reviewIteration: 0,
+      reviewErrorCount: 0,
     });
   });
 
