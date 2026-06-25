@@ -41,6 +41,7 @@ export interface RouterDecision {
   planFilePath?: string;
   revisionMode?: boolean;
   reviewIteration?: number;
+  reviewErrorCount?: number;
   implPrNumber?: number;
   // Set when a stage PR was just merged. The orchestrator performs the
   // corresponding label transition (and, for implement, closes the issue)

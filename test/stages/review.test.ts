@@ -48,6 +48,14 @@ function blockedOutcome(lens: LensOutcome["lens"]): LensOutcome {
   };
 }
 
+function failedOutcome(
+  lens: LensOutcome["lens"],
+  kind: string,
+  message: string,
+): LensOutcome {
+  return { lens, decision: null, error: { kind, message } };
+}
+
 const patch = `@@ -1,1 +1,3 @@
 -old line
 +new line a
@@ -211,6 +219,108 @@ describe("aggregateFindings", () => {
     }
   });
 
+  it("returns errored when every lens fails to complete", () => {
+    const result = aggregateFindings({
+      outcomes: [
+        failedOutcome(
+          "compliance",
+          "agent_execution",
+          "Claude CLI installer exited with code 1: getaddrinfo ESERVFAIL downloads.claude.ai",
+        ),
+        failedOutcome(
+          "bugs",
+          "agent_execution",
+          "Claude CLI installer exited with code 1",
+        ),
+        failedOutcome(
+          "security",
+          "agent_execution",
+          "Claude CLI installer exited with code 1",
+        ),
+        failedOutcome(
+          "smells",
+          "agent_execution",
+          "Claude CLI installer exited with code 1",
+        ),
+      ],
+      patches: [],
+      currentIteration: 0,
+      maxIterations: 3,
+      confidenceThreshold: 80,
+    });
+    expect(result.kind).toBe("errored");
+    if (result.kind === "errored") {
+      expect(result.body).toContain("could not complete");
+      expect(result.body).toContain(
+        "getaddrinfo ESERVFAIL downloads.claude.ai",
+      );
+      expect(result.failures).toHaveLength(4);
+      // First failure: count increments to 1, no escalation yet.
+      expect(result.errorCount).toBe(1);
+      expect(result.escalate).toBe(false);
+    }
+  });
+
+  it("errored increments the consecutive-error count without escalating below the threshold", () => {
+    const result = aggregateFindings({
+      outcomes: [
+        failedOutcome("compliance", "agent_execution", "installer failed"),
+        failedOutcome("bugs", "agent_execution", "installer failed"),
+        failedOutcome("security", "agent_execution", "installer failed"),
+        failedOutcome("smells", "agent_execution", "installer failed"),
+      ],
+      patches: [],
+      currentIteration: 0,
+      maxIterations: 3,
+      confidenceThreshold: 80,
+      currentErrorCount: 1,
+      maxConsecutiveReviewErrors: 3,
+    });
+    expect(result.kind).toBe("errored");
+    if (result.kind === "errored") {
+      expect(result.errorCount).toBe(2);
+      expect(result.escalate).toBe(false);
+    }
+  });
+
+  it("errored escalates once the consecutive-error count reaches the threshold", () => {
+    const result = aggregateFindings({
+      outcomes: [
+        failedOutcome("compliance", "agent_execution", "installer failed"),
+        failedOutcome("bugs", "agent_execution", "installer failed"),
+        failedOutcome("security", "agent_execution", "installer failed"),
+        failedOutcome("smells", "agent_execution", "installer failed"),
+      ],
+      patches: [],
+      currentIteration: 0,
+      maxIterations: 3,
+      confidenceThreshold: 80,
+      currentErrorCount: 2,
+      maxConsecutiveReviewErrors: 3,
+    });
+    expect(result.kind).toBe("errored");
+    if (result.kind === "errored") {
+      expect(result.errorCount).toBe(3);
+      expect(result.escalate).toBe(true);
+    }
+  });
+
+  it("does not return errored when at least one lens succeeded", () => {
+    const result = aggregateFindings({
+      outcomes: [
+        cleanOutcome("compliance"),
+        failedOutcome("bugs", "agent_execution", "installer failed"),
+        failedOutcome("security", "agent_execution", "installer failed"),
+        failedOutcome("smells", "agent_execution", "installer failed"),
+      ],
+      patches: [],
+      currentIteration: 0,
+      maxIterations: 3,
+      confidenceThreshold: 80,
+    });
+    expect(result.kind).toBe("request_changes");
+  });
+
   it("returns iteration_cap when nextIteration > maxIterations", () => {
     const result = aggregateFindings({
       outcomes: [
@@ -355,6 +465,87 @@ describe("applyReview", () => {
       42,
       "shopfloor:review-requested-changes",
     );
+  });
+
+  function erroredOutcome(errorCount: number, escalate: boolean) {
+    return {
+      kind: "errored" as const,
+      body: "could not complete",
+      failures: [
+        {
+          lens: "bugs" as const,
+          kind: "agent_execution",
+          message: "installer failed",
+        },
+      ],
+      errorCount,
+      escalate,
+    };
+  }
+
+  it("errored (below threshold): COMMENTs, errors the status, persists the count, no verdict labels", async () => {
+    const reviewGh = makeMockGithub();
+    const { ctx, mg, audit } = ctxFor(reviewGh);
+    await applyReview(ctx, {
+      outcome: erroredOutcome(1, false),
+      labelTarget: 42,
+    });
+    expect(mg.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "COMMENT" }),
+    );
+    expect(mg.setReviewStatus).toHaveBeenCalledWith(
+      "head-sha",
+      "error",
+      expect.stringContaining("could not complete"),
+      undefined,
+    );
+    // Persist the incremented count so the next run can escalate.
+    expect(mg.updatePrBody).toHaveBeenCalledWith(
+      100,
+      expect.stringContaining("Shopfloor-Review-Error-Count: 1"),
+    );
+    // No stuck/changes labels and no REQUEST_CHANGES verdict event.
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(reviewGh.postReview).not.toHaveBeenCalled();
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "review_posted", verdict: "errored" }),
+    );
+  });
+
+  it("errored (escalate): flips review-stuck, pages a human, does not persist the count", async () => {
+    const { ctx, mg } = ctxFor(null);
+    await applyReview(ctx, {
+      outcome: erroredOutcome(3, true),
+      labelTarget: 42,
+    });
+    expect(mg.addLabel).toHaveBeenCalledWith(42, "shopfloor:review-stuck");
+    expect(mg.removeLabel).toHaveBeenCalledWith(42, "shopfloor:needs-review");
+    expect(mg.postIssueComment).toHaveBeenCalledWith(
+      100,
+      expect.stringContaining("consecutive"),
+    );
+    expect(mg.setReviewStatus).toHaveBeenCalledWith(
+      "head-sha",
+      "error",
+      expect.any(String),
+      undefined,
+    );
+    expect(mg.updatePrBody).not.toHaveBeenCalled();
+  });
+
+  it("reviewOnly: errored skips error-count persistence and all labels", async () => {
+    const { ctx, mg } = ctxFor(null);
+    ctx.reviewOnly = true;
+    await applyReview(ctx, {
+      outcome: erroredOutcome(1, false),
+      labelTarget: 42,
+    });
+    expect(mg.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "COMMENT" }),
+    );
+    expect(mg.updatePrBody).not.toHaveBeenCalled();
+    expect(mg.addLabel).not.toHaveBeenCalled();
+    expect(mg.removeLabel).not.toHaveBeenCalled();
   });
 
   it("applies review-stuck on iteration_cap", async () => {
