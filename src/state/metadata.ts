@@ -4,6 +4,7 @@ export interface PrMetadata {
   issueNumber: number;
   stage: Stage;
   reviewIteration: number;
+  reviewErrorCount: number;
 }
 
 export interface IssueMetadata {
@@ -27,11 +28,13 @@ export function parsePrMetadata(
     /Shopfloor-Stage:\s*(spec|plan|implement|review)/,
   );
   const iterMatch = body.match(/Shopfloor-Review-Iteration:\s*(\d+)/);
+  const errMatch = body.match(/Shopfloor-Review-Error-Count:\s*(\d+)/);
   if (!issueMatch || !stageMatch) return null;
   return {
     issueNumber: Number(issueMatch[1]),
     stage: stageMatch[1] as Exclude<Stage, "triage">,
     reviewIteration: iterMatch ? Number(iterMatch[1]) : 0,
+    reviewErrorCount: errMatch ? Number(errMatch[1]) : 0,
   };
 }
 

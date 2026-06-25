@@ -179,22 +179,24 @@ describe("parsePrMetadata", () => {
     expect(parsePrMetadata("No metadata here.")).toBeNull();
   });
 
-  test("parses all three fields when present", () => {
+  test("parses all fields when present", () => {
     const body =
-      "Shopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 3";
+      "Shopfloor-Issue: #42\nShopfloor-Stage: implement\nShopfloor-Review-Iteration: 3\nShopfloor-Review-Error-Count: 2";
     expect(parsePrMetadata(body)).toEqual({
       issueNumber: 42,
       stage: "implement",
       reviewIteration: 3,
+      reviewErrorCount: 2,
     });
   });
 
-  test("defaults reviewIteration to 0 when absent", () => {
+  test("defaults reviewIteration and reviewErrorCount to 0 when absent", () => {
     const body = "Shopfloor-Issue: #7\nShopfloor-Stage: spec";
     expect(parsePrMetadata(body)).toEqual({
       issueNumber: 7,
       stage: "spec",
       reviewIteration: 0,
+      reviewErrorCount: 0,
     });
   });
 
