@@ -79,7 +79,10 @@ describe("aggregateFindings", () => {
     });
     expect(result.kind).toBe("approve");
     if (result.kind === "approve") {
-      expect(result.body).toContain("clean");
+      expect(result.body).toContain("passed");
+      expect(result.body).toContain("No issues found");
+      // Clean summary stays minimal: no per-lens prose dumped into the body.
+      expect(result.body).not.toContain("compliance clean");
       expect(result.successfulLenses).toBe(4);
     }
   });
@@ -99,8 +102,8 @@ describe("aggregateFindings", () => {
     });
     expect(result.kind).toBe("request_changes");
     if (result.kind === "request_changes") {
-      expect(result.body).toContain("Lenses blocked");
-      expect(result.body).toContain("smells");
+      expect(result.body).toContain("Some checks couldn't complete");
+      expect(result.body).toContain("code smells");
       expect(result.anchoredComments).toHaveLength(0);
     }
   });
@@ -132,6 +135,59 @@ describe("aggregateFindings", () => {
       expect(result.anchoredComments).toHaveLength(1);
       expect(result.droppedComments).toHaveLength(0);
       expect(result.nextIteration).toBe(1);
+      // Headline leads with the count; details are deferred to inline comments.
+      expect(result.body).toContain("1 issue to address");
+      expect(result.body).toContain("See the 1 inline comment below");
+      // Category breakdown table replaces the per-lens prose dump.
+      expect(result.body).toContain("| Compliance | 1 |");
+      expect(result.body).not.toContain("compliance found issues");
+    }
+  });
+
+  it("pluralizes the headline and counts categories across lenses", () => {
+    const result = aggregateFindings({
+      outcomes: [
+        commentOutcome("bugs", [
+          {
+            path: "src/x.ts",
+            line: 2,
+            side: "RIGHT",
+            body: "off-by-one",
+            confidence: 95,
+            category: "bug",
+          },
+          {
+            path: "src/x.ts",
+            line: 3,
+            side: "RIGHT",
+            body: "null deref",
+            confidence: 90,
+            category: "bug",
+          },
+        ]),
+        commentOutcome("security", [
+          {
+            path: "src/x.ts",
+            line: 1,
+            side: "RIGHT",
+            body: "missing authz",
+            confidence: 95,
+            category: "security",
+          },
+        ]),
+        cleanOutcome("compliance"),
+        cleanOutcome("smells"),
+      ],
+      patches: [{ filename: "src/x.ts", patch }],
+      currentIteration: 0,
+      maxIterations: 3,
+      confidenceThreshold: 80,
+    });
+    expect(result.kind).toBe("request_changes");
+    if (result.kind === "request_changes") {
+      expect(result.body).toContain("3 issues to address");
+      expect(result.body).toContain("| Bug | 2 |");
+      expect(result.body).toContain("| Security | 1 |");
     }
   });
 
@@ -161,7 +217,7 @@ describe("aggregateFindings", () => {
     if (result.kind === "request_changes") {
       expect(result.anchoredComments).toHaveLength(0);
       expect(result.droppedComments).toHaveLength(1);
-      expect(result.body).toContain("Findings dropped");
+      expect(result.body).toContain("outside the changed lines");
     }
   });
 
@@ -214,7 +270,7 @@ describe("aggregateFindings", () => {
     });
     expect(result.kind).toBe("request_changes");
     if (result.kind === "request_changes") {
-      expect(result.body).toContain("Lens failures");
+      expect(result.body).toContain("Some checks couldn't complete");
       expect(result.body).toContain("security");
     }
   });
@@ -480,7 +536,16 @@ describe("applyReview", () => {
     expect(reviewGh.postReview).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "REQUEST_CHANGES",
-        comments: [expect.objectContaining({ path: "src/x.ts", line: 2 })],
+        comments: [
+          expect.objectContaining({
+            path: "src/x.ts",
+            line: 2,
+            // Readable header: category label + confidence word + raw score.
+            body: expect.stringContaining(
+              "Compliance** · very high confidence (95/100)",
+            ),
+          }),
+        ],
       }),
     );
     expect(mg.updatePrBody).toHaveBeenCalledWith(
