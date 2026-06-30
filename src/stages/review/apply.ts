@@ -1,6 +1,7 @@
 import { LABELS } from "../../state/labels.js";
 import type { StageContext } from "../_shared/context.js";
 import type { AggregateOutcome } from "./aggregate.js";
+import { inlineCommentHeader } from "./format.js";
 
 export interface ApplyReviewArgs {
   outcome: AggregateOutcome;
@@ -202,7 +203,7 @@ export async function applyReview(
       side: c.side,
       ...(c.start_line !== undefined ? { start_line: c.start_line } : {}),
       ...(c.start_side !== undefined ? { start_side: c.start_side } : {}),
-      body: `[${c.category} / confidence ${c.confidence}]\n\n${c.body}`,
+      body: `${inlineCommentHeader(c.category, c.confidence)}\n\n${c.body}`,
     })),
   });
   const statusDescription = ctx.reviewOnly

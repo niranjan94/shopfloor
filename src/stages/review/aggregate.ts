@@ -4,6 +4,11 @@ import {
   type DiffFilePatch,
   partitionCommentsByDiff,
 } from "./diff-positions.js";
+import {
+  CATEGORY_LABEL,
+  LENS_LABEL,
+  SHOPFLOOR_REVIEW_MARKER,
+} from "./format.js";
 import type { LensOutcome } from "./runner.js";
 
 export interface AggregateInput {
@@ -50,14 +55,12 @@ export type AggregateOutcome =
       escalate: boolean;
     };
 
-const SHOPFLOOR_REVIEW_MARKER = "<!-- shopfloor-review -->";
-
 function renderLensFailure(f: {
   lens: LensName;
   kind: string;
   message: string;
 }): string {
-  return `- \`${f.lens}\` failed (${f.kind}): ${f.message}`;
+  return `- The ${LENS_LABEL[f.lens]} check did not finish (${f.kind}): ${f.message}`;
 }
 
 const SOURCE_CATEGORY: Record<LensName, Category> = {
@@ -152,7 +155,7 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
       : "This is an infrastructure error, not a code-review result. The pull request has not been evaluated and will be re-reviewed.";
     const body = [
       SHOPFLOOR_REVIEW_MARKER,
-      "**Shopfloor agent review: could not complete.** Every reviewer failed before returning a verdict.",
+      "⚠️ **Shopfloor review could not complete.** Every reviewer failed before returning a verdict.",
       "",
       closing,
       "",
@@ -191,11 +194,12 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     noLensFailures &&
     noBlockedLenses
   ) {
+    const checked = succeeded.map((s) => LENS_LABEL[s.lens]).join(" · ");
     const body = [
       SHOPFLOOR_REVIEW_MARKER,
-      `**Shopfloor agent review: clean** across ${succeeded.length}/4 reviewers.`,
+      "✅ **Shopfloor review passed.** No issues found.",
       "",
-      succeeded.map((s) => `- ${s.decision.summary}`).join("\n"),
+      `<sub>Checked: ${checked}</sub>`,
     ].join("\n");
     return { kind: "approve", body, successfulLenses: succeeded.length };
   }
@@ -211,37 +215,86 @@ export function aggregateFindings(input: AggregateInput): AggregateOutcome {
     positionMap,
   );
 
-  const bodyParts: string[] = [
-    SHOPFLOOR_REVIEW_MARKER,
-    `**Shopfloor agent review: changes requested** (iteration ${nextIteration}/${input.maxIterations}).`,
-  ];
-  if (succeeded.length > 0) {
+  const findingCount = filtered.length;
+  const headline =
+    findingCount > 0
+      ? `🔧 **Shopfloor review: ${findingCount} issue${
+          findingCount === 1 ? "" : "s"
+        } to address** (iteration ${nextIteration}/${input.maxIterations})`
+      : `🔧 **Shopfloor review: changes requested** (iteration ${nextIteration}/${input.maxIterations})`;
+
+  const bodyParts: string[] = [SHOPFLOOR_REVIEW_MARKER, headline];
+
+  // Concrete, anchored findings are explained in the inline comments; point
+  // there and give a category breakdown rather than repeating per-lens prose.
+  if (anchored.length > 0) {
     bodyParts.push("");
-    bodyParts.push(succeeded.map((s) => `- ${s.decision.summary}`).join("\n"));
+    bodyParts.push(
+      `See the ${anchored.length} inline comment${
+        anchored.length === 1 ? "" : "s"
+      } below for specifics.`,
+    );
   }
-  if (failedLenses.length > 0) {
+  if (findingCount > 0) {
+    const counts = new Map<Category, number>();
+    for (const c of filtered)
+      counts.set(c.category, (counts.get(c.category) ?? 0) + 1);
     bodyParts.push("");
-    bodyParts.push("**Lens failures:**");
+    bodyParts.push("| Category | Count |");
+    bodyParts.push("| --- | --- |");
+    for (const [category, count] of counts) {
+      bodyParts.push(`| ${CATEGORY_LABEL[category]} | ${count} |`);
+    }
+  }
+
+  // Findings whose line is not in the diff cannot be attached inline, so they
+  // would otherwise be invisible. List them with enough detail to act on.
+  if (dropped.length > 0) {
+    bodyParts.push("");
+    bodyParts.push(
+      `**${dropped.length} issue${
+        dropped.length === 1 ? " falls" : "s fall"
+      } outside the changed lines** (so ${
+        dropped.length === 1 ? "it" : "they"
+      } couldn't be attached inline):`,
+    );
+    for (const c of dropped) {
+      const sideMarker = c.side === "LEFT" ? " (before this change)" : "";
+      const firstLine = c.body.split("\n", 1)[0];
+      bodyParts.push(
+        `- \`${c.path}:${c.line}\`${sideMarker} (${CATEGORY_LABEL[c.category]}): ${firstLine}`,
+      );
+    }
+  }
+
+  // Operational problems: a lens that errored or could not read the diff. These
+  // force a re-review, so explain them in plain language.
+  if (failedLenses.length > 0 || blockedLenses.length > 0) {
+    bodyParts.push("");
+    bodyParts.push("**Some checks couldn't complete and will be retried:**");
     for (const f of failedLenses) {
       bodyParts.push(renderLensFailure(f));
     }
-  }
-  if (blockedLenses.length > 0) {
-    bodyParts.push("");
-    bodyParts.push("**Lenses blocked (could not inspect the diff):**");
     for (const b of blockedLenses) {
-      bodyParts.push(`- \`${b.lens}\`: ${b.decision.summary}`);
+      bodyParts.push(
+        `- The ${LENS_LABEL[b.lens]} check couldn't read the diff: ${b.decision.summary}`,
+      );
     }
   }
-  if (dropped.length > 0) {
-    bodyParts.push("");
-    bodyParts.push("**Findings dropped (line not in PR diff hunks):**");
-    for (const c of dropped) {
-      const sideMarker = c.side === "LEFT" ? " (LEFT)" : "";
-      const firstLine = c.body.split("\n", 1)[0];
-      bodyParts.push(
-        `- \`${c.path}:${c.line}\`${sideMarker} [${c.category} / ${c.confidence}]: ${firstLine}`,
-      );
+
+  // Nothing concrete survived (a lens flagged a concern below the confidence
+  // bar, or only checks-couldn't-complete drove the verdict). Surface the
+  // reviewer summaries so the request for changes isn't unexplained.
+  if (findingCount === 0) {
+    const notes = succeeded.filter(
+      (s) => s.decision.verdict === "issues_found",
+    );
+    if (notes.length > 0) {
+      bodyParts.push("");
+      bodyParts.push("**Reviewer notes:**");
+      for (const s of notes) {
+        bodyParts.push(`- ${LENS_LABEL[s.lens]}: ${s.decision.summary}`);
+      }
     }
   }
 
