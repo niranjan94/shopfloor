@@ -1,4 +1,4 @@
-import { getQueueBackend, getStoreAsync } from "../lib/runtime.js";
+import { getQueueBackend, getStoreAsync } from "../lib/runtime";
 
 export const dynamic = "force-dynamic";
 

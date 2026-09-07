@@ -9,8 +9,8 @@ import {
   type RuntimeStore,
   runStageInSandbox,
   type StageJobPayload,
-} from "../../../src/runtime/index.js";
-import { inngest } from "./inngest.js";
+} from "../../../src/runtime/index";
+import { inngest } from "./inngest";
 
 let storePromise: Promise<RuntimeStore> | null = null;
 let queue: JobQueue | null = null;

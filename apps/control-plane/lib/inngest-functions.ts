@@ -1,6 +1,6 @@
-import { createExecuteStageFunction, type StageJobPayload } from "./shopfloor.js";
-import { inngest } from "./inngest.js";
-import { handleStageJob } from "./runtime.js";
+import { createExecuteStageFunction, type StageJobPayload } from "./shopfloor";
+import { inngest } from "./inngest";
+import { handleStageJob } from "./runtime";
 
 export const executeStageFn = createExecuteStageFunction({
   inngest,

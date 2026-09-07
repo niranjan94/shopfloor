@@ -1,4 +1,4 @@
-import { getQueueBackend } from "../../../lib/runtime.js";
+import { getQueueBackend } from "../../../lib/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

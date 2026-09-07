@@ -1,5 +1,5 @@
-import type { StageJobPayload } from "../../../../lib/shopfloor.js";
-import { handleStageJob } from "../../../../lib/runtime.js";
+import type { StageJobPayload } from "../../../../lib/shopfloor";
+import { handleStageJob } from "../../../../lib/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

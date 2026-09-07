@@ -2,8 +2,8 @@ import {
   type Config,
   parseRouteConfigFromEnv,
   routeGitHubWebhook,
-} from "../../../../lib/shopfloor.js";
-import { getQueue, getStoreAsync } from "../../../../lib/runtime.js";
+} from "../../../../lib/shopfloor";
+import { getQueue, getStoreAsync } from "../../../../lib/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

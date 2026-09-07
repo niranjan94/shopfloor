@@ -1,4 +1,4 @@
-import { getStoreAsync } from "../../../../lib/runtime.js";
+import { getStoreAsync } from "../../../../lib/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

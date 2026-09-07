@@ -2,7 +2,7 @@
  * Re-exports Shopfloor portable runtime for control-plane routes.
  * Keeps App Router files free of fragile ../../../../ paths.
  */
-export type { Config } from "../../../src/config/inputs.js";
+export type { Config } from "../../../src/config/inputs";
 export {
   createExecuteStageFunction,
   createPostgresRuntimeStoreFromUrl,
@@ -15,4 +15,4 @@ export {
   runStageJob,
   stageTimeoutMs,
   type StageJobPayload,
-} from "../../../src/runtime/index.js";
+} from "../../../src/runtime/index";

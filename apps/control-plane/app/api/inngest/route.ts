@@ -1,6 +1,6 @@
 import { serve } from "inngest/next";
-import { inngest } from "../../../lib/inngest.js";
-import { inngestFunctions } from "../../../lib/inngest-functions.js";
+import { inngest } from "../../../lib/inngest";
+import { inngestFunctions } from "../../../lib/inngest-functions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
