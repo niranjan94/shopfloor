@@ -31,6 +31,8 @@ Shopfloor is deliberately boring where it counts: a pure TypeScript state machin
 | `action.yml`            | The GitHub Action manifest                                              |
 | `examples/`             | Sample caller workflow (`examples/shopfloor.yml`)                       |
 | `src/`                  | Action source: state machine, orchestrator, stages, adapters, agent SDK |
+| `src/runtime/`          | Portable self-host runtime (webhook route, execute, job/store APIs)     |
+| `apps/control-plane/`   | Vercel Next.js control plane (webhook + runs API)                       |
 | `src/stages/*/prompt.*` | Stage prompt templates (inlined into the bundle at build time)          |
 | `dist/index.cjs`        | Committed action bundle (reproducible from `src/` via `pnpm build`)     |
 | `docs/shopfloor/`       | Install, configuration, architecture, troubleshooting, FAQ              |
@@ -231,7 +233,8 @@ Shopfloor manages a set of `shopfloor:*` labels on your issues and PRs. These ar
 
 ## Documentation
 
-- [Install guide](docs/shopfloor/install.md)
+- [Install guide](docs/shopfloor/install.md) (GitHub Action)
+- [Host on Vercel](docs/shopfloor/self-host-vercel.md) (self-hosted control plane)
 - [Configuration reference](docs/shopfloor/configuration.md)
 - [Architecture overview](docs/shopfloor/architecture.md)
 - [Troubleshooting](docs/shopfloor/troubleshooting.md)

@@ -6,3 +6,10 @@ coverage
 *.tsbuildinfo
 
 .env
+.env.local
+.env*.local
+
+# Next.js control plane
+apps/control-plane/.next
+apps/control-plane/out
+.vercel

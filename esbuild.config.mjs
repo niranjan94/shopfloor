@@ -1,8 +1,6 @@
 import { build } from "esbuild";
 
-await build({
-  entryPoints: ["src/entry.ts"],
-  outfile: "dist/index.cjs",
+const shared = {
   bundle: true,
   platform: "node",
   target: "node24",
@@ -26,4 +24,20 @@ await build({
   define: {
     "import.meta.url": "__SHOPFLOOR_BUNDLE_URL__",
   },
+};
+
+await build({
+  ...shared,
+  entryPoints: ["src/entry.ts"],
+  outfile: "dist/index.cjs",
+});
+
+// Standalone worker for E2B / long-running hosts (SHOPFLOOR_JOB_PATH).
+await build({
+  ...shared,
+  entryPoints: ["src/runtime/worker-entry.ts"],
+  outfile: "dist/worker.cjs",
+  // Optional sandbox SDKs stay external so the Action bundle path is unaffected
+  // and the worker image can provide them when needed.
+  external: ["e2b", "@neondatabase/serverless", "inngest"],
 });
