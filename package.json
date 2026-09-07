@@ -14,7 +14,9 @@
     "smoke": "tsx scripts/smoke/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",
-    "format": "biome check --write --unsafe"
+    "format": "biome check --write --unsafe",
+    "control-plane:dev": "pnpm --filter @shopfloor/control-plane dev",
+    "control-plane:build": "pnpm --filter @shopfloor/control-plane build"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
@@ -36,6 +38,9 @@
     "prettier": "^3.3.3",
     "tsx": "^4.22.1",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.5"
+    "vitest": "^2.1.5",
+    "@neondatabase/serverless": "^1.0.0",
+    "e2b": "^1.2.0",
+    "inngest": "^3.40.0"
   }
 }
