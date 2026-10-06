@@ -14,7 +14,11 @@
     "smoke": "tsx scripts/smoke/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",
-    "format": "biome check --write --unsafe"
+    "format": "biome check --write --unsafe",
+    "control-plane:dev": "pnpm --filter @shopfloor/control-plane dev",
+    "control-plane:build": "pnpm --filter @shopfloor/control-plane build",
+    "worker": "node dist/queue-worker.cjs",
+    "db:migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
@@ -24,14 +28,18 @@
     "@octokit/rest": "^21.0.2",
     "@openai/codex": "^0.139.0",
     "@openai/codex-sdk": "^0.139.0",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.37.0",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.23.1",
     "chalk": "^5.6.2",
     "dotenv": "^17.4.2",
+    "e2b": "^1.2.0",
     "esbuild": "^0.24.0",
     "prettier": "^3.3.3",
     "tsx": "^4.22.1",

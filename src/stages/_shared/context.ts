@@ -57,6 +57,8 @@ export interface StageContext {
   // counter, no Shopfloor label flips, no PR body mutation. Every push gets a
   // fresh review.
   reviewOnly?: boolean;
+  historicalFindings?: import("../../runtime/review-memory.js").HistoricalFinding[];
+  onReviewFindings?: (commit: string, outcomes: import("../review/runner.js").LensOutcome[], modelVersion: string) => void;
   // Side-effecting git helpers used by the implement stage. Optional so unit
   // tests that construct StageContext directly need not stub them. When unset
   // in production code, the implement stage emits a loud warning and skips

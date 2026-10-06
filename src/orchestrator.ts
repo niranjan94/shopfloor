@@ -41,6 +41,8 @@ export interface OrchestratorArgs {
   // dogfood-review.yml) to add agent review on human-authored PRs that
   // carry no Shopfloor metadata. No-op for non-pull_request events.
   reviewOnly?: boolean;
+  historicalFindings?: StageContext["historicalFindings"];
+  onReviewFindings?: StageContext["onReviewFindings"];
   // Git helpers seeded with the resolved AuthSpec by entry.ts. Plumbed into
   // StageContext so the implement runner can configure the working tree and
   // push the agent's commits. Optional for unit/e2e tests that drive the
@@ -188,6 +190,8 @@ export async function runOrchestrator(
   if (issue !== null) ctx.issue = issue;
   if (pr !== null) ctx.pr = pr;
   if (args.reviewOnly === true) ctx.reviewOnly = true;
+  if (args.historicalFindings) ctx.historicalFindings = args.historicalFindings;
+  if (args.onReviewFindings) ctx.onReviewFindings = args.onReviewFindings;
   if (args.gitOps !== undefined) ctx.gitOps = args.gitOps;
 
   // In execute mode, the resolve->execute gap can be 30-60s, long enough for

@@ -31,6 +31,8 @@ Shopfloor is deliberately boring where it counts: a pure TypeScript state machin
 | `action.yml`            | The GitHub Action manifest                                              |
 | `examples/`             | Sample caller workflow (`examples/shopfloor.yml`)                       |
 | `src/`                  | Action source: state machine, orchestrator, stages, adapters, agent SDK |
+| `src/runtime/`          | Portable self-host runtime (webhook route, execute, job/store APIs)     |
+| `apps/control-plane/`   | Persistent Next.js web service (webhook + runs API)                     |
 | `src/stages/*/prompt.*` | Stage prompt templates (inlined into the bundle at build time)          |
 | `dist/index.cjs`        | Committed action bundle (reproducible from `src/` via `pnpm build`)     |
 | `docs/shopfloor/`       | Install, configuration, architecture, troubleshooting, FAQ              |
@@ -53,6 +55,12 @@ Two more precautions before production use:
 - **Pin to a verified commit SHA, not a moving tag.** The `@v2` tag in the snippet below is convenient for evaluation but a supply-chain risk in production. Replace it with a 40-character SHA you have inspected, and let Dependabot or Renovate propose bumps you review like any other dependency.
 
 If you are not willing to do any of the above, Shopfloor is probably not a good fit for your threat model. Use it on scratch repositories first.
+
+## Docker self-hosting
+
+Alternatively, run the persistent web service and private worker with Docker Compose and Postgres-backed pg-boss jobs. Optional pgvector review memory supplies bounded historical context without changing verdict logic. Production repository execution remains isolated in E2B; the GitHub Action is unchanged.
+
+See [Docker self-hosting](docs/shopfloor/self-host-docker.md) for setup, migrations, secret separation, and operational limitations.
 
 ## Install
 
@@ -231,7 +239,8 @@ Shopfloor manages a set of `shopfloor:*` labels on your issues and PRs. These ar
 
 ## Documentation
 
-- [Install guide](docs/shopfloor/install.md)
+- [Install guide](docs/shopfloor/install.md) (GitHub Action)
+- [Host on Vercel](docs/shopfloor/self-host-vercel.md) (self-hosted control plane)
 - [Configuration reference](docs/shopfloor/configuration.md)
 - [Architecture overview](docs/shopfloor/architecture.md)
 - [Troubleshooting](docs/shopfloor/troubleshooting.md)

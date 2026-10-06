@@ -13,5 +13,11 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*", "test/**/*", "scripts/**/*", "esbuild.config.mjs"]
+"include": [
+    "src/**/*",
+    "test/**/*",
+    "scripts/**/*",
+    "esbuild.config.mjs"
+  ],
+  "exclude": ["apps/**", "node_modules", "dist"]
 }
