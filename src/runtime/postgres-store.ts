@@ -315,8 +315,9 @@ export async function createPostgresRuntimeStoreFromUrl(
   databaseUrl: string,
   opts?: { autoMigrate?: boolean },
 ): Promise<PostgresRuntimeStore> {
-  const mod = await import("@neondatabase/serverless");
-  const sql = mod.neon(databaseUrl) as unknown as SqlQuery;
+  const { Pool } = await import("pg");
+  const { sqlFor } = await import("./postgres-queue.js");
+  const sql = sqlFor(new Pool({ connectionString: databaseUrl }));
   return new PostgresRuntimeStore({
     sql,
     ...(opts?.autoMigrate !== undefined ? { autoMigrate: opts.autoMigrate } : {}),

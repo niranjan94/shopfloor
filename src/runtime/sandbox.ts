@@ -4,10 +4,12 @@ import { runStageJob, stageTimeoutMs } from "./run-stage-job.js";
 import type { RuntimeStore } from "./store.js";
 
 export interface E2BSandboxResult {
-  mode: "e2b" | "local_fallback";
+  mode: "e2b" | "local";
   sandboxId?: string;
   result: OrchestratorResult;
   logs?: string;
+  audits?: import("../audit/events.js").AuditEvent[];
+  review?: { commit: string; outcomes: import("../stages/review/runner.js").LensOutcome[]; modelVersion: string };
 }
 
 export interface RunStageInSandboxOpts {
@@ -23,6 +25,8 @@ export interface RunStageInSandboxOpts {
   /** Inject E2B client factory (tests). */
   createSandbox?: (apiKey: string) => Promise<E2BSandboxHandle>;
   executeLocal?: typeof runStageJob;
+  auditSink?: import("../audit/events.js").AuditEmitter;
+  onReviewFindings?: import("../stages/_shared/context.js").StageContext["onReviewFindings"];
 }
 
 /** Subset of the E2B Sandbox surface we use. */
@@ -40,48 +44,33 @@ export interface E2BSandboxHandle {
   kill: () => Promise<void>;
 }
 
-/**
- * Run a stage job in an E2B sandbox when E2B_API_KEY is set.
- *
- * Strategy:
- * 1. Create a Node-capable sandbox
- * 2. Write job payload + a small runner that POSTs back is not required —
- *    the control plane awaits the sandbox command
- * 3. Install/run uses local fallback when the full Shopfloor bundle is not
- *    provisioned inside the sandbox template
- *
- * For production implement (60m), prefer a custom E2B template that already
- * contains the Shopfloor worker bundle (`dist/worker.cjs`). When the template
- * env `SHOPFLOOR_E2B_TEMPLATE` is unset, we fall back to **local**
- * `runStageJob` so routing still works in dev; operators should set the
- * template + worker image for isolated production execute.
- *
- * If `SHOPFLOOR_E2B_LOCAL_BRIDGE=true`, run local execute even with an API key
- * (useful when dogfooding Inngest on a long-running worker host).
- */
+/** E2B execution is required by default; local execution is explicit and development-only. */
 export async function runStageInSandbox(
   opts: RunStageInSandboxOpts,
 ): Promise<E2BSandboxResult> {
   const env = opts.env ?? process.env;
   const key = opts.e2bApiKey ?? env.E2B_API_KEY ?? null;
-  const localBridge =
-    opts.forceLocal === true ||
-    (env.SHOPFLOOR_E2B_LOCAL_BRIDGE ?? "").toLowerCase() === "true";
+  const localBridge = opts.forceLocal === true || env.SHOPFLOOR_EXECUTION_MODE === "local";
+  if (localBridge && env.NODE_ENV === "production") throw new Error("Local execution is development-only");
+  if (!localBridge && !key) throw new Error("E2B_API_KEY is required; enable local execution explicitly for development");
   const executeLocal = opts.executeLocal ?? runStageJob;
 
-  if (!key || localBridge) {
+  if (localBridge) {
     const result = await executeLocal(opts.job, {
       ...(opts.store ? { store: opts.store } : {}),
       env,
+      ...(opts.auditSink ? { auditSink: opts.auditSink } : {}),
+      ...(opts.onReviewFindings ? { onReviewFindings: opts.onReviewFindings } : {}),
     });
-    return { mode: "local_fallback", result };
+    return { mode: "local", result };
   }
 
-  const template = env.SHOPFLOOR_E2B_TEMPLATE ?? "base";
+  const template = env.SHOPFLOOR_E2B_TEMPLATE;
+  if (!template && !opts.createSandbox) throw new Error("SHOPFLOOR_E2B_TEMPLATE is required");
   const timeoutMs = stageTimeoutMs(opts.job.stage);
   const sandbox = opts.createSandbox
-    ? await opts.createSandbox(key)
-    : await createDefaultE2BSandbox(key, template);
+    ? await opts.createSandbox(key!)
+    : await createDefaultE2BSandbox(key!, template!);
 
   try {
     // Prefer an in-sandbox worker entry when the template ships Shopfloor.
@@ -109,7 +98,9 @@ export async function runStageInSandbox(
         );
       }
       const parsed = parseWorkerResult(run.stdout);
+      const transport = parseWorkerTransport(run.stdout);
       return {
+        ...transport,
         mode: "e2b",
         sandboxId: sandbox.sandboxId,
         result: parsed,
@@ -117,25 +108,7 @@ export async function runStageInSandbox(
       };
     }
 
-    // No worker bundle in template — fall back to local execute so the job
-    // still completes. Log clearly for operators.
-    console.warn(
-      JSON.stringify({
-        type: "e2b_worker_missing",
-        sandboxId: sandbox.sandboxId,
-        workerPath,
-        hint: "Set SHOPFLOOR_E2B_TEMPLATE to a template that includes dist/worker.cjs, or SHOPFLOOR_E2B_LOCAL_BRIDGE=true",
-      }),
-    );
-    const result = await executeLocal(opts.job, {
-      ...(opts.store ? { store: opts.store } : {}),
-      env,
-    });
-    return {
-      mode: "local_fallback",
-      sandboxId: sandbox.sandboxId,
-      result,
-    };
+    throw new Error("E2B template is missing the Shopfloor worker bundle");
   } finally {
     await sandbox.kill().catch(() => undefined);
   }
@@ -157,7 +130,6 @@ function pickWorkerEnv(env: NodeJS.ProcessEnv): Record<string, string> {
     "SHOPFLOOR_TRIGGER_LABEL",
     "SHOPFLOOR_MAX_REVIEW_ITERATIONS",
     "SSH_SIGNING_KEY",
-    "DATABASE_URL",
   ];
   const out: Record<string, string> = {};
   for (const k of keys) {
@@ -188,7 +160,7 @@ function parseWorkerResult(stdout: string): OrchestratorResult {
       const obj = JSON.parse(line) as Partial<OrchestratorResult> & {
         type?: string;
       };
-if (obj.type === "shopfloor_worker_result" || obj.stage !== undefined) {
+      if (obj.type === "shopfloor_worker_result" && typeof obj.executed === "boolean" && ["none", "triage", "spec", "plan", "implement", "review"].includes(String(obj.stage))) {
         return {
           stage: (obj.stage ?? "none") as OrchestratorResult["stage"],
           executed: Boolean(obj.executed),
@@ -198,8 +170,14 @@ if (obj.type === "shopfloor_worker_result" || obj.stage !== undefined) {
       // continue
     }
   }
-// Worker finished without a parseable result line — treat as executed unknown success.
-  return { stage: "none", executed: true };
+  throw new Error("E2B worker returned no valid result");
+}
+
+function parseWorkerTransport(stdout: string): Pick<E2BSandboxResult, "audits" | "review"> {
+  const line = stdout.split("\n").reverse().find((line) => line.startsWith('{"type":"shopfloor_worker_result"'));
+  if (!line || line.length > 2_000_000) return {};
+  const result = JSON.parse(line) as Pick<E2BSandboxResult, "audits" | "review">;
+  return result;
 }
 
 async function createDefaultE2BSandbox(

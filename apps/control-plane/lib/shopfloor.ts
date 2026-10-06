@@ -4,10 +4,8 @@
  */
 export type { Config } from "../../../src/config/inputs";
 export {
-  createExecuteStageFunction,
   createPostgresRuntimeStoreFromUrl,
   executeStage,
-  InngestJobQueue,
   parseConfigFromEnv,
   parseRouteConfigFromEnv,
   routeGitHubWebhook,

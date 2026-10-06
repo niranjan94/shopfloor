@@ -7,6 +7,8 @@ const shopfloorSrc = path.join(monorepoRoot, "src");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
+  serverExternalPackages: ["pg", "pg-boss"],
   experimental: {
     externalDir: true,
   },

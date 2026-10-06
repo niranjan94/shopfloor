@@ -20,12 +20,9 @@ export default async function HomePage() {
     >
       <h1 style={{ fontSize: 28, marginBottom: 8 }}>Shopfloor control plane</h1>
       <p style={{ color: "#444", marginTop: 0 }}>
-        Vercel-hosted webhook router for the Shopfloor delivery pipeline. Point
+        Persistent webhook router for the Shopfloor delivery pipeline. Point
         your GitHub App webhook here; stage execution runs via{" "}
         <strong>{queueBackend}</strong> queue
-        {queueBackend === "logging"
-          ? " (attach Inngest, worker URL, or inline execute)"
-          : ""}
         .
       </p>
       <ul>
@@ -37,12 +34,6 @@ export default async function HomePage() {
         </li>
         <li>
           <code>GET /api/runs</code> — recent routed runs
-        </li>
-        <li>
-          <code>POST /api/worker/execute</code> — HTTP stage worker
-        </li>
-        <li>
-          <code>/api/inngest</code> — Inngest serve endpoint
         </li>
       </ul>
 
@@ -95,7 +86,7 @@ export default async function HomePage() {
       )}
 
       <p style={{ color: "#666", fontSize: 14, marginTop: 24 }}>
-        See <code>docs/shopfloor/self-host-vercel.md</code> for setup.
+        See <code>docs/shopfloor/self-host-docker.md</code> for setup.
       </p>
     </main>
   );

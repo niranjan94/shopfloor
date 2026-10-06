@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  InngestJobQueue,
+  PostgresJobQueue,
+  serializationKey,
   MemoryRuntimeStore,
   PostgresRuntimeStore,
   stageTimeoutMs,
@@ -170,25 +171,18 @@ describe("PostgresRuntimeStore (fake sql)", () => {
   });
 });
 
-describe("InngestJobQueue", () => {
-  it("sends shopfloor/execute-stage events", async () => {
-    const sent: unknown[] = [];
-    const queue = new InngestJobQueue({
-      send: async (payload) => {
-        sent.push(payload);
-        return {};
-      },
-    });
-    const job = sampleJob("triage", {
-      decision: { stage: "triage", issueNumber: 1 },
-    });
-    const { jobId } = await queue.enqueueStage(job);
-    expect(jobId).toContain(job.runId);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({
-      name: "shopfloor/execute-stage",
-      data: job,
-    });
+describe("PostgresJobQueue", () => {
+  it("enqueues with repository-scoped serialization and bounded retry budgets", async () => {
+    const send = vi.fn(async () => "job-id");
+    const queue = new PostgresJobQueue({ send } as unknown as ConstructorParameters<typeof PostgresJobQueue>[0]);
+    const job = sampleJob("triage", { decision: { stage: "triage", issueNumber: 1 }, reviewOnly: true });
+    expect(await queue.enqueueStage(job)).toEqual({ jobId: "job-id" });
+    expect(send).toHaveBeenCalledWith("shopfloor-stage", job, expect.objectContaining({ singletonKey: "o/r/issue:1", retryLimit: 2, heartbeatSeconds: 60 }));
+    expect(serializationKey({ ...job, repo: "other" })).not.toBe(serializationKey(job));
+  });
+  it("rejects failed enqueue rather than reporting success", async () => {
+    const queue = new PostgresJobQueue({ send: async () => null } as unknown as ConstructorParameters<typeof PostgresJobQueue>[0]);
+    await expect(queue.enqueueStage(sampleJob("triage"))).rejects.toThrow("Durable enqueue");
   });
 });
 
@@ -220,7 +214,7 @@ await runStageJob(job, {
 });
 
 describe("runStageInSandbox", () => {
-  it("falls back to local when no E2B key", async () => {
+  it("allows explicit local development execution", async () => {
     const executeLocal = vi.fn(async () => ({
       stage: "spec" as const,
       executed: true,
@@ -229,9 +223,10 @@ describe("runStageInSandbox", () => {
       job: sampleJob("spec", { workspaceCwd: "/tmp" }),
       env: {},
       e2bApiKey: null,
+      forceLocal: true,
       executeLocal,
     });
-    expect(result.mode).toBe("local_fallback");
+    expect(result.mode).toBe("local");
     expect(executeLocal).toHaveBeenCalledOnce();
   });
 

@@ -55,12 +55,7 @@ const ENV_TO_INPUT: Array<{ env: string; input: string }> = [
 export interface ControlPlaneEnv {
   webhookSecret: string;
   databaseUrl: string | null;
-  redisUrl: string | null;
-  inngestEventKey: string | null;
-  inngestSigningKey: string | null;
   e2bApiKey: string | null;
-  /** When true, execute stages inline (dev only — not for production implement). */
-  inlineExecute: boolean;
   publicBaseUrl: string | null;
 }
 
@@ -77,21 +72,8 @@ export function readControlPlaneEnv(
   return {
     webhookSecret,
     databaseUrl: env.DATABASE_URL ?? null,
-    redisUrl: env.UPSTASH_REDIS_REST_URL
-      ? env.UPSTASH_REDIS_REST_URL
-      : (env.REDIS_URL ?? null),
-    inngestEventKey: env.INNGEST_EVENT_KEY ?? null,
-    inngestSigningKey: env.INNGEST_SIGNING_KEY ?? null,
     e2bApiKey: env.E2B_API_KEY ?? null,
-    inlineExecute:
-      (env.SHOPFLOOR_INLINE_EXECUTE ?? "").toLowerCase() === "true",
-    publicBaseUrl: (() => {
-      if (env.SHOPFLOOR_PUBLIC_BASE_URL) return env.SHOPFLOOR_PUBLIC_BASE_URL;
-      if (!env.VERCEL_URL) return null;
-      return env.VERCEL_URL.startsWith("http")
-        ? env.VERCEL_URL
-        : `https://${env.VERCEL_URL}`;
-    })(),
+    publicBaseUrl: env.SHOPFLOOR_PUBLIC_BASE_URL ?? null,
   };
 }
 

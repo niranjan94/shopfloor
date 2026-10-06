@@ -38,11 +38,18 @@ export async function cloneGitWorkspace(
     if (depth > 0) {
       cloneArgs.push(`--depth=${depth}`);
     }
-    if (opts.ref) {
+    if (opts.ref && !opts.ref.startsWith("pull/")) {
       cloneArgs.push("--branch", opts.ref);
     }
     cloneArgs.push(url, cwd);
     await runGit(parent, cloneArgs);
+    if (opts.ref?.startsWith("pull/")) {
+      if (!/^pull\/\d+\/head$/.test(opts.ref)) throw new Error("Invalid pull request ref");
+      await runGit(cwd, ["fetch", "--depth=1", "origin", opts.ref]);
+      await runGit(cwd, ["checkout", "--detach", "FETCH_HEAD"]);
+    }
+    // Do not leave the installation token in the repository config.
+    await runGit(cwd, ["remote", "set-url", "origin", `https://github.com/${opts.owner}/${opts.repo}.git`]);
   } catch (err) {
     await rm(cwd, { recursive: true, force: true }).catch(() => undefined);
     throw err;

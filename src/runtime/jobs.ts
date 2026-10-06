@@ -9,6 +9,8 @@ export interface StageJobPayload {
   stage: Exclude<RouterDecision["stage"], "none">;
   event: EventEnvelope;
   decision: RouterDecision;
+  reviewOnly?: boolean;
+  historicalFindings?: import("./review-memory.js").HistoricalFinding[];
   /** Workspace working directory for local/inline execute. */
   workspaceCwd?: string;
 }

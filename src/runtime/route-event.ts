@@ -1,4 +1,5 @@
-import { type AuditEmitter, createAuditEmitter } from "../audit/events.js";
+import type { AuditEvent } from "../audit/events.js";
+import type { RouteTransaction } from "./postgres-queue.js";
 import type { Config } from "../config/inputs.js";
 import { resolveReviewOnly, resolveStage } from "../state/machine.js";
 import type {
@@ -22,6 +23,7 @@ export interface RouteEventInput {
   config: Config;
   store: RuntimeStore;
   queue: JobQueue;
+  transaction?: RouteTransaction;
   /** When true, pull_request events use resolveReviewOnly. */
   reviewOnly?: boolean;
   shopfloorBotLogin?: string;
@@ -116,6 +118,11 @@ export async function routeGitHubWebhook(
     (headers.installationId ? Number(headers.installationId) : undefined);
   const receivedAt = (input.now ?? (() => new Date()))().toISOString();
 
+  if (input.transaction) {
+    const { transaction, ...rest } = input;
+    return transaction((store, queue) => routeGitHubWebhook({ ...rest, store, queue }));
+  }
+
   const claimed = await input.store.claimDelivery({
     deliveryId: headers.deliveryId,
     eventName: headers.eventName,
@@ -182,20 +189,7 @@ export async function routeGitHubWebhook(
   });
 
   const runId = `run_${headers.deliveryId}`;
-  const audit: AuditEmitter = createAuditEmitter({
-    runId,
-    sink: (line) => {
-      // Best-effort structured log; store mirror below.
-      console.info(line);
-    },
-  });
-
-  const storeAudit: AuditEmitter = (event) => {
-    audit(event);
-    void input.store.appendAudit(runId, event);
-  };
-
-  storeAudit({
+  const routingAudit: AuditEvent = {
     type: "stage_resolved",
     stage: decision.stage,
     reason: decision.reason ?? "",
@@ -203,7 +197,8 @@ export async function routeGitHubWebhook(
       ? { issueNumber: decision.issueNumber }
       : {}),
     eventName: headers.eventName,
-  });
+  };
+  await input.store.appendAudit(runId, routingAudit);
 
   // advanceOnMerge requires GitHub mutations; enqueue a special execute job
   // with stage still "none" is wrong. Surface as a dedicated run for workers
@@ -275,6 +270,7 @@ export async function routeGitHubWebhook(
       // advanceOnMerge is handled inside runOrchestrator when stage resolves none.
       // Job stage is the merged stage for pool routing (cheap label flip).
       stage: decision.advanceOnMerge.mergedStage,
+      reviewOnly: input.reviewOnly === true,
       event: envelope,
       decision,
     });
@@ -285,6 +281,7 @@ export async function routeGitHubWebhook(
       owner: repo.owner,
       repo: repo.name,
       stage: decision.stage,
+      reviewOnly: input.reviewOnly === true,
       event: envelope,
       decision,
     });

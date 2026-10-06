@@ -310,6 +310,7 @@ export const RUNNERS: Record<Stage, StageHandler> = {
         labelTarget = ctx.issue.number;
       }
       await applyReview(ctx, { outcome: aggregate, labelTarget });
+      ctx.onReviewFindings?.(ctx.pr.headSha, outcomes, JSON.stringify({ provider: ctx.config.agentProvider, models: ctx.config.reviewModels }));
     },
   },
 };

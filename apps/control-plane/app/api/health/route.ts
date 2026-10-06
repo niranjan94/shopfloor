@@ -1,30 +1,14 @@
-import { getQueueBackend } from "../../../lib/runtime";
-
+import { getRuntime } from "../../../lib/runtime";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
 export async function GET(): Promise<Response> {
-  return Response.json({
-    ok: true,
-    service: "shopfloor-control-plane",
-    version: "0.2.0",
-    time: new Date().toISOString(),
-    runtime: "vercel",
-    checks: {
-      webhookSecret: Boolean(
-        process.env.GITHUB_WEBHOOK_SECRET ??
-          process.env.SHOPFLOOR_WEBHOOK_SECRET,
-      ),
-      githubApp: Boolean(
-        process.env.GITHUB_APP_CLIENT_ID && process.env.GITHUB_APP_PRIVATE_KEY,
-      ),
-      databaseUrl: Boolean(process.env.DATABASE_URL),
-      inngest: Boolean(process.env.INNGEST_EVENT_KEY),
-      e2b: Boolean(process.env.E2B_API_KEY),
-      workerUrl: Boolean(process.env.SHOPFLOOR_WORKER_URL),
-      inlineExecute:
-        (process.env.SHOPFLOOR_INLINE_EXECUTE ?? "").toLowerCase() === "true",
-      queueBackend: getQueueBackend(),
-    },
-  });
+  try {
+    const runtime = await getRuntime();
+    await runtime.pool.query("SELECT id FROM shopfloor_runs LIMIT 0");
+    const queue = await runtime.boss.getQueue("shopfloor-stage");
+    const ready = Boolean(queue && (process.env.GITHUB_WEBHOOK_SECRET || process.env.SHOPFLOOR_WEBHOOK_SECRET));
+    return Response.json({ ok: ready, service: "shopfloor-web", queue: "pg-boss" }, { status: ready ? 200 : 503 });
+  } catch {
+    return Response.json({ ok: false, error: "Durable runtime unavailable" }, { status: 503 });
+  }
 }

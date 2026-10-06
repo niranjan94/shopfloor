@@ -12,12 +12,7 @@ export {
   type RepoRef,
 } from "./event-envelope.js";
 export { type ExecuteStageArgs, executeStage } from "./execute.js";
-export {
-  createExecuteStageFunction,
-  InngestJobQueue,
-  type InngestEventSender,
-  SHOPFLOOR_EXECUTE_STAGE_EVENT,
-} from "./inngest-queue.js";
+export { openPostgresRuntime, PostgresJobQueue, serializationKey } from "./postgres-queue.js";
 export {
   HttpJobQueue,
   type JobQueue,

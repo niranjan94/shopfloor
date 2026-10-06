@@ -36,6 +36,8 @@ export interface ExecuteStageArgs {
   workspaceCwd?: string;
   store?: RuntimeStore;
   reviewOnly?: boolean;
+  historicalFindings?: import("./review-memory.js").HistoricalFinding[];
+  onReviewFindings?: import("../stages/_shared/context.js").StageContext["onReviewFindings"];
   /** Inject in tests. */
   octokitFactory?: (auth: AuthSpec) => OctokitLike;
   agentFactory?: () => AgentAdapter;
@@ -180,6 +182,8 @@ export async function executeStage(
       runId: args.runId,
       gitOps,
       ...(args.reviewOnly ? { reviewOnly: true } : {}),
+      ...(args.historicalFindings ? { historicalFindings: args.historicalFindings } : {}),
+      ...(args.onReviewFindings ? { onReviewFindings: args.onReviewFindings } : {}),
     });
 
     if (args.store) {

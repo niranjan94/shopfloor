@@ -39,5 +39,11 @@ await build({
   outfile: "dist/worker.cjs",
   // Optional sandbox SDKs stay external so the Action bundle path is unaffected
   // and the worker image can provide them when needed.
-  external: ["e2b", "@neondatabase/serverless", "inngest"],
+  external: ["e2b", "pg", "pg-boss"],
+});
+await build({
+  ...shared,
+  entryPoints: ["src/runtime/queue-worker.ts"],
+  outfile: "dist/queue-worker.cjs",
+  external: ["e2b", "pg", "pg-boss"],
 });

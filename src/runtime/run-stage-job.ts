@@ -11,6 +11,8 @@ import { withGitWorkspace } from "./workspace.js";
 
 export interface RunStageJobOptions {
   store?: RuntimeStore;
+  auditSink?: import("../audit/events.js").AuditEmitter;
+  onReviewFindings?: import("../stages/_shared/context.js").StageContext["onReviewFindings"];
   /** Override process.env for config + credentials. */
   env?: NodeJS.ProcessEnv;
   /**
@@ -45,6 +47,10 @@ export async function runStageJob(
       repo: job.repo,
       config,
       runId: job.runId,
+      reviewOnly: job.reviewOnly === true,
+      ...(job.historicalFindings ? { historicalFindings: job.historicalFindings } : {}),
+      ...(opts.auditSink ? { auditSink: opts.auditSink } : {}),
+      ...(opts.onReviewFindings ? { onReviewFindings: opts.onReviewFindings } : {}),
       ...(opts.store ? { store: opts.store } : {}),
       ...(job.workspaceCwd ? { workspaceCwd: job.workspaceCwd } : {}),
     });
@@ -61,7 +67,8 @@ export async function runStageJob(
       ...(opts.workspaceParentDir
         ? { parentDir: opts.workspaceParentDir }
         : {}),
-      // Implement revisions need branch history; use deeper clone.
+      // Review the PR head rather than the repository default branch.
+      ...(job.stage === "review" ? { ref: `pull/${(job.event.payload as unknown as { pull_request: { number: number } }).pull_request.number}/head` } : {}),
       depth: job.stage === "implement" ? 50 : 1,
     },
     async (cwd) =>
@@ -71,6 +78,10 @@ export async function runStageJob(
         repo: job.repo,
         config,
         runId: job.runId,
+        reviewOnly: job.reviewOnly === true,
+        ...(job.historicalFindings ? { historicalFindings: job.historicalFindings } : {}),
+        ...(opts.auditSink ? { auditSink: opts.auditSink } : {}),
+        ...(opts.onReviewFindings ? { onReviewFindings: opts.onReviewFindings } : {}),
         workspaceCwd: cwd,
         ...(opts.store ? { store: opts.store } : {}),
       }),

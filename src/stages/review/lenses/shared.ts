@@ -1,3 +1,4 @@
+import { historicalContext } from "../../../runtime/review-memory.js";
 import type { StageContext } from "../../_shared/context.js";
 import { renderTemplate } from "../../_shared/prompts.js";
 
@@ -30,5 +31,5 @@ export function renderLensUserPrompt(
     plan_file_contents: args.planFileContents,
     issue_body: args.issueBody,
     previous_review_comments_json: args.previousReviewCommentsJson,
-  });
+  }) + historicalContext(ctx.historicalFindings ?? []);
 }

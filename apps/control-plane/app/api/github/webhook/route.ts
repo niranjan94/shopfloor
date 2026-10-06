@@ -3,7 +3,7 @@ import {
   parseRouteConfigFromEnv,
   routeGitHubWebhook,
 } from "../../../../lib/shopfloor";
-import { getQueue, getStoreAsync } from "../../../../lib/runtime";
+import { getRuntime } from "../../../../lib/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,18 +33,23 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const store = await getStoreAsync();
+  try {
+  const runtime = await getRuntime();
   const result = await routeGitHubWebhook({
     rawBody,
     headers: request.headers,
     webhookSecret,
     config,
-    store,
-    queue: getQueue(),
+    store: runtime.store,
+    queue: runtime.queue,
+    transaction: runtime.transaction,
     reviewOnly: (process.env.SHOPFLOOR_REVIEW_ONLY ?? "") === "true",
   });
 
   return Response.json(result.body, { status: result.status });
+  } catch {
+    return Response.json({ error: "Durable enqueue unavailable; retry delivery" }, { status: 503 });
+  }
 }
 
 export async function GET(): Promise<Response> {
