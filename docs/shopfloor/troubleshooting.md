@@ -33,7 +33,7 @@ Common problems and how to unstick them.
 1. **Branch protection rules on the default branch may require signed commits, PR reviews, or specific status checks.** Shopfloor pushes to a new branch (never directly to `main`), so most rules do not apply to the push itself. But rules like "Require signed commits" apply to the new branch too.
 2. Turn on signed commits: add `SSH_SIGNING_KEY` as a secret, pass it via the `ssh_signing_key` input, and confirm the public half is registered as a signing key on the GitHub App's identity.
 3. Check the GitHub App's repository permissions. It needs **Contents: Read and write** to push branches.
-4. Check that `actions/checkout` in your caller workflow has `with: persist-credentials: false`. Without it, the GITHUB_TOKEN extraheader checkout writes into git config overrides the App token Shopfloor uses for pushes, and pushes 403.
+4. Check that `actions/checkout` in your caller workflow has `with: persist-credentials: false`. Shopfloor overrides the persisted GITHUB_TOKEN header for its own pushes, but leaving it in git config exposes that token to the agents.
 
 ## PRs cannot be opened
 

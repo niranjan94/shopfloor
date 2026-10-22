@@ -112,7 +112,7 @@ jobs:
 A few details:
 
 - **The caller workflow's `permissions:` block can stay read-only.** Every write goes through the App installation token Shopfloor mints in-process, not the workflow's `GITHUB_TOKEN`. Read-only top-level permissions reduce blast radius if anything in the workflow leaks.
-- **`persist-credentials: false`** on `actions/checkout` is important. Without it, checkout writes a GITHUB_TOKEN credential into git config that overrides the App token Shopfloor uses for pushes (and lacks write scope), so impl pushes 403.
+- **`persist-credentials: false`** on `actions/checkout` is important. Without it, checkout writes the workflow's GITHUB_TOKEN into `.git/config`, where the agents running in that checkout can read it. Shopfloor itself never writes its App token to git config; it passes the token only to its own fetch and push calls.
 - **No `actions/create-github-app-token` step is needed.** Shopfloor mints (and refreshes) the App installation token in-process via `@octokit/auth-app`, so implement stages longer than 60 minutes stay authenticated.
 
 Commit and push. GitHub will start running the workflow on every matching event.

@@ -135,6 +135,8 @@ Common overrides:
     github_app_private_key: ${{ secrets.SHOPFLOOR_GITHUB_APP_PRIVATE_KEY }}
 ```
 
+Agents only see issue and PR text written by trusted authors (`OWNER`, `MEMBER`, `COLLABORATOR` by default; see `trusted_author_associations`). Text from anyone else, including drive-by comments, is withheld from prompts. The Claude agent's shell commands run in Claude Code's sandbox when the runner supports it (`agent_sandbox`). See [Untrusted input](docs/shopfloor/configuration.md#untrusted-input) and [Agent isolation](docs/shopfloor/configuration.md#agent-isolation).
+
 ### Per-stage runners (advanced)
 
 By default Shopfloor runs as a single GitHub Actions job per event (`mode: auto`).
