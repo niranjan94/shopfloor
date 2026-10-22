@@ -1,15 +1,16 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   checkoutImplBranch,
   fetchReviewBase,
+  gitAuthEnv,
   prepareImplCheckout,
   prepareReviewBase,
   pushImplCommits,
-  setRemoteWithToken,
+  setCleanRemote,
   tokenResolverFor,
 } from "../../src/git/impl-checkout.js";
 import {
@@ -101,27 +102,77 @@ function seedPriorIterBranch(remoteDir: string, branch: string): string {
   }
 }
 
-describe("setRemoteWithToken", () => {
+function readGitConfig(workDir: string): string {
+  return readFileSync(join(workDir, ".git", "config"), "utf8");
+}
+
+describe("setCleanRemote", () => {
   let scratch: Scratch;
   beforeEach(() => {
     scratch = makeScratch();
   });
   afterEach(() => scratch.cleanup());
 
-  it("rewrites the remote URL with the x-access-token credential", async () => {
-    await setRemoteWithToken(
-      scratch.workDir,
+  it("replaces a token-bearing remote URL with a credential-free one", async () => {
+    gitSync(scratch.workDir, [
+      "remote",
+      "set-url",
       "origin",
-      "octo",
-      "demo",
-      "ghs_zzz",
-    );
+      "https://x-access-token:ghs_stale@github.com/octo/demo.git",
+    ]);
+    await setCleanRemote(scratch.workDir, "origin", "octo", "demo");
     const url = await git(scratch.workDir, [
       "config",
       "--get",
       "remote.origin.url",
     ]);
-    expect(url).toBe("https://x-access-token:ghs_zzz@github.com/octo/demo.git");
+    expect(url).toBe("https://github.com/octo/demo.git");
+    expect(readGitConfig(scratch.workDir)).not.toContain("ghs_stale");
+  });
+});
+
+describe("gitAuthEnv", () => {
+  it("supplies the token as a per-invocation extraheader that resets inherited headers", () => {
+    const env = gitAuthEnv("ghs_zzz");
+    const basic = Buffer.from("x-access-token:ghs_zzz").toString("base64");
+    expect(env).toEqual({
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_COUNT: "2",
+      GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
+      GIT_CONFIG_VALUE_0: "",
+      GIT_CONFIG_KEY_1: "http.https://github.com/.extraheader",
+      GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${basic}`,
+    });
+  });
+
+  it("resolves to only the supplied header even when the repo persisted one", () => {
+    const root = mkdtempSync(join(tmpdir(), "shopfloor-auth-env-"));
+    try {
+      gitSync(root, ["init", "-q"]);
+      gitSync(root, [
+        "config",
+        "http.https://github.com/.extraheader",
+        "AUTHORIZATION: basic persisted",
+      ]);
+      const r = spawnSync(
+        "git",
+        [
+          "config",
+          "--get-urlmatch",
+          "http.extraheader",
+          "https://github.com/octo/demo.git",
+        ],
+        {
+          cwd: root,
+          encoding: "utf8",
+          env: { ...process.env, ...gitAuthEnv("ghs_zzz") },
+        },
+      );
+      const basic = Buffer.from("x-access-token:ghs_zzz").toString("base64");
+      expect(r.stdout.trim()).toBe(`AUTHORIZATION: basic ${basic}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
@@ -197,7 +248,7 @@ describe("prepareImplCheckout", () => {
   });
   afterEach(() => scratch.cleanup());
 
-  it("rewrites the remote URL and creates the impl branch on a first run", async () => {
+  it("leaves a credential-free remote and creates the impl branch on a first run", async () => {
     await prepareImplCheckout({
       cwd: scratch.workDir,
       branchName: "shopfloor/impl/1-test",
@@ -212,7 +263,8 @@ describe("prepareImplCheckout", () => {
       "--get",
       "remote.origin.url",
     ]);
-    expect(url).toBe("https://x-access-token:ghs_zzz@github.com/octo/demo.git");
+    expect(url).toBe("https://github.com/octo/demo.git");
+    expect(readGitConfig(scratch.workDir)).not.toContain("ghs_zzz");
     const current = await git(scratch.workDir, [
       "rev-parse",
       "--abbrev-ref",
@@ -240,22 +292,16 @@ describe("pushImplCommits", () => {
     gitSync(scratch.workDir, ["add", "feat.txt"]);
     gitSync(scratch.workDir, ["commit", "-q", "-m", "feat: impl"]);
 
-    // Use a no-op URL rewrite that points at the bare repo path so the
-    // helper's push succeeds without a real GitHub host. We patch origin
-    // back to the bare path between setRemoteWithToken and push by passing
-    // a custom remote that already points at the bare path; this exercises
-    // the push half end-to-end.
+    // The helper resets the `bare` remote to the github.com URL, so its own
+    // push cannot reach a real host here. We rescue the rejection, re-point
+    // the remote at the bare path, and push manually so the test still
+    // asserts the branch is pushable.
     gitSync(scratch.workDir, ["remote", "add", "bare", scratch.remoteDir]);
     await pushImplCommits({
       cwd: scratch.workDir,
       branchName: "shopfloor/impl/1-test",
       owner: "octo",
       repo: "demo",
-      // The helper will overwrite the `bare` remote's URL with the https
-      // x-access-token one. We then re-point it before re-attempting the
-      // push manually below. For this test the helper's push will fail
-      // (no real host); we rescue the rejection, restore, and re-push so
-      // we can assert the bare repo received the branch.
       token: "ghs_zzz",
       remote: "bare",
     }).catch(async (err: Error) => {
@@ -304,6 +350,7 @@ describe("pushImplCommits", () => {
     }
     expect(captured).not.toBeNull();
     expect(captured?.message ?? "").not.toContain("ghs_supersecret");
+    expect(readGitConfig(scratch.workDir)).not.toContain("ghs_supersecret");
   });
 });
 
@@ -346,9 +393,9 @@ describe("prepareReviewBase", () => {
   });
   afterEach(() => scratch.cleanup());
 
-  it("rewrites the origin URL with the x-access-token credential before fetching", async () => {
-    // The fetch itself targets github.com once the URL is rewritten, so it
-    // fails locally; we only assert the credential rewrite happened.
+  it("keeps the token out of the origin URL and .git/config", async () => {
+    // The fetch itself targets github.com, so it fails locally; we only
+    // assert that no credential was written to the repository config.
     await prepareReviewBase({
       cwd: scratch.workDir,
       baseRef: "main",
@@ -361,7 +408,8 @@ describe("prepareReviewBase", () => {
       "--get",
       "remote.origin.url",
     ]);
-    expect(url).toBe("https://x-access-token:ghs_zzz@github.com/octo/demo.git");
+    expect(url).toBe("https://github.com/octo/demo.git");
+    expect(readGitConfig(scratch.workDir)).not.toContain("ghs_zzz");
   });
 });
 

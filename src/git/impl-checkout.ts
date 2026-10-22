@@ -28,21 +28,21 @@ export interface PushImplCommitsOpts {
 // HEAD that actions/checkout already provisioned. For revision runs we fetch
 // the prior iteration's branch from the remote and reset the working tree
 // onto it, so the agent sees the previous round's history before making new
-// commits. In every case we rewrite origin's URL to embed the App
-// installation token so the post-agent push can authenticate without
-// relying on a credential helper. actions/checkout in the consumer workflow
-// must run with `persist-credentials: false`; otherwise its GITHUB_TOKEN
-// http extraheader shadows the embedded x-access-token credential here.
+// commits. The remote URL is reset to a credential-free form first: the agent
+// runs in this checkout afterwards and must not find the installation token in
+// .git/config. Credentials are supplied per git invocation (gitAuthEnv) only
+// for the network operations Shopfloor itself performs.
 export async function prepareImplCheckout(
   opts: PrepareImplCheckoutOpts,
 ): Promise<void> {
   const remote = opts.remote ?? "origin";
-  await setRemoteWithToken(opts.cwd, remote, opts.owner, opts.repo, opts.token);
+  await setCleanRemote(opts.cwd, remote, opts.owner, opts.repo);
   await checkoutImplBranch({
     cwd: opts.cwd,
     branchName: opts.branchName,
     revisionMode: opts.revisionMode,
     remote,
+    env: gitAuthEnv(opts.token),
   });
 }
 
@@ -55,15 +55,20 @@ export async function prepareImplCheckout(
 // authenticated by the workflow's GITHUB_TOKEN would NOT trigger downstream
 // workflows; this is why the App credentials are strongly preferred.
 //
-// We always re-set the remote URL with a freshly resolved token in case the
-// pre-agent token has aged past its installation-token TTL during a long
-// run.
+// The caller passes a freshly resolved token in case the pre-agent token has
+// aged past its installation-token TTL during a long run. The remote URL is
+// reset to its credential-free form because the agent had write access to
+// .git/config and could have pointed the remote elsewhere.
 export async function pushImplCommits(
   opts: PushImplCommitsOpts,
 ): Promise<void> {
   const remote = opts.remote ?? "origin";
-  await setRemoteWithToken(opts.cwd, remote, opts.owner, opts.repo, opts.token);
-  await runGit(opts.cwd, ["push", remote, opts.branchName]);
+  await setCleanRemote(opts.cwd, remote, opts.owner, opts.repo);
+  await runGit(
+    opts.cwd,
+    ["push", remote, opts.branchName],
+    gitAuthEnv(opts.token),
+  );
 }
 
 // Returns a closure that yields a usable git token for the given auth
@@ -89,22 +94,41 @@ export function tokenResolverFor(
     });
 }
 
-// Rewrites `<remote>`'s URL to https://x-access-token:<token>@github.com/<owner>/<repo>.git.
-// Exported so tests can exercise URL formatting without exercising the full
-// prepare/push flow.
-export async function setRemoteWithToken(
+export function remoteUrlFor(owner: string, repo: string): string {
+  return `https://github.com/${owner}/${repo}.git`;
+}
+
+export async function setCleanRemote(
   cwd: string,
   remote: string,
   owner: string,
   repo: string,
-  token: string,
 ): Promise<void> {
-  const url = `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
-  // Mask the token in case it ends up in any error output. The token is also
-  // already masked by entry.ts via the App auth machinery; this is belt-and-
-  // braces for callers that wire helpers directly.
+  await runGit(cwd, ["remote", "set-url", remote, remoteUrlFor(owner, repo)]);
+}
+
+const GITHUB_EXTRAHEADER_KEY = "http.https://github.com/.extraheader";
+
+// Builds GIT_CONFIG_* environment variables that authenticate a single git
+// invocation against github.com. Passing config through the environment keeps
+// the token out of .git/config, out of the remote URL, and out of the process
+// argv. The first entry is an empty value, which resets any extraheader
+// inherited from repo config (for example a GITHUB_TOKEN persisted by
+// actions/checkout) so only the App token is sent.
+export function gitAuthEnv(token: string): Record<string, string> {
+  const basic = Buffer.from(`x-access-token:${token}`, "utf8").toString(
+    "base64",
+  );
   core.setSecret(token);
-  await runGit(cwd, ["remote", "set-url", remote, url]);
+  core.setSecret(basic);
+  return {
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_CONFIG_COUNT: "2",
+    GIT_CONFIG_KEY_0: GITHUB_EXTRAHEADER_KEY,
+    GIT_CONFIG_VALUE_0: "",
+    GIT_CONFIG_KEY_1: GITHUB_EXTRAHEADER_KEY,
+    GIT_CONFIG_VALUE_1: `AUTHORIZATION: basic ${basic}`,
+  };
 }
 
 export interface FetchReviewBaseOpts {
@@ -112,6 +136,8 @@ export interface FetchReviewBaseOpts {
   baseRef: string;
   /** Override the remote name. Defaults to "origin". */
   remote?: string;
+  /** Extra environment for the fetch, typically gitAuthEnv(token). */
+  env?: Record<string, string>;
 }
 
 export interface PrepareReviewBaseOpts extends FetchReviewBaseOpts {
@@ -131,25 +157,33 @@ export async function fetchReviewBase(
   opts: FetchReviewBaseOpts,
 ): Promise<void> {
   const remote = opts.remote ?? "origin";
-  await runGit(opts.cwd, [
-    "fetch",
-    "--no-tags",
-    "--depth=1",
-    remote,
-    `+refs/heads/${opts.baseRef}:refs/remotes/${remote}/${opts.baseRef}`,
-  ]);
+  await runGit(
+    opts.cwd,
+    [
+      "fetch",
+      "--no-tags",
+      "--depth=1",
+      remote,
+      `+refs/heads/${opts.baseRef}:refs/remotes/${remote}/${opts.baseRef}`,
+    ],
+    opts.env,
+  );
 }
 
-// Embeds the App installation token in the remote URL (the review checkout
-// runs with `persist-credentials: false`, so the agent has no usable git
-// credential) and then fetches the base ref. Mirrors prepareImplCheckout's
-// set-url-then-fetch shape.
+// The review checkout runs with `persist-credentials: false`, so the fetch is
+// authenticated per invocation with the App token. The remote URL stays
+// credential-free because the review lenses run in this checkout next.
 export async function prepareReviewBase(
   opts: PrepareReviewBaseOpts,
 ): Promise<void> {
   const remote = opts.remote ?? "origin";
-  await setRemoteWithToken(opts.cwd, remote, opts.owner, opts.repo, opts.token);
-  await fetchReviewBase({ cwd: opts.cwd, baseRef: opts.baseRef, remote });
+  await setCleanRemote(opts.cwd, remote, opts.owner, opts.repo);
+  await fetchReviewBase({
+    cwd: opts.cwd,
+    baseRef: opts.baseRef,
+    remote,
+    env: gitAuthEnv(opts.token),
+  });
 }
 
 export interface CheckoutImplBranchOpts {
@@ -157,17 +191,18 @@ export interface CheckoutImplBranchOpts {
   branchName: string;
   revisionMode: boolean;
   remote?: string;
+  /** Extra environment for the revision-mode fetch, typically gitAuthEnv(token). */
+  env?: Record<string, string>;
 }
 
-// The branch-creation half of prepareImplCheckout. Separated from the URL
-// rewriting so tests can drive it against a local file-system remote
-// without funneling through https://x-access-token URLs.
+// The branch-creation half of prepareImplCheckout. Separated from the remote
+// URL reset so tests can drive it against a local file-system remote.
 export async function checkoutImplBranch(
   opts: CheckoutImplBranchOpts,
 ): Promise<void> {
   const remote = opts.remote ?? "origin";
   if (opts.revisionMode) {
-    await runGit(opts.cwd, ["fetch", remote, opts.branchName]);
+    await runGit(opts.cwd, ["fetch", remote, opts.branchName], opts.env);
     await runGit(opts.cwd, ["checkout", "-B", opts.branchName, "FETCH_HEAD"]);
     return;
   }
@@ -178,11 +213,16 @@ export async function checkoutImplBranch(
   await runGit(opts.cwd, ["checkout", "-B", opts.branchName]);
 }
 
-function runGit(cwd: string, args: string[]): Promise<void> {
+function runGit(
+  cwd: string,
+  args: string[],
+  env?: Record<string, string>,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn("git", args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
+      ...(env ? { env: { ...process.env, ...env } } : {}),
     });
     let stderr = "";
     child.stderr.on("data", (d: Buffer) => {
