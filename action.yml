@@ -289,6 +289,19 @@ inputs:
       list your bots here when you use preminted tokens.
     required: false
     default: ""
+  agent_sandbox:
+    description: |
+      Isolation for the Claude agent's shell commands (agent_provider=claude).
+
+      - `auto` (default): on Linux, probe bubblewrap and socat (installing
+        them on GitHub-hosted runners), then enable Claude Code's sandbox and
+        subprocess credential scrubbing. Falls back with a warning when they
+        cannot be set up.
+      - `required`: as `auto`, but fail the run instead of falling back.
+      - `off`: no sandbox and no scrubbing. Agent shell commands can read the
+        action's environment, including credentials passed as inputs.
+    required: false
+    default: "auto"
 
 outputs:
   stage:

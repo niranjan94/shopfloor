@@ -7,6 +7,14 @@ vi.mock("../../src/setup/ensure-claude-cli.js", () => ({
   resetClaudeCliCache: vi.fn(),
 }));
 
+vi.mock("../../src/setup/ensure-agent-isolation.js", () => ({
+  ensureAgentIsolation: vi.fn(async () => ({
+    sandbox: false,
+    scrubSubprocessEnv: false,
+    failIfUnavailable: false,
+  })),
+}));
+
 vi.mock("@anthropic-ai/claude-agent-sdk", () => {
   const calls: any[] = [];
   return {
@@ -39,7 +47,11 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => {
 });
 
 import * as sdk from "@anthropic-ai/claude-agent-sdk";
-import { ClaudeAgentAdapter } from "../../src/agents/claude.js";
+import {
+  ClaudeAgentAdapter,
+  DEFAULT_AGENT_ALLOW,
+  DEFAULT_AGENT_DENY,
+} from "../../src/agents/claude.js";
 
 describe("ClaudeAgentAdapter", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -318,5 +330,106 @@ describe("ClaudeAgentAdapter", () => {
     expect((sdk as any).__lastOpts.options.pathToClaudeCodeExecutable).toBe(
       "/custom/claude",
     );
+  });
+
+  const sdkMock = sdk as unknown as {
+    query: ReturnType<typeof vi.fn>;
+    __lastOpts: { options: Record<string, unknown> };
+  };
+
+  function captureOpts() {
+    sdkMock.query.mockImplementation(
+      (opts: { options: Record<string, unknown> }) => {
+        sdkMock.__lastOpts = opts;
+        return (async function* () {
+          yield {
+            type: "result",
+            subtype: "success",
+            structured_output: { verdict: "ok" },
+          };
+        })();
+      },
+    );
+  }
+
+  it("enables the sandbox and subprocess env scrubbing when isolation is available", async () => {
+    captureOpts();
+    const agent = new ClaudeAgentAdapter(
+      { PATH: "/usr/bin", CLAUDE_CODE_OAUTH_TOKEN: "tok" },
+      async () => "/fake/claude",
+      async () => ({
+        sandbox: true,
+        scrubSubprocessEnv: true,
+        failIfUnavailable: true,
+      }),
+    );
+    await agent.runStage({
+      systemPrompt: "S",
+      userPrompt: "U",
+      tools: [],
+      decisionSchema: Decision,
+      model: "claude-haiku",
+    });
+    const options = sdkMock.__lastOpts.options;
+    expect(options.sandbox).toEqual({
+      enabled: true,
+      failIfUnavailable: true,
+      autoAllowBashIfSandboxed: false,
+      allowUnsandboxedCommands: false,
+    });
+    expect(options.env).toEqual({
+      PATH: "/usr/bin",
+      CLAUDE_CODE_OAUTH_TOKEN: "tok",
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1",
+    });
+  });
+
+  it("omits the sandbox and scrub flag when isolation is unavailable", async () => {
+    captureOpts();
+    const agent = new ClaudeAgentAdapter(
+      { PATH: "/usr/bin" },
+      async () => "/fake/claude",
+      async () => ({
+        sandbox: false,
+        scrubSubprocessEnv: false,
+        failIfUnavailable: false,
+      }),
+    );
+    await agent.runStage({
+      systemPrompt: "S",
+      userPrompt: "U",
+      tools: [],
+      decisionSchema: Decision,
+      model: "claude-haiku",
+    });
+    const options = sdkMock.__lastOpts.options;
+    expect(options.sandbox).toBeUndefined();
+    expect(options.env).toEqual({ PATH: "/usr/bin" });
+  });
+});
+
+describe("default agent permissions", () => {
+  it.each([
+    "cat",
+    "node",
+    "python",
+    "python3",
+    "deno",
+    "bun",
+    "bunx",
+    "tsx",
+    "npx",
+    "pnpx",
+    "uvx",
+    "xargs",
+    "awk",
+    "sed",
+    "find",
+  ])("does not pre-approve %s", (command) => {
+    expect(DEFAULT_AGENT_ALLOW).not.toContain(`Bash(${command}:*)`);
+  });
+
+  it("denies reading process environments through the Read tool", () => {
+    expect(DEFAULT_AGENT_DENY).toContain("Read(//proc/*/environ)");
   });
 });

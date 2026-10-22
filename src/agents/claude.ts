@@ -6,6 +6,10 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import {
+  type AgentIsolation,
+  ensureAgentIsolation,
+} from "../setup/ensure-agent-isolation.js";
 import { ensureClaudeCli } from "../setup/ensure-claude-cli.js";
 import type { AgentAdapter, RunStageArgs } from "./adapter.js";
 import { AgentError } from "./adapter.js";
@@ -28,6 +32,15 @@ const SUBTYPE_TO_KIND: Record<
 // (`ls`) or with subcommands (`git add`). Non-bash tool names are matched as
 // literals. These defaults run in every project regardless of whether the
 // project has its own .claude/settings.json. Project settings stack on top.
+//
+// Agents read attacker-influenced text (issues, PRs, repository files), so
+// general-purpose interpreters and commands that run arbitrary code or fetch
+// and run packages (node, python, deno, bun, tsx, npx, pnpx, bunx, uvx, xargs,
+// awk, sed, find, cat) are deliberately absent. They are not denied: the
+// permission mode's classifier still reviews each such call. Project
+// toolchains below can also execute repository code; the sandbox and
+// subprocess credential scrubbing (src/setup/ensure-agent-isolation.ts) are
+// the boundary for those, not this list.
 export const DEFAULT_AGENT_ALLOW: readonly string[] = [
   // Built-in file ops and search.
   "Read",
@@ -48,13 +61,11 @@ export const DEFAULT_AGENT_ALLOW: readonly string[] = [
   "Bash(git add:*)",
   "Bash(git commit:*)",
   "Bash(git rev-parse:*)",
-  // Standard read-only inspection.
+  // Read-only inspection. File contents are read with the Read tool.
   "Bash(ls:*)",
-  "Bash(cat:*)",
   "Bash(head:*)",
   "Bash(tail:*)",
   "Bash(grep:*)",
-  "Bash(find:*)",
   "Bash(wc:*)",
   "Bash(tree:*)",
   "Bash(file:*)",
@@ -66,44 +77,31 @@ export const DEFAULT_AGENT_ALLOW: readonly string[] = [
   "Bash(uniq:*)",
   "Bash(jq:*)",
   "Bash(yq:*)",
-  "Bash(xargs:*)",
   "Bash(diff:*)",
   "Bash(true:*)",
   "Bash(false:*)",
-  // File mutation. Claude Code's sandbox already restricts writes to the
-  // session's cwd, so these can't escape the checkout.
+  // File mutation inside the checkout.
   "Bash(mkdir:*)",
   "Bash(mv:*)",
   "Bash(cp:*)",
   "Bash(touch:*)",
-  "Bash(sed:*)",
-  "Bash(awk:*)",
   "Bash(rm:*)",
   "Bash(ln:*)",
   // JavaScript / TypeScript toolchains.
   "Bash(pnpm:*)",
-  "Bash(pnpx:*)",
   "Bash(npm:*)",
-  "Bash(npx:*)",
   "Bash(yarn:*)",
-  "Bash(bun:*)",
-  "Bash(bunx:*)",
-  "Bash(node:*)",
-  "Bash(deno:*)",
+  "Bash(bun test:*)",
   "Bash(tsc:*)",
-  "Bash(tsx:*)",
   "Bash(eslint:*)",
   "Bash(prettier:*)",
   "Bash(vitest:*)",
   "Bash(jest:*)",
   // Python toolchains.
-  "Bash(python:*)",
-  "Bash(python3:*)",
   "Bash(pip:*)",
   "Bash(pip3:*)",
   "Bash(poetry:*)",
   "Bash(uv:*)",
-  "Bash(uvx:*)",
   "Bash(ruff:*)",
   "Bash(black:*)",
   "Bash(mypy:*)",
@@ -158,6 +156,10 @@ export const DEFAULT_AGENT_DENY: readonly string[] = [
   "Bash(git worktree add:*)",
   "Bash(git worktree remove:*)",
   "Bash(git rebase:*)",
+  // Process environments hold the Claude credential (this CLI's own) and
+  // the App private keys (the action's INPUT_* variables). The Read tool is
+  // not covered by the sandbox, so it is denied these files explicitly.
+  "Read(//proc/*/environ)",
 ];
 
 export type ClaudeCliResolver = () => Promise<string>;
@@ -167,6 +169,9 @@ export class ClaudeAgentAdapter implements AgentAdapter {
   // Anthropic credential and any allowlisted host vars to SDK subprocesses
   // instead of relying on `process.env`. See src/config/agent-env.ts.
   //
+  // resolveIsolation decides, once per process, whether the sandbox and
+  // subprocess credential scrubbing can be enabled on this runner.
+  //
   // resolveCli is invoked lazily on the first runStage call. It locates (or
   // installs) the native Claude CLI binary because the SDK ships the binary
   // as platform-specific optional npm packages — those won't be present in
@@ -175,6 +180,8 @@ export class ClaudeAgentAdapter implements AgentAdapter {
   constructor(
     private readonly env?: Record<string, string>,
     private readonly resolveCli: ClaudeCliResolver = ensureClaudeCli,
+    private readonly resolveIsolation: () => Promise<AgentIsolation> = () =>
+      ensureAgentIsolation("auto"),
   ) {}
 
   async runStage<T>(args: RunStageArgs<T>): Promise<T> {
@@ -194,6 +201,13 @@ export class ClaudeAgentAdapter implements AgentAdapter {
 
     try {
       const pathToClaudeCodeExecutable = await this.resolveCli();
+      const isolation = await this.resolveIsolation();
+      const env = isolation.scrubSubprocessEnv
+        ? {
+            ...(this.env ?? definedEnv(process.env)),
+            CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1",
+          }
+        : this.env;
 
       const mcpServer = createSdkMcpServer({
         name: "shopfloor",
@@ -241,7 +255,17 @@ export class ClaudeAgentAdapter implements AgentAdapter {
             : {}),
           ...(args.maxTurns !== undefined ? { maxTurns: args.maxTurns } : {}),
           ...(args.effort !== undefined ? { effort: args.effort } : {}),
-          ...(this.env ? { env: this.env } : {}),
+          ...(isolation.sandbox
+            ? {
+                sandbox: {
+                  enabled: true,
+                  failIfUnavailable: isolation.failIfUnavailable,
+                  autoAllowBashIfSandboxed: false,
+                  allowUnsandboxedCommands: false,
+                },
+              }
+            : {}),
+          ...(env ? { env } : {}),
           abortController: controller,
         },
       });
@@ -297,6 +321,14 @@ export class ClaudeAgentAdapter implements AgentAdapter {
       if (timer) clearTimeout(timer);
     }
   }
+}
+
+function definedEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
 }
 
 function logAgentInput<T>(args: RunStageArgs<T>): void {

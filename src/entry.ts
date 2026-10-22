@@ -28,6 +28,8 @@ import {
 import { GitHubAdapter, type OctokitLike } from "./github/adapter.js";
 import { type AuthSpec, resolveAuth } from "./github/app-token.js";
 import { runOrchestrator } from "./orchestrator.js";
+import { ensureAgentIsolation } from "./setup/ensure-agent-isolation.js";
+import { ensureClaudeCli } from "./setup/ensure-claude-cli.js";
 import type { GitOps } from "./stages/_shared/context.js";
 import type { EventPayload } from "./state/types.js";
 
@@ -198,7 +200,11 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       ? deps.agentFactory()
       : config.agentProvider === "codex"
         ? new CodexAgentAdapter(buildCodexOptions(config))
-        : new ClaudeAgentAdapter(buildAgentEnvFromConfig(config));
+        : new ClaudeAgentAdapter(
+            buildAgentEnvFromConfig(config),
+            ensureClaudeCli,
+            () => ensureAgentIsolation(config.agentSandbox),
+          );
 
     const reviewOnly = rawInputs.review_only === "true";
 

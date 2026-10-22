@@ -136,12 +136,22 @@ The public half of the key must be registered as a signing key on the GitHub ide
 
 On a public repository anyone can comment on an issue, and an issue's author can keep editing its title and body after a maintainer applies the trigger label. Shopfloor therefore passes text to the agents only when its author is trusted. Untrusted issue titles and bodies, issue comments, PR descriptions, PR reviews and PR review comments are replaced in the prompt by a short notice naming the author.
 
-| Input                         | Default                       | Notes                                                                                                                                                                                                 |
-| ----------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trusted_author_associations` | `OWNER,MEMBER,COLLABORATOR`   | GitHub `author_association` values treated as trusted. Valid values: `OWNER`, `MEMBER`, `COLLABORATOR`, `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER`, `MANNEQUIN`, `NONE`.                  |
-| `trusted_bot_logins`          | `""`                          | Extra bot logins (e.g. `my-app[bot]`) treated as trusted. The bots behind Shopfloor's App credentials and `github-actions[bot]` are added automatically; list your bots here when using preminted tokens. |
+| Input                         | Default                     | Notes                                                                                                                                                                                                     |
+| ----------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trusted_author_associations` | `OWNER,MEMBER,COLLABORATOR` | GitHub `author_association` values treated as trusted. Valid values: `OWNER`, `MEMBER`, `COLLABORATOR`, `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER`, `MANNEQUIN`, `NONE`.                      |
+| `trusted_bot_logins`          | `""`                        | Extra bot logins (e.g. `my-app[bot]`) treated as trusted. The bots behind Shopfloor's App credentials and `github-actions[bot]` are added automatically; list your bots here when using preminted tokens. |
 
 When an outside contributor opens an issue you want Shopfloor to work on, restate the request in a comment as a maintainer; that comment reaches the agent, the original issue text does not. Widening the list (for example adding `CONTRIBUTOR`) re-exposes the agents to prompt injection from those authors.
+
+## Agent isolation
+
+| Input           | Default  | Notes                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent_sandbox` | `"auto"` | Claude provider only. `auto` enables Claude Code's sandbox and `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` when bubblewrap and socat work on the runner, and installs them (plus lifting Ubuntu 24.04's AppArmor user-namespace restriction) on GitHub-hosted runners. It falls back with a warning otherwise. `required` fails the run instead of falling back. `off` disables both. |
+
+With isolation enabled, the agent's shell commands run in a separate PID namespace without the Anthropic credential in their environment, filesystem writes are limited to the checkout and temp directory, and network access goes through Claude Code's filtering proxy. Without it, a prompt-injected command could read the action's environment through `/proc`, which holds every input (including App private keys). On self-hosted runners, install `bubblewrap` and `socat` yourself and use `agent_sandbox: required`.
+
+The installation token is never written to `.git/config`: Shopfloor passes it only to its own `git fetch` / `git push` calls. Keep `persist-credentials: false` on `actions/checkout` so the workflow's `GITHUB_TOKEN` is not left in `.git/config` either.
 
 ## Review-only workflow (for human-authored PRs)
 
