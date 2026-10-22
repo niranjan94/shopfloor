@@ -1,0 +1,17 @@
+<context>
+Repository: {{ repo_owner }}/{{ repo_name }}
+Issue: #{{ issue_number }} — {{ issue_title }}
+Branch checked out for you: {{ branch_name }}
+Progress comment id (informational; the MCP tool reads it from env): {{ progress_comment_id }}
+Bash allowlist for this run: {{ bash_allowlist }}
+
+<issue_body>
+{{ issue_body }}
+</issue_body>
+
+<issue_comments>
+{{ issue_comments }}
+</issue_comments>
+
+{{ revision_block }}
+</context>

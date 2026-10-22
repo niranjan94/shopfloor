@@ -1,0 +1,286 @@
+import { z } from "zod";
+
+const num = (min = 0) =>
+  z.string().transform((s, ctx) => {
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < min) {
+      ctx.addIssue({
+        code: "custom",
+        message: `expected number >= ${min}, got ${s}`,
+      });
+      return z.NEVER;
+    }
+    return n;
+  });
+
+const STAGE_NAMES = ["triage", "spec", "plan", "implement", "review"] as const;
+type StageName = (typeof STAGE_NAMES)[number];
+
+// Provider-aware default model ids. Action inputs left unset arrive as "" (the
+// action.yml model defaults are blank), so parseConfig substitutes the default
+// for the selected agent_provider. Claude keeps the cheaper triage tier; Codex
+// uses one model across every stage.
+type ModelKey = "triage" | "spec" | "plan" | "impl" | "review";
+const DEFAULT_MODELS: Record<"claude" | "codex", Record<ModelKey, string>> = {
+  claude: {
+    triage: "claude-sonnet-4-6",
+    spec: "claude-opus-4-8[1m]",
+    plan: "claude-opus-4-8[1m]",
+    impl: "claude-opus-4-8[1m]",
+    review: "claude-opus-4-8[1m]",
+  },
+  codex: {
+    triage: "gpt-5.5",
+    spec: "gpt-5.5",
+    plan: "gpt-5.5",
+    impl: "gpt-5.5",
+    review: "gpt-5.5",
+  },
+};
+
+const EFFORT_LEVELS = ["low", "medium", "high", "xhigh"] as const;
+export type Effort = (typeof EFFORT_LEVELS)[number];
+const effort = () => z.enum(EFFORT_LEVELS).default("high");
+
+const SANDBOX_MODES = [
+  "read-only",
+  "workspace-write",
+  "danger-full-access",
+] as const;
+const APPROVAL_POLICIES = [
+  "never",
+  "on-request",
+  "on-failure",
+  "untrusted",
+] as const;
+
+// Action inputs arrive as strings. Validate boolean toggles strictly against
+// exactly "true"/"false" (like the enum inputs) so a typo on a security-
+// relevant switch such as codex_network_access is rejected loudly rather than
+// silently coerced to a fail-open default.
+const strictBool = (def: "true" | "false") =>
+  z
+    .enum(["true", "false"])
+    .default(def)
+    .transform((s) => s === "true");
+
+const AUTHOR_ASSOCIATIONS = [
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
+  "CONTRIBUTOR",
+  "FIRST_TIME_CONTRIBUTOR",
+  "FIRST_TIMER",
+  "MANNEQUIN",
+  "NONE",
+] as const;
+export const DEFAULT_TRUSTED_AUTHOR_ASSOCIATIONS = [
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
+] as const;
+
+const AGENT_SANDBOX_MODES = ["auto", "required", "off"] as const;
+export type AgentSandboxMode = (typeof AGENT_SANDBOX_MODES)[number];
+
+function parseCsv(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function parseTrustedAssociations(raw: string): string[] {
+  const parts = parseCsv(raw).map((s) => s.toUpperCase());
+  if (parts.length === 0) return [...DEFAULT_TRUSTED_AUTHOR_ASSOCIATIONS];
+  for (const p of parts) {
+    if (!(AUTHOR_ASSOCIATIONS as readonly string[]).includes(p)) {
+      throw new Error(
+        `invalid value in trusted_author_associations: ${p} (valid: ${AUTHOR_ASSOCIATIONS.join(", ")})`,
+      );
+    }
+  }
+  return parts;
+}
+
+// Optional positive-integer input. Empty string means unset (no cap).
+const optionalTurns = () =>
+  z
+    .string()
+    .default("")
+    .transform((s, ctx) => {
+      if (s === "") return undefined;
+      const n = Number(s);
+      if (!Number.isInteger(n) || n < 1) {
+        ctx.addIssue({
+          code: "custom",
+          message: `expected positive integer, got ${s}`,
+        });
+        return z.NEVER;
+      }
+      return n;
+    });
+
+function parseStagesList(raw: string): StageName[] {
+  if (!raw.trim()) return [];
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const p of parts) {
+    if (!(STAGE_NAMES as readonly string[]).includes(p)) {
+      throw new Error(
+        `invalid stage name in stages: ${p} (valid: ${STAGE_NAMES.join(", ")})`,
+      );
+    }
+  }
+  return parts as StageName[];
+}
+
+const RawInputs = z
+  .object({
+    anthropic_api_key: z.string().optional().default(""),
+    claude_code_oauth_token: z.string().optional().default(""),
+    agent_provider: z.enum(["claude", "codex"]).default("claude"),
+    openai_api_key: z.string().optional().default(""),
+    codex_auth_json: z.string().optional().default(""),
+    codex_sandbox_mode: z.enum(SANDBOX_MODES).default("workspace-write"),
+    codex_approval_policy: z.enum(APPROVAL_POLICIES).default("never"),
+    codex_network_access: strictBool("true"),
+    codex_skip_git_repo_check: strictBool("true"),
+    github_app_client_id: z.string().optional().default(""),
+    github_app_private_key: z.string().optional().default(""),
+    github_app_review_client_id: z.string().optional().default(""),
+    github_app_review_private_key: z.string().optional().default(""),
+    ssh_signing_key: z.string().optional().default(""),
+    trigger_label: z.string().default(""),
+    max_review_iterations: num(1).default("3"),
+    // Blank by default; parseConfig fills in the provider-aware default
+    // (DEFAULT_MODELS) when the input is empty. An explicit value always wins.
+    triage_model: z.string().default(""),
+    spec_model: z.string().default(""),
+    plan_model: z.string().default(""),
+    impl_model: z.string().default(""),
+    review_compliance_model: z.string().default(""),
+    review_bugs_model: z.string().default(""),
+    review_security_model: z.string().default(""),
+    review_smells_model: z.string().default(""),
+    triage_effort: effort(),
+    spec_effort: effort(),
+    plan_effort: effort(),
+    impl_effort: effort(),
+    review_compliance_effort: effort(),
+    review_bugs_effort: effort(),
+    review_security_effort: effort(),
+    review_smells_effort: effort(),
+    triage_max_budget_usd: num(0).default("0.25"),
+    spec_max_budget_usd: num(0).default("1.50"),
+    plan_max_budget_usd: num(0).default("1.50"),
+    impl_max_budget_usd: num(0).default("2.50"),
+    review_max_budget_usd_per_lens: num(0).default("2.00"),
+    triage_max_turns: optionalTurns(),
+    spec_max_turns: optionalTurns(),
+    plan_max_turns: optionalTurns(),
+    impl_max_turns: optionalTurns(),
+    review_max_turns_per_lens: optionalTurns(),
+    triage_timeout_ms: num(1000).default("300000"),
+    spec_timeout_ms: num(1000).default("1200000"),
+    plan_timeout_ms: num(1000).default("1200000"),
+    impl_timeout_ms: num(1000).default("3600000"),
+    review_timeout_ms_per_lens: num(1000).default("900000"),
+    mode: z.enum(["auto", "resolve", "execute"]).default("auto"),
+    stages: z.string().default(""),
+    trusted_author_associations: z.string().default(""),
+    trusted_bot_logins: z.string().default(""),
+    agent_sandbox: z.enum(AGENT_SANDBOX_MODES).default("auto"),
+  })
+  .refine(
+    (v) =>
+      v.agent_provider === "codex" ||
+      v.anthropic_api_key ||
+      v.claude_code_oauth_token,
+    {
+      message:
+        "one of anthropic_api_key or claude_code_oauth_token is required when agent_provider=claude",
+    },
+  );
+
+export type Config = ReturnType<typeof parseConfig>;
+
+export function parseConfig(raw: Record<string, string | undefined>) {
+  const cleaned = Object.fromEntries(
+    Object.entries(raw).map(([k, v]) => [k, v ?? ""]),
+  );
+  const parsed = RawInputs.parse(cleaned);
+  const modelDefaults = DEFAULT_MODELS[parsed.agent_provider];
+  const model = (value: string, key: ModelKey) => value || modelDefaults[key];
+  return {
+    anthropicApiKey: parsed.anthropic_api_key,
+    claudeCodeOAuthToken: parsed.claude_code_oauth_token,
+    agentProvider: parsed.agent_provider,
+    openaiApiKey: parsed.openai_api_key,
+    codexAuthJson: parsed.codex_auth_json,
+    codexSandboxMode: parsed.codex_sandbox_mode,
+    codexApprovalPolicy: parsed.codex_approval_policy,
+    codexNetworkAccess: parsed.codex_network_access,
+    codexSkipGitRepoCheck: parsed.codex_skip_git_repo_check,
+    githubApp:
+      parsed.github_app_client_id && parsed.github_app_private_key
+        ? {
+            clientId: parsed.github_app_client_id,
+            privateKey: parsed.github_app_private_key,
+          }
+        : null,
+    reviewGithubApp: parsed.github_app_review_client_id
+      ? {
+          clientId: parsed.github_app_review_client_id,
+          privateKey: parsed.github_app_review_private_key,
+        }
+      : null,
+    sshSigningKey: parsed.ssh_signing_key || null,
+    triggerLabel: parsed.trigger_label || null,
+    maxReviewIterations: parsed.max_review_iterations,
+    triageModel: model(parsed.triage_model, "triage"),
+    specModel: model(parsed.spec_model, "spec"),
+    planModel: model(parsed.plan_model, "plan"),
+    implModel: model(parsed.impl_model, "impl"),
+    reviewModels: {
+      compliance: model(parsed.review_compliance_model, "review"),
+      bugs: model(parsed.review_bugs_model, "review"),
+      security: model(parsed.review_security_model, "review"),
+      smells: model(parsed.review_smells_model, "review"),
+    },
+    triageEffort: parsed.triage_effort,
+    specEffort: parsed.spec_effort,
+    planEffort: parsed.plan_effort,
+    implEffort: parsed.impl_effort,
+    reviewEfforts: {
+      compliance: parsed.review_compliance_effort,
+      bugs: parsed.review_bugs_effort,
+      security: parsed.review_security_effort,
+      smells: parsed.review_smells_effort,
+    },
+    triageMaxBudgetUsd: parsed.triage_max_budget_usd,
+    specMaxBudgetUsd: parsed.spec_max_budget_usd,
+    planMaxBudgetUsd: parsed.plan_max_budget_usd,
+    implMaxBudgetUsd: parsed.impl_max_budget_usd,
+    reviewMaxBudgetUsdPerLens: parsed.review_max_budget_usd_per_lens,
+    triageMaxTurns: parsed.triage_max_turns,
+    specMaxTurns: parsed.spec_max_turns,
+    planMaxTurns: parsed.plan_max_turns,
+    implMaxTurns: parsed.impl_max_turns,
+    reviewMaxTurnsPerLens: parsed.review_max_turns_per_lens,
+    triageTimeoutMs: parsed.triage_timeout_ms,
+    specTimeoutMs: parsed.spec_timeout_ms,
+    planTimeoutMs: parsed.plan_timeout_ms,
+    implTimeoutMs: parsed.impl_timeout_ms,
+    reviewTimeoutMsPerLens: parsed.review_timeout_ms_per_lens,
+    mode: parsed.mode,
+    stages: parseStagesList(parsed.stages),
+    trustedAuthorAssociations: parseTrustedAssociations(
+      parsed.trusted_author_associations,
+    ),
+    trustedBotLogins: parseCsv(parsed.trusted_bot_logins),
+    agentSandbox: parsed.agent_sandbox,
+  } as const;
+}

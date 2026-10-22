@@ -1,38 +1,41 @@
 {
   "name": "shopfloor",
-  "version": "1.0.0-rc.0",
+  "version": "2.0.8",
   "private": true,
-  "description": "A reusable GitHub Actions workflow that wraps claude-code-action to drive a staged, human-gated AI software delivery pipeline.",
-  "author": "Niranjan Rajendran (https://github.com/niranjan94)",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/niranjan94/shopfloor.git"
-  },
-  "homepage": "https://shopfloor.niranjan.io",
-  "bugs": {
-    "url": "https://github.com/niranjan94/shopfloor/issues"
-  },
+  "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "node esbuild.config.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "vitest run router/test/e2e",
-    "test:e2e:watch": "vitest router/test/e2e",
-    "typecheck": "pnpm exec tsc --noEmit",
-    "typecheck:all": "pnpm -r typecheck",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "test:live": "vitest run --reporter=verbose test/agents/claude.live.test.ts",
+    "smoke": "tsx scripts/smoke/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "format": "biome check --write --unsafe"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.141",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@octokit/auth-app": "^7.1.5",
+    "@octokit/rest": "^21.0.2",
+    "@openai/codex": "^0.139.0",
+    "@openai/codex-sdk": "^0.139.0",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "@types/tmp": "^0.2.6",
-    "prettier": "^3.2.0",
-    "tmp": "^0.2.5",
-    "typescript": "^5.4.0",
-    "vitest": "^1.3.0"
+    "@biomejs/biome": "2.4.15",
+    "@types/node": "^22.10.0",
+    "chalk": "^5.6.2",
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.24.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.22.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
   }
 }

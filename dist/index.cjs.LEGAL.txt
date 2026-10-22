@@ -1,0 +1,16 @@
+Bundled license information:
+
+undici/lib/fetch/body.js:
+  /*! formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
+
+undici/lib/websocket/frame.js:
+  /*! ws. MIT License. Einar Otto Stangvik <einaros@gmail.com> */
+
+toad-cache/dist/toad-cache.mjs:
+  /**
+   * toad-cache
+   *
+   * @copyright 2024 Igor Savin <kibertoad@gmail.com>
+   * @license MIT
+   * @version 3.7.0
+   */

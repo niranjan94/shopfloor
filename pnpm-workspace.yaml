@@ -1,6 +1,2 @@
-packages:
-  - router
-  - mcp-servers/*
-
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true

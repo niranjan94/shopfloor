@@ -1,0 +1,322 @@
+name: Shopfloor Pipeline
+description: Staged, human-gated AI delivery pipeline for GitHub issues and PRs
+author: niranjan94
+branding:
+  icon: git-pull-request
+  color: blue
+
+inputs:
+  anthropic_api_key:
+    description: Anthropic API key. Required unless claude_code_oauth_token is set.
+    required: false
+    default: ""
+  claude_code_oauth_token:
+    description: Anthropic OAuth token. One of anthropic_api_key or claude_code_oauth_token is required when agent_provider is claude.
+    required: false
+    default: ""
+  agent_provider:
+    description: |
+      Which agent backend runs every stage: `claude` (default) drives the
+      Claude Agent SDK; `codex` drives OpenAI's Codex via @openai/codex-sdk.
+      Selection is global; per-stage mixing is not supported.
+    required: false
+    default: "claude"
+  openai_api_key:
+    description: |
+      OpenAI API key for agent_provider=codex. Recommended for CI and for long
+      implement stages (no mid-run token expiry). Mutually exclusive with
+      codex_auth_json; one of the two is required when agent_provider=codex.
+    required: false
+    default: ""
+  codex_auth_json:
+    description: |
+      Verbatim contents of a ChatGPT-managed Codex auth.json for
+      agent_provider=codex. Seeded into a run-scoped temp CODEX_HOME on every
+      run; any in-run token refresh is discarded (re-seeding a stale token is a
+      manual/ops concern). Prefer openai_api_key for long runs.
+    required: false
+    default: ""
+  codex_sandbox_mode:
+    description: Codex sandbox mode (read-only|workspace-write|danger-full-access). Default workspace-write.
+    required: false
+    default: "workspace-write"
+  codex_approval_policy:
+    description: Codex approval policy (never|on-request|on-failure|untrusted). Default never.
+    required: false
+    default: "never"
+  codex_network_access:
+    description: Whether Codex's workspace-write sandbox may access the network. Default true.
+    required: false
+    default: "true"
+  codex_skip_git_repo_check:
+    description: Skip Codex's own git-repo precheck (Shopfloor guarantees a checkout). Default true.
+    required: false
+    default: "true"
+  github_app_client_id:
+    description: |
+      GitHub App client id for Shopfloor's primary App (mutations). When set
+      together with github_app_private_key, Shopfloor mints
+      installation tokens in-process and refreshes them automatically before
+      expiry — preferred over preminting, which caps at the 60-minute
+      installation-token TTL and can expire mid-run on long implement stages.
+    required: false
+    default: ""
+  github_app_private_key:
+    description: GitHub App private key (PEM) for Shopfloor's primary App. See github_app_client_id.
+    required: false
+    default: ""
+  github_app_review_client_id:
+    description: |
+      GitHub App client id for Shopfloor's review App (optional). When set
+      with github_app_review_private_key, Shopfloor mints review
+      installation tokens in-process. Use a distinct App so reviews are
+      posted by an identity other than the PR author.
+    required: false
+    default: ""
+  github_app_review_private_key:
+    description: GitHub App private key (PEM) for Shopfloor's review App. See github_app_review_client_id.
+    required: false
+    default: ""
+  github_app_token:
+    description: |
+      Preminted primary App installation token. Useful when the caller has
+      already minted via actions/create-github-app-token. Note: installation
+      tokens expire after 60 minutes; for long-running implement stages prefer
+      passing github_app_client_id + github_app_private_key
+      so Shopfloor mints and refreshes in-process.
+    required: false
+    default: ""
+  github_app_review_token:
+    description: Preminted review App installation token. See github_app_token for the long-run TTL caveat.
+    required: false
+    default: ""
+  github_token:
+    description: |
+      Last-resort fallback used when no App credentials and no preminted
+      installation token are provided. Pass `github.token` (or
+      `secrets.GITHUB_TOKEN`) to give Shopfloor access to the
+      workflow's default token. Limitations: mutations made with this token
+      do not trigger downstream workflows (label flips and pushes will not
+      advance the pipeline), and the token cannot APPROVE or REQUEST_CHANGES
+      on a PR authored by github-actions[bot]. Intended for review-only runs
+      against human-authored PRs, not for the full pipeline.
+    required: false
+    default: ""
+  trigger_label:
+    description: If set, only issues with this label enter the pipeline.
+    required: false
+    default: ""
+  max_review_iterations:
+    description: Maximum review revision loops before bailing out.
+    required: false
+    default: "3"
+  # Model defaults are blank on purpose: the action resolves a provider-aware
+  # default (claude-opus-4-8[1m] / claude-sonnet-4-6 for claude, gpt-5.5 for
+  # codex) when left unset. Set a value here to override for a specific stage.
+  triage_model:
+    description: Model id for the triage stage. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  spec_model:
+    description: Model id for the spec stage. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  plan_model:
+    description: Model id for the plan stage. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  impl_model:
+    description: Model id for the implement stage. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  review_compliance_model:
+    description: Model id for the compliance review lens. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  review_bugs_model:
+    description: Model id for the bugs review lens. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  review_security_model:
+    description: Model id for the security review lens. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  review_smells_model:
+    description: Model id for the smells review lens. Defaults per agent_provider when unset.
+    required: false
+    default: ""
+  triage_effort:
+    description: Reasoning effort for the triage stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  spec_effort:
+    description: Reasoning effort for the spec stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  plan_effort:
+    description: Reasoning effort for the plan stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  impl_effort:
+    description: Reasoning effort for the implement stage (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_compliance_effort:
+    description: Reasoning effort for the compliance review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_bugs_effort:
+    description: Reasoning effort for the bugs review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_security_effort:
+    description: Reasoning effort for the security review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  review_smells_effort:
+    description: Reasoning effort for the smells review lens (low|medium|high|xhigh).
+    required: false
+    default: "high"
+  triage_max_budget_usd:
+    description: USD budget cap for the triage stage.
+    required: false
+    default: "0.25"
+  spec_max_budget_usd:
+    description: USD budget cap for the spec stage.
+    required: false
+    default: "1.50"
+  plan_max_budget_usd:
+    description: USD budget cap for the plan stage.
+    required: false
+    default: "1.50"
+  impl_max_budget_usd:
+    description: USD budget cap for the implement stage.
+    required: false
+    default: "2.50"
+  review_max_budget_usd_per_lens:
+    description: USD budget cap per review lens.
+    required: false
+    default: "2.00"
+  triage_max_turns:
+    description: Optional hard cap on agent turns for the triage stage. Unset by default (no cap).
+    required: false
+    default: ""
+  spec_max_turns:
+    description: Optional hard cap on agent turns for the spec stage. Unset by default (no cap).
+    required: false
+    default: ""
+  plan_max_turns:
+    description: Optional hard cap on agent turns for the plan stage. Unset by default (no cap).
+    required: false
+    default: ""
+  impl_max_turns:
+    description: Optional hard cap on agent turns for the implement stage. Unset by default (no cap).
+    required: false
+    default: ""
+  review_max_turns_per_lens:
+    description: Optional hard cap on agent turns per review lens. Unset by default (no cap).
+    required: false
+    default: ""
+  triage_timeout_ms:
+    description: Wall-clock timeout for the triage stage.
+    required: false
+    default: "300000"
+  spec_timeout_ms:
+    description: Wall-clock timeout for the spec stage.
+    required: false
+    default: "1200000"
+  plan_timeout_ms:
+    description: Wall-clock timeout for the plan stage.
+    required: false
+    default: "1200000"
+  impl_timeout_ms:
+    description: Wall-clock timeout for the implement stage.
+    required: false
+    default: "3600000"
+  review_timeout_ms_per_lens:
+    description: Wall-clock timeout per review lens.
+    required: false
+    default: "900000"
+  ssh_signing_key:
+    description: Optional SSH signing key for commits.
+    required: false
+    default: ""
+  review_only:
+    description: When "true" and the event is a pull_request, run only the review stage against PRs that do not carry Shopfloor metadata (e.g. human-authored PRs). Skip the full pipeline.
+    required: false
+    default: "false"
+  mode:
+    description: |
+      Action invocation mode.
+
+      - `auto` (default): resolve the stage and execute it in one process.
+        Backwards-compatible with single-job consumer workflows.
+      - `resolve`: run only the state-machine routing and emit the `stage`
+        output. No mutex, no agent, no GitHub mutations. Intended for a cheap
+        "router" job in a two-job split workflow.
+      - `execute`: resolve the stage, apply the optional `stages` filter, and
+        run the stage end-to-end if it passes. Intended for one or more
+        per-stage execute jobs that gate on the router's `stage` output.
+
+      See examples/shopfloor-split-runners.yml for the two-job pattern.
+    required: false
+    default: "auto"
+  stages:
+    description: |
+      Comma-separated list of stage names this `execute` invocation will run.
+      Empty (default) means all stages. When non-empty and the resolved stage
+      is not in this list, the action exits 0 silently without acquiring the
+      mutex or running the agent. Ignored when `mode` is not `execute`.
+
+      Valid stage names: triage, spec, plan, implement, review.
+    required: false
+    default: ""
+  trusted_author_associations:
+    description: |
+      Comma-separated GitHub author_association values whose text is passed to
+      the agents: issue titles and bodies, issue comments, PR descriptions,
+      PR reviews and PR review comments. Text from any other author is
+      withheld from prompts and replaced by a short notice. Default
+      `OWNER,MEMBER,COLLABORATOR`. Valid values: OWNER, MEMBER, COLLABORATOR,
+      CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, FIRST_TIMER, MANNEQUIN, NONE.
+    required: false
+    default: "OWNER,MEMBER,COLLABORATOR"
+  trusted_bot_logins:
+    description: |
+      Comma-separated bot logins (e.g. `my-app[bot]`) whose text is passed to
+      the agents regardless of author_association. Shopfloor adds the bots
+      behind its own App credentials and `github-actions[bot]` automatically;
+      list your bots here when you use preminted tokens.
+    required: false
+    default: ""
+  agent_sandbox:
+    description: |
+      Isolation for the Claude agent's shell commands (agent_provider=claude).
+
+      - `auto` (default): on Linux, probe bubblewrap and socat (installing
+        them on GitHub-hosted runners), then enable Claude Code's sandbox and
+        subprocess credential scrubbing. Falls back with a warning when they
+        cannot be set up.
+      - `required`: as `auto`, but fail the run instead of falling back.
+      - `off`: no sandbox and no scrubbing. Agent shell commands can read the
+        action's environment, including credentials passed as inputs.
+    required: false
+    default: "auto"
+
+outputs:
+  stage:
+    description: |
+      The stage the action's state machine resolved for this event:
+      one of `triage`, `spec`, `plan`, `implement`, `review`, or `none`.
+      Always set, regardless of `mode`. Use this output from a `mode: resolve`
+      router job to gate downstream `mode: execute` jobs via `if:` expressions.
+  executed:
+    description: |
+      `"true"` if the action actually ran a stage's agent and applied its
+      decision, `"false"` otherwise. False covers: `mode: resolve` invocations,
+      `mode: execute` filter misses, `none` routes, precheck failures, and
+      any other early-exit cases.
+
+runs:
+  using: node24
+  main: dist/index.cjs
