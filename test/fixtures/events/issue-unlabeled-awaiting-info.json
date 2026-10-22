@@ -2,6 +2,8 @@
   "action": "unlabeled",
   "label": { "name": "shopfloor:awaiting-info" },
   "issue": {
+    "user": { "login": "niranjan94" },
+    "author_association": "OWNER",
     "number": 42,
     "title": "Add GitHub OAuth login",
     "body": "We need OAuth login via GitHub App.",

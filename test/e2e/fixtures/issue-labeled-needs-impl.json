@@ -2,6 +2,8 @@
   "action": "labeled",
   "label": { "name": "shopfloor:needs-impl" },
   "issue": {
+    "user": { "login": "niranjan94" },
+    "author_association": "OWNER",
     "number": 42,
     "title": "Add foo",
     "body": "Need foo.",

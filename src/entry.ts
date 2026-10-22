@@ -14,7 +14,11 @@ import { createStepSummaryMirror } from "./audit/step-summary.js";
 import { buildAgentEnvFromConfig } from "./config/agent-env.js";
 import { buildCodexOptions } from "./config/codex-options.js";
 import { parseConfig } from "./config/inputs.js";
-import { applyGitIdentity, resolveBotIdentity } from "./git/identity.js";
+import {
+  applyGitIdentity,
+  resolveBotIdentity,
+  resolveBotLogin,
+} from "./git/identity.js";
 import {
   prepareImplCheckout,
   prepareReviewBase,
@@ -91,6 +95,9 @@ const INPUT_KEYS = [
   "review_only",
   "mode",
   "stages",
+  "trusted_author_associations",
+  "trusted_bot_logins",
+  "agent_sandbox",
 ] as const;
 
 export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
@@ -163,6 +170,13 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       core.warning(
         "Shopfloor's review path is running with the workflow's default GITHUB_TOKEN. Reviews submitted with this token cannot APPROVE or REQUEST_CHANGES on a PR authored by github-actions[bot], and any resulting events will not trigger downstream workflows. Provide a distinct review App via github_app_review_client_id + github_app_review_private_key.",
       );
+    }
+
+    const trustedBotLogins: string[] = [];
+    for (const auth of reviewAuth ? [primaryAuth, reviewAuth] : [primaryAuth]) {
+      const login = await resolveBotLogin(auth);
+      if (login && !trustedBotLogins.includes(login))
+        trustedBotLogins.push(login);
     }
 
     const runId = process.env.GITHUB_RUN_ID ?? `local-${Date.now()}`;
@@ -238,6 +252,7 @@ export async function runEntry(deps: RunEntryDeps = {}): Promise<void> {
       config,
       runId,
       gitOps,
+      trustedBotLogins,
       ...(reviewOnly ? { reviewOnly: true } : {}),
     });
     core.setOutput("stage", result.stage);

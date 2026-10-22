@@ -132,6 +132,17 @@ Minimum acceptable value is 1000 ms. Lower values are rejected by Zod at startup
 
 The public half of the key must be registered as a signing key on the GitHub identity Shopfloor commits under (typically the primary App's bot). See [GitHub's SSH signing-key docs](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#ssh-commit-signature-verification).
 
+## Untrusted input
+
+On a public repository anyone can comment on an issue, and an issue's author can keep editing its title and body after a maintainer applies the trigger label. Shopfloor therefore passes text to the agents only when its author is trusted. Untrusted issue titles and bodies, issue comments, PR descriptions, PR reviews and PR review comments are replaced in the prompt by a short notice naming the author.
+
+| Input                         | Default                       | Notes                                                                                                                                                                                                 |
+| ----------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trusted_author_associations` | `OWNER,MEMBER,COLLABORATOR`   | GitHub `author_association` values treated as trusted. Valid values: `OWNER`, `MEMBER`, `COLLABORATOR`, `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER`, `MANNEQUIN`, `NONE`.                  |
+| `trusted_bot_logins`          | `""`                          | Extra bot logins (e.g. `my-app[bot]`) treated as trusted. The bots behind Shopfloor's App credentials and `github-actions[bot]` are added automatically; list your bots here when using preminted tokens. |
+
+When an outside contributor opens an issue you want Shopfloor to work on, restate the request in a comment as a maintainer; that comment reaches the agent, the original issue text does not. Widening the list (for example adding `CONTRIBUTOR`) re-exposes the agents to prompt injection from those authors.
+
 ## Review-only workflow (for human-authored PRs)
 
 To run the review lenses against PRs your team or other automations open (not Shopfloor's own impl PRs), add a second workflow that calls the action with `review_only: "true"`:

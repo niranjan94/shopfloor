@@ -64,6 +64,45 @@ const strictBool = (def: "true" | "false") =>
     .default(def)
     .transform((s) => s === "true");
 
+const AUTHOR_ASSOCIATIONS = [
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
+  "CONTRIBUTOR",
+  "FIRST_TIME_CONTRIBUTOR",
+  "FIRST_TIMER",
+  "MANNEQUIN",
+  "NONE",
+] as const;
+export const DEFAULT_TRUSTED_AUTHOR_ASSOCIATIONS = [
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
+] as const;
+
+const AGENT_SANDBOX_MODES = ["auto", "required", "off"] as const;
+export type AgentSandboxMode = (typeof AGENT_SANDBOX_MODES)[number];
+
+function parseCsv(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function parseTrustedAssociations(raw: string): string[] {
+  const parts = parseCsv(raw).map((s) => s.toUpperCase());
+  if (parts.length === 0) return [...DEFAULT_TRUSTED_AUTHOR_ASSOCIATIONS];
+  for (const p of parts) {
+    if (!(AUTHOR_ASSOCIATIONS as readonly string[]).includes(p)) {
+      throw new Error(
+        `invalid value in trusted_author_associations: ${p} (valid: ${AUTHOR_ASSOCIATIONS.join(", ")})`,
+      );
+    }
+  }
+  return parts;
+}
+
 // Optional positive-integer input. Empty string means unset (no cap).
 const optionalTurns = () =>
   z
@@ -151,6 +190,9 @@ const RawInputs = z
     review_timeout_ms_per_lens: num(1000).default("900000"),
     mode: z.enum(["auto", "resolve", "execute"]).default("auto"),
     stages: z.string().default(""),
+    trusted_author_associations: z.string().default(""),
+    trusted_bot_logins: z.string().default(""),
+    agent_sandbox: z.enum(AGENT_SANDBOX_MODES).default("auto"),
   })
   .refine(
     (v) =>
@@ -235,5 +277,10 @@ export function parseConfig(raw: Record<string, string | undefined>) {
     reviewTimeoutMsPerLens: parsed.review_timeout_ms_per_lens,
     mode: parsed.mode,
     stages: parseStagesList(parsed.stages),
+    trustedAuthorAssociations: parseTrustedAssociations(
+      parsed.trusted_author_associations,
+    ),
+    trustedBotLogins: parseCsv(parsed.trusted_bot_logins),
+    agentSandbox: parsed.agent_sandbox,
   } as const;
 }

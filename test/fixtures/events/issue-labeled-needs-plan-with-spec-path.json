@@ -2,6 +2,8 @@
   "action": "labeled",
   "label": { "name": "shopfloor:needs-plan" },
   "issue": {
+    "user": { "login": "niranjan94" },
+    "author_association": "OWNER",
     "number": 42,
     "title": "Add OAuth login",
     "body": "Body.\n\n<!-- shopfloor:metadata\nShopfloor-Slug: add-oauth-login\nShopfloor-Spec-Path: docs/specs/external.md\n-->",

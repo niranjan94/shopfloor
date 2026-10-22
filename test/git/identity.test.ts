@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyGitIdentity,
   resolveBotIdentity,
+  resolveBotLogin,
 } from "../../src/git/identity.js";
 import type { AuthSpec } from "../../src/github/app-token.js";
 
@@ -84,6 +85,44 @@ describe("resolveBotIdentity", () => {
       fetchBotUserId: vi.fn(),
     });
     expect(id.name).toBe("shopfloor[bot]");
+  });
+});
+
+describe("resolveBotLogin", () => {
+  const app: AuthSpec = {
+    kind: "app",
+    clientId: "Iv23test",
+    privateKey: "k",
+    installationId: 1,
+  };
+
+  it("returns github-actions[bot] for github_token and null for preminted tokens", async () => {
+    expect(
+      await resolveBotLogin({
+        kind: "token",
+        token: "t",
+        source: "github_token",
+      }),
+    ).toBe("github-actions[bot]");
+    expect(
+      await resolveBotLogin({ kind: "token", token: "t", source: "preminted" }),
+    ).toBeNull();
+  });
+
+  it("returns <slug>[bot] for App auth", async () => {
+    const login = await resolveBotLogin(app, {
+      appAuthFactory: () => (async () => ({ token: "jwt-x" })) as never,
+      fetchAppSlug: vi.fn().mockResolvedValue("shopfloor-bot"),
+    });
+    expect(login).toBe("shopfloor-bot[bot]");
+  });
+
+  it("returns null instead of a guessed login when slug discovery fails", async () => {
+    const login = await resolveBotLogin(app, {
+      appAuthFactory: () => (async () => ({ token: "jwt-x" })) as never,
+      fetchAppSlug: vi.fn().mockRejectedValue(new Error("404")),
+    });
+    expect(login).toBeNull();
   });
 });
 

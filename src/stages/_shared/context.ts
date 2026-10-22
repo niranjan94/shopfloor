@@ -21,6 +21,12 @@ export interface GitOps {
   prepareReviewBase(opts: { baseRef: string }): Promise<void>;
 }
 
+export interface ContentAuthor {
+  login: string | null;
+  // GitHub's author_association for this repository (OWNER, MEMBER, ...).
+  association: string | null;
+}
+
 export interface StageContext {
   event: EventPayload;
   repo: { owner: string; name: string };
@@ -34,6 +40,7 @@ export interface StageContext {
     title: string;
     body: string | null;
     labels: string[];
+    author?: ContentAuthor;
   };
   pr?: {
     number: number;
@@ -42,6 +49,7 @@ export interface StageContext {
     headRef: string;
     headSha: string;
     baseRef: string;
+    author?: ContentAuthor;
   };
   github: GitHubAdapter;
   // Distinct App for posting reviews; null when no review App is configured.
@@ -63,4 +71,8 @@ export interface StageContext {
   // the working-tree mutations and the post-agent push, which will leave the
   // PR creation to fail at GitHub's "no commits between base and head" check.
   gitOps?: GitOps;
+  // Logins of Shopfloor's own bot accounts. Their comments and reviews are
+  // fed to agents regardless of author_association, which GitHub reports as
+  // NONE or CONTRIBUTOR for App bots.
+  trustedBotLogins?: string[];
 }

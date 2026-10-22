@@ -1,6 +1,13 @@
 import * as core from "@actions/core";
 import type { StageContext } from "./stages/_shared/context.js";
 import { createProgressComment } from "./stages/_shared/progress-comment.js";
+import {
+  formatTrustedIssueComments,
+  promptSafeIssue,
+  trustedReviewComments,
+  trustedReviews,
+  trustPolicyFor,
+} from "./stages/_shared/trust.js";
 import { applyImplement } from "./stages/implement/apply.js";
 import { runImplement } from "./stages/implement/runner.js";
 import { applyPlan } from "./stages/plan/apply.js";
@@ -37,7 +44,10 @@ async function buildSpecRevisionBlock(
   if (!ctx.issue) return "";
   const open = await ctx.github.findOpenPrByHead(branchName);
   if (!open) return "";
-  const reviews = await ctx.github.listPrReviews(open.number);
+  const reviews = trustedReviews(
+    await ctx.github.listPrReviews(open.number),
+    trustPolicyFor(ctx),
+  );
   const requestChanges = reviews
     .filter((r) => r.state === "changes_requested")
     .sort((a, b) => {
@@ -63,13 +73,7 @@ async function formatIssueComments(
   issueNumber: number,
 ): Promise<string> {
   const comments = await ctx.github.listIssueComments(issueNumber);
-  if (comments.length === 0) return "";
-  return comments
-    .map(
-      (c) =>
-        `**@${c.user?.login ?? "unknown"}** (${c.created_at}):\n${c.body ?? ""}`,
-    )
-    .join("\n\n---\n\n");
+  return formatTrustedIssueComments(comments, trustPolicyFor(ctx));
 }
 
 export const RUNNERS: Record<Stage, StageHandler> = {
@@ -253,10 +257,11 @@ export const RUNNERS: Record<Stage, StageHandler> = {
       const planFileContents = routed.planFilePath
         ? await readFileSafe(ctx, routed.planFilePath, ctx.pr.baseRef)
         : "";
-      const issueBody = ctx.issue?.body ?? "";
+      const issueBody = promptSafeIssue(ctx).body;
 
-      const previousReviewComments = await ctx.github.listPrReviewComments(
-        ctx.pr.number,
+      const previousReviewComments = trustedReviewComments(
+        await ctx.github.listPrReviewComments(ctx.pr.number),
+        trustPolicyFor(ctx),
       );
       const previousReviewCommentsJson = JSON.stringify(
         previousReviewComments.map((c) => ({

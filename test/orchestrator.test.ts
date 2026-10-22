@@ -30,6 +30,8 @@ function makeIssuesOpenedEvent(opts: {
         body: opts.body ?? null,
         labels: (opts.labels ?? []).map((name) => ({ name })),
         state: "open" as const,
+        user: { login: "octo" },
+        author_association: "OWNER",
       },
       repository: { owner: { login: "octo" }, name: "demo" },
     },

@@ -23,6 +23,7 @@ vi.mock("../src/git/identity.js", () => ({
     .fn()
     .mockResolvedValue({ name: "test-bot", email: "test@bot" }),
   applyGitIdentity: vi.fn().mockResolvedValue(undefined),
+  resolveBotLogin: vi.fn().mockResolvedValue("test-bot[bot]"),
 }));
 
 import * as core from "@actions/core";

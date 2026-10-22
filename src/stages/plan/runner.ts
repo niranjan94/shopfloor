@@ -1,5 +1,6 @@
 import type { StageContext } from "../_shared/context.js";
 import { renderTemplate } from "../_shared/prompts.js";
+import { promptSafeIssue } from "../_shared/trust.js";
 import { PlanDecision } from "./decision.js";
 import SYSTEM from "./prompt.system.md";
 import USER_TMPL from "./prompt.user.md.tmpl";
@@ -18,12 +19,13 @@ export async function runPlan(
   args: RunPlanArgs,
 ): Promise<PlanDecision> {
   if (!ctx.issue) throw new Error("runPlan requires ctx.issue");
+  const issue = promptSafeIssue(ctx);
   const userPrompt = renderTemplate(USER_TMPL, {
     repo_owner: ctx.repo.owner,
     repo_name: ctx.repo.name,
     issue_number: ctx.issue.number,
-    issue_title: ctx.issue.title,
-    issue_body: ctx.issue.body ?? "",
+    issue_title: issue.title,
+    issue_body: issue.body,
     issue_comments: args.issueComments,
     branch_name: args.branchName,
     plan_file_path: args.planFilePath,

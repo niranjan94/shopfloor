@@ -1,5 +1,6 @@
 import type { StageContext } from "../../_shared/context.js";
 import { renderTemplate } from "../../_shared/prompts.js";
+import { promptSafePrBody } from "../../_shared/trust.js";
 
 export interface LensRunnerArgs {
   iteration: number;
@@ -23,7 +24,7 @@ export function renderLensUserPrompt(
     repo_name: ctx.repo.name,
     pr_number: ctx.pr.number,
     pr_title: ctx.pr.title,
-    pr_body: ctx.pr.body ?? "",
+    pr_body: promptSafePrBody(ctx),
     iteration_count: args.iteration,
     base_ref: args.baseRef,
     changed_files: JSON.stringify(args.changedFiles),

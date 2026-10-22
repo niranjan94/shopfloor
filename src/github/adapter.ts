@@ -57,6 +57,8 @@ export interface OctokitLike {
           state: string;
           title?: string;
           body?: string | null;
+          user?: unknown;
+          author_association?: string;
         };
       }>;
       listComments(params: {
@@ -70,6 +72,7 @@ export interface OctokitLike {
           user: unknown;
           created_at: string;
           body: string | null;
+          author_association?: string;
         }>;
       }>;
     };
@@ -145,6 +148,7 @@ export interface OctokitLike {
           commit_id: string;
           state: string;
           submitted_at: string | null;
+          author_association?: string;
         }>;
       }>;
       listReviewComments(params: {
@@ -163,6 +167,8 @@ export interface OctokitLike {
           start_line: number | null;
           start_side: "LEFT" | "RIGHT" | null;
           body: string;
+          user?: unknown;
+          author_association?: string;
         }>;
       }>;
     };
@@ -250,16 +256,22 @@ export interface ReviewComment {
   start_side?: "LEFT" | "RIGHT";
 }
 
-type PrReviewRow = {
+// Author identity as GitHub reports it on issues, PRs, comments and reviews.
+// `author_association` is the author's relationship to this repository and is
+// what Shopfloor uses to decide whether text may be fed to an agent.
+export type GitHubUserRef = { login: string } | null;
+
+export type PrReviewRow = {
   id: number;
-  user: { login: string } | null;
+  user: GitHubUserRef;
   body: string;
   commit_id: string;
   state: string;
   submitted_at: string | null;
+  author_association: string | null;
 };
 
-type PrReviewCommentRow = {
+export type PrReviewCommentRow = {
   id: number;
   pull_request_review_id: number | null;
   path: string;
@@ -268,12 +280,15 @@ type PrReviewCommentRow = {
   start_line: number | null;
   start_side: "LEFT" | "RIGHT" | null;
   body: string;
+  user: GitHubUserRef;
+  author_association: string | null;
 };
 
-type IssueCommentRow = {
-  user: { login: string } | null;
+export type IssueCommentRow = {
+  user: GitHubUserRef;
   created_at: string;
   body: string | null;
+  author_association: string | null;
 };
 
 const METADATA_OPENER = "<!-- shopfloor:metadata";
@@ -578,6 +593,8 @@ export class GitHubAdapter {
     head: { sha: string };
     base: { ref: string };
     body: string | null;
+    user: GitHubUserRef;
+    author_association: string | null;
   }> {
     const res = await this.octokit.rest.pulls.get({
       ...this.repo,
@@ -642,6 +659,8 @@ export class GitHubAdapter {
     state: "open" | "closed";
     title: string;
     body: string | null;
+    user: GitHubUserRef;
+    author_association: string | null;
   }> {
     const res = await this.octokit.rest.issues.get({
       ...this.repo,
@@ -652,6 +671,8 @@ export class GitHubAdapter {
       state: res.data.state as "open" | "closed",
       title: (res.data.title as string | undefined) ?? "",
       body: (res.data.body as string | null | undefined) ?? null,
+      user: (res.data.user as GitHubUserRef | undefined) ?? null,
+      author_association: res.data.author_association ?? null,
     };
   }
 
@@ -733,11 +754,12 @@ export class GitHubAdapter {
     });
     return res.data.map((r) => ({
       id: r.id,
-      user: r.user as { login: string } | null,
+      user: r.user as GitHubUserRef,
       body: r.body ?? "",
       commit_id: r.commit_id,
       state: r.state.toLowerCase(),
       submitted_at: r.submitted_at,
+      author_association: r.author_association ?? null,
     }));
   }
 
@@ -761,6 +783,8 @@ export class GitHubAdapter {
           start_line: c.start_line,
           start_side: c.start_side,
           body: c.body,
+          user: (c.user as GitHubUserRef | undefined) ?? null,
+          author_association: c.author_association ?? null,
         })),
       );
       if (res.data.length < 100) break;
@@ -835,9 +859,10 @@ export class GitHubAdapter {
       });
       all.push(
         ...res.data.map((c) => ({
-          user: c.user as { login: string } | null,
+          user: c.user as GitHubUserRef,
           created_at: c.created_at,
           body: c.body,
+          author_association: c.author_association ?? null,
         })),
       );
       if (res.data.length < 100) break;

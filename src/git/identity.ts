@@ -76,6 +76,32 @@ export async function resolveBotIdentity(
   }
 }
 
+// Returns the login of the bot account that acts for this auth surface, or
+// null when it cannot be determined (preminted tokens, API failures). Used to
+// recognise Shopfloor's own comments and reviews as trusted prompt input.
+export async function resolveBotLogin(
+  auth: AuthSpec,
+  deps: Pick<ResolveBotIdentityDeps, "appAuthFactory" | "fetchAppSlug"> = {},
+): Promise<string | null> {
+  if (auth.kind === "token") {
+    return auth.source === "github_token" ? GITHUB_ACTIONS_IDENTITY.name : null;
+  }
+  try {
+    const appAuthFactory = deps.appAuthFactory ?? createAppAuth;
+    const fetchAppSlug = deps.fetchAppSlug ?? defaultFetchAppSlug;
+    const { token: jwt } = await appAuthFactory({
+      appId: auth.clientId,
+      privateKey: auth.privateKey,
+    })({ type: "app" });
+    return `${await fetchAppSlug(jwt)}[bot]`;
+  } catch (err) {
+    core.warning(
+      `Could not resolve the App bot login (${(err as Error).message}); its comments will be treated as untrusted input. List it in trusted_bot_logins to override.`,
+    );
+    return null;
+  }
+}
+
 async function defaultFetchAppSlug(jwt: string): Promise<string> {
   const octokit = new Octokit({ auth: jwt });
   const { data } = await octokit.rest.apps.getAuthenticated();

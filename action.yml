@@ -271,6 +271,24 @@ inputs:
       Valid stage names: triage, spec, plan, implement, review.
     required: false
     default: ""
+  trusted_author_associations:
+    description: |
+      Comma-separated GitHub author_association values whose text is passed to
+      the agents: issue titles and bodies, issue comments, PR descriptions,
+      PR reviews and PR review comments. Text from any other author is
+      withheld from prompts and replaced by a short notice. Default
+      `OWNER,MEMBER,COLLABORATOR`. Valid values: OWNER, MEMBER, COLLABORATOR,
+      CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, FIRST_TIMER, MANNEQUIN, NONE.
+    required: false
+    default: "OWNER,MEMBER,COLLABORATOR"
+  trusted_bot_logins:
+    description: |
+      Comma-separated bot logins (e.g. `my-app[bot]`) whose text is passed to
+      the agents regardless of author_association. Shopfloor adds the bots
+      behind its own App credentials and `github-actions[bot]` automatically;
+      list your bots here when you use preminted tokens.
+    required: false
+    default: ""
 
 outputs:
   stage:

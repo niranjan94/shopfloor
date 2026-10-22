@@ -316,6 +316,8 @@ describe("orchestrator e2e against v1 fixtures", () => {
       state: "open",
       title: "Add GitHub OAuth login",
       body: "OAuth login via GitHub App.",
+      user: { login: "niranjan94" },
+      author_association: "OWNER",
     });
     mg.getPr.mockResolvedValue({
       state: "open",

@@ -52,4 +52,7 @@ export const baseConfig: Config = {
   reviewTimeoutMsPerLens: 90_000,
   mode: "auto" as const,
   stages: [] as Array<"triage" | "spec" | "plan" | "implement" | "review">,
+  trustedAuthorAssociations: ["OWNER", "MEMBER", "COLLABORATOR"],
+  trustedBotLogins: [],
+  agentSandbox: "auto" as const,
 };

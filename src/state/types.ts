@@ -63,6 +63,8 @@ export interface IssuePayload {
     labels: Array<{ name: string }>;
     state: "open" | "closed";
     pull_request?: unknown | null;
+    user?: { login: string } | null;
+    author_association?: string;
   };
   label?: { name: string };
   repository: { owner: { login: string }; name: string };
@@ -80,6 +82,8 @@ export interface PullRequestPayload {
     head: { ref: string; sha: string };
     base: { ref: string; sha: string };
     labels: Array<{ name: string }>;
+    user?: { login: string } | null;
+    author_association?: string;
   };
   repository: { owner: { login: string }; name: string };
 }

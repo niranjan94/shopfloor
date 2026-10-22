@@ -310,6 +310,7 @@ describe("GitHubAdapter", () => {
           commit_id: "abc",
           state: "CHANGES_REQUESTED",
           submitted_at: "2026-04-14T12:00:00Z",
+          author_association: "MEMBER",
         },
         {
           id: 11,
@@ -337,6 +338,7 @@ describe("GitHubAdapter", () => {
         commit_id: "abc",
         state: "changes_requested",
         submitted_at: "2026-04-14T12:00:00Z",
+        author_association: "MEMBER",
       },
       {
         id: 11,
@@ -345,6 +347,7 @@ describe("GitHubAdapter", () => {
         commit_id: "abc",
         state: "commented",
         submitted_at: null,
+        author_association: null,
       },
     ]);
   });
@@ -362,6 +365,8 @@ describe("GitHubAdapter", () => {
           start_line: null,
           start_side: null,
           body: "rename this",
+          user: { login: "reviewer" },
+          author_association: "OWNER",
         },
       ],
     });
@@ -384,6 +389,8 @@ describe("GitHubAdapter", () => {
         start_line: null,
         start_side: null,
         body: "rename this",
+        user: { login: "reviewer" },
+        author_association: "OWNER",
       },
     ]);
   });
@@ -443,6 +450,7 @@ describe("GitHubAdapter", () => {
           user: { login: "alice" },
           created_at: "2026-04-14T09:00:00Z",
           body: "please also cover the edge case",
+          author_association: "COLLABORATOR",
         },
         {
           user: null,
@@ -465,11 +473,13 @@ describe("GitHubAdapter", () => {
         user: { login: "alice" },
         created_at: "2026-04-14T09:00:00Z",
         body: "please also cover the edge case",
+        author_association: "COLLABORATOR",
       },
       {
         user: null,
         created_at: "2026-04-14T10:00:00Z",
         body: null,
+        author_association: null,
       },
     ]);
   });

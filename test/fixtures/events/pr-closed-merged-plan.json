@@ -1,6 +1,8 @@
 {
   "action": "closed",
   "pull_request": {
+    "user": { "login": "niranjan94" },
+    "author_association": "OWNER",
     "number": 44,
     "body": "Plan for #42.\n\n---\nShopfloor-Issue: #42\nShopfloor-Stage: plan\n",
     "state": "closed",

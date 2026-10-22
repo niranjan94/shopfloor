@@ -2,6 +2,8 @@
   "action": "labeled",
   "label": { "name": "shopfloor:needs-plan" },
   "issue": {
+    "user": { "login": "niranjan94" },
+    "author_association": "OWNER",
     "number": 42,
     "title": "Fix: can't log in!",
     "body": "Auth is broken.",

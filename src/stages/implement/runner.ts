@@ -2,6 +2,7 @@ import { LABELS } from "../../state/labels.js";
 import type { StageContext } from "../_shared/context.js";
 import TDD_PARTIAL from "../_shared/prompts/tdd-and-anti-patterns.md";
 import { renderTemplate } from "../_shared/prompts.js";
+import { promptSafeIssue } from "../_shared/trust.js";
 import { ImplementDecision } from "./decision.js";
 import SYSTEM from "./prompt.system.md";
 import SYSTEM_QUICK from "./prompt.system.quick.md";
@@ -26,6 +27,7 @@ export async function runImplement(
   args: RunImplementArgs,
 ): Promise<ImplementDecision> {
   if (!ctx.issue) throw new Error("runImplement requires ctx.issue");
+  const issue = promptSafeIssue(ctx);
   const quick = ctx.issue.labels.includes(LABELS.complexityQuick);
   const systemPrompt = `${quick ? SYSTEM_QUICK : SYSTEM}\n\n${TDD_PARTIAL}`;
   const userPrompt = quick
@@ -33,8 +35,8 @@ export async function runImplement(
         repo_owner: ctx.repo.owner,
         repo_name: ctx.repo.name,
         issue_number: ctx.issue.number,
-        issue_title: ctx.issue.title,
-        issue_body: ctx.issue.body ?? "",
+        issue_title: issue.title,
+        issue_body: issue.body,
         issue_comments: args.issueComments,
         branch_name: args.branchName,
         progress_comment_id: args.progressCommentId,
@@ -45,8 +47,8 @@ export async function runImplement(
         repo_owner: ctx.repo.owner,
         repo_name: ctx.repo.name,
         issue_number: ctx.issue.number,
-        issue_title: ctx.issue.title,
-        issue_body: ctx.issue.body ?? "",
+        issue_title: issue.title,
+        issue_body: issue.body,
         branch_name: args.branchName,
         progress_comment_id: args.progressCommentId,
         spec_file_path: args.specFilePath,

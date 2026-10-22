@@ -4,7 +4,11 @@ import type { AuditEmitter } from "./audit/events.js";
 import type { Config } from "./config/inputs.js";
 import type { GitHubAdapter } from "./github/adapter.js";
 import { RUNNERS } from "./runners.js";
-import type { GitOps, StageContext } from "./stages/_shared/context.js";
+import type {
+  ContentAuthor,
+  GitOps,
+  StageContext,
+} from "./stages/_shared/context.js";
 import {
   failedLabelFor,
   LABEL_DEFS,
@@ -46,6 +50,9 @@ export interface OrchestratorArgs {
   // push the agent's commits. Optional for unit/e2e tests that drive the
   // orchestrator without a real checkout.
   gitOps?: GitOps;
+  // Shopfloor's own bot logins, resolved by entry.ts. Text they author is
+  // trusted for agent prompts in addition to config.trustedAuthorAssociations.
+  trustedBotLogins?: string[];
 }
 
 const TRIAGE_BLOCKING_STATE_LABELS = new Set<string>([
@@ -170,6 +177,10 @@ export async function runOrchestrator(
       title: live.title,
       body: live.body,
       labels: live.labels.map((l) => l.name),
+      author: {
+        login: live.user?.login ?? null,
+        association: live.author_association,
+      },
     };
   }
 
@@ -189,6 +200,10 @@ export async function runOrchestrator(
   if (pr !== null) ctx.pr = pr;
   if (args.reviewOnly === true) ctx.reviewOnly = true;
   if (args.gitOps !== undefined) ctx.gitOps = args.gitOps;
+  ctx.trustedBotLogins = [
+    ...args.config.trustedBotLogins,
+    ...(args.trustedBotLogins ?? []),
+  ];
 
   // In execute mode, the resolve->execute gap can be 30-60s, long enough for
   // labels to flip after the event fired. Fetch live labels from the API so
@@ -466,6 +481,7 @@ interface IssueContext {
   title: string;
   body: string | null;
   labels: string[];
+  author: ContentAuthor;
 }
 
 interface PrContext {
@@ -475,6 +491,7 @@ interface PrContext {
   headRef: string;
   headSha: string;
   baseRef: string;
+  author: ContentAuthor;
 }
 
 function loadIssueFromEvent(
@@ -489,6 +506,10 @@ function loadIssueFromEvent(
     title: p.issue.title,
     body: p.issue.body,
     labels: liveLabels ?? p.issue.labels.map((l) => l.name),
+    author: {
+      login: p.issue.user?.login ?? null,
+      association: p.issue.author_association ?? null,
+    },
   };
 }
 
@@ -514,6 +535,10 @@ async function loadPrForStage(
         headRef: p.pull_request.head.ref,
         headSha: p.pull_request.head.sha,
         baseRef: p.pull_request.base.ref,
+        author: {
+          login: p.pull_request.user?.login ?? null,
+          association: p.pull_request.author_association ?? null,
+        },
       };
     }
   }
@@ -528,6 +553,10 @@ async function loadPrForStage(
       headRef: "",
       headSha: data.head.sha,
       baseRef: data.base.ref,
+      author: {
+        login: data.user?.login ?? null,
+        association: data.author_association ?? null,
+      },
     };
   }
   return null;

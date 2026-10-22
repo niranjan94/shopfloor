@@ -128,4 +128,40 @@ describe("parseConfig", () => {
       parseConfig({ ...baseInputs, stages: "triage,nonsense" }),
     ).toThrow();
   });
+
+  it("defaults trusted_author_associations to OWNER, MEMBER, COLLABORATOR", () => {
+    const cfg = parseConfig(baseInputs);
+    expect(cfg.trustedAuthorAssociations).toEqual([
+      "OWNER",
+      "MEMBER",
+      "COLLABORATOR",
+    ]);
+    expect(cfg.trustedBotLogins).toEqual([]);
+  });
+
+  it("parses a custom trusted_author_associations list case-insensitively", () => {
+    const cfg = parseConfig({
+      ...baseInputs,
+      trusted_author_associations: "owner, contributor",
+      trusted_bot_logins: "my-app[bot], other-app[bot]",
+    });
+    expect(cfg.trustedAuthorAssociations).toEqual(["OWNER", "CONTRIBUTOR"]);
+    expect(cfg.trustedBotLogins).toEqual(["my-app[bot]", "other-app[bot]"]);
+  });
+
+  it("rejects unknown author associations", () => {
+    expect(() =>
+      parseConfig({ ...baseInputs, trusted_author_associations: "ADMIN" }),
+    ).toThrow(/trusted_author_associations/);
+  });
+
+  it("defaults agent_sandbox to auto and rejects unknown values", () => {
+    expect(parseConfig(baseInputs).agentSandbox).toBe("auto");
+    expect(
+      parseConfig({ ...baseInputs, agent_sandbox: "required" }).agentSandbox,
+    ).toBe("required");
+    expect(() =>
+      parseConfig({ ...baseInputs, agent_sandbox: "yes" }),
+    ).toThrow();
+  });
 });
